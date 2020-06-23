@@ -187,8 +187,8 @@ class SpectrumLogic(GenericLogic):
             self.log.error("Module acquisition is still running, module state is currently locked.")
         self.start_acquisition()
         while self.module_state() != 'idle':
-            time.sleep(0.1)
-        return self._acquired_data
+            time.sleep(self._exposure_time)
+        return self.acquired_data
 
     def start_acquisition(self):
         """ Start acquisition in the module's thread and return immediately """
@@ -203,8 +203,8 @@ class SpectrumLogic(GenericLogic):
         """
 
         self._acquired_data = []
-        if self._acquisition_mode == 'MULTI_SCAN':
-            self._loop_counter = self._number_of_scan
+        if self.acquisition_mode == 'MULTI_SCAN':
+            self._loop_counter = self.number_of_scan
         self._acquisition_loop()
 
     def get_ready_state(self):
@@ -234,13 +234,13 @@ class SpectrumLogic(GenericLogic):
             return
 
         # Acquisition is finished
-        if self._acquisition_mode == 'SINGLE_SCAN':
+        if self.acquisition_mode == 'SINGLE_SCAN':
             self._acquired_data = self.get_acquired_data()
             self.module_state.unlock()
             self.log.debug("Acquisition finished : module state is 'idle' ")
             return
 
-        elif self._acquisition_mode == 'LIVE_SCAN':
+        elif self.acquisition_mode == 'LIVE_SCAN':
             self._loop_counter += 1
             self._acquired_data = self.get_acquired_data()
             self._acquisition()
@@ -285,6 +285,11 @@ class SpectrumLogic(GenericLogic):
     def acquired_data(self):
         """ Getter method returning the last acquired data. """
         return self._acquired_data
+
+    @property
+    def photon_counter(self):
+        """ Getter method returning the sum of the acquired data. """
+        return np.sum(self.acquired_data)
 
     def save_acquired_data(self, filename=None):
         parameters = OrderedDict()
@@ -351,7 +356,7 @@ class SpectrumLogic(GenericLogic):
         Tested : yes
         SI check : yes
         """
-        return self._center_wavelength + self._wavelength_calibration
+        return self._center_wavelength + self.wavelength_calibration
 
     @center_wavelength.setter
     def center_wavelength(self, wavelength):
@@ -369,10 +374,10 @@ class SpectrumLogic(GenericLogic):
             return
         wavelength = float(wavelength)
         if wavelength != 0:
-            wavelength = float(wavelength - self._wavelength_calibration)
+            wavelength = float(wavelength - self.wavelength_calibration)
         else:
             wavelength = float(wavelength)
-        wavelength_max = self.spectro_constraints.gratings[self._grating_index].wavelength_max
+        wavelength_max = self.spectro_constraints.gratings[self.grating_index].wavelength_max
         if not 0 <= wavelength < wavelength_max:
             self.log.error('Wavelength parameter is not correct : it must be in range {} to {} '
                            .format(0, wavelength_max))
@@ -411,7 +416,7 @@ class SpectrumLogic(GenericLogic):
 
         self.spectrometer()._set_pixel_width(self.camera_constraints.pixel_size_width)
         self.spectrometer()._set_number_of_pixels(self.camera_constraints.width)
-        return self.spectrometer()._get_calibration() + self._wavelength_calibration
+        return self.spectrometer()._get_calibration() + self.wavelength_calibration
 
     @property
     def wavelength_calibration(self):
