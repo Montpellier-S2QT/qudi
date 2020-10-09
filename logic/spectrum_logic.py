@@ -204,6 +204,7 @@ class SpectrumLogic(GenericLogic):
         if self.module_state() == 'locked':
             self.log.error("Module acquisition is still running, module state is currently locked.")
             return
+        self._update_acquisition_params()
         self.module_state.lock()
         self._sigStart.emit()
 
@@ -235,7 +236,6 @@ class SpectrumLogic(GenericLogic):
         # If module unlocked by stop_acquisition
         if self.module_state() != 'locked':
             self._acquired_data = self.get_acquired_data()
-            #self._update_acquisition_params()
             self.log.debug("Acquisition stopped. Status loop stopped.")
             return
 
@@ -247,7 +247,6 @@ class SpectrumLogic(GenericLogic):
         # Acquisition is finished
         if self.acquisition_mode == 'SINGLE_SCAN':
             self._acquired_data = self.get_acquired_data()
-            #self._update_acquisition_params()
             self.module_state.unlock()
             self.log.debug("Acquisition finished : module state is 'idle' ")
             return
@@ -262,7 +261,6 @@ class SpectrumLogic(GenericLogic):
             self._acquired_data.append(self.get_acquired_data())
 
             if self._loop_counter <= 0:
-                #self._update_acquisition_params()
                 self.module_state.unlock()
                 self.log.debug("Acquisition finished : module state is 'idle' ")
             else:
@@ -328,7 +326,12 @@ class SpectrumLogic(GenericLogic):
 
         filepath = self.savelogic().get_path_for_module(module_name='spectrum_logic')
 
-        self.savelogic().save_data(self._acquired_data, filepath=filepath,
+        if self.acquisition_params['read_mode'] == 'IMAGE_ADVANCED':
+            data = {'data' : self._acquired_data.flatten()}
+        else:
+            data = {'wavelength (m)' : self.wavelength_spectrum, 'data' : self._acquired_data.flatten()}
+
+        self.savelogic().save_data(data, filepath=filepath,
                                    parameters=self.acquisition_params,filename=filename)
 
     ##############################################################################
