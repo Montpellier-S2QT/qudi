@@ -133,9 +133,9 @@ class SpectrumLogic(GenericLogic):
         self._center_wavelength = self.spectrometer().get_wavelength()
         self._input_port = self.spectrometer().get_input_port()
         self._output_port = self.spectrometer().get_output_port()
-        self._input_slit_width = [self.spectrometer().get_slit_width(port.type) if port.is_motorized else None
+        self._input_slit_width = [self.spectrometer().get_slit_width(port.type) if port.is_motorized else 0
                                   for port in self._input_ports]
-        self._output_slit_width = [self.spectrometer().get_slit_width(port.type) if port.is_motorized else None
+        self._output_slit_width = [self.spectrometer().get_slit_width(port.type) if port.is_motorized else 0
                                    for port in self._output_ports]
 
         # Get camera state
@@ -147,7 +147,7 @@ class SpectrumLogic(GenericLogic):
         self.camera_gain = self._camera_gain or self.camera().get_gain()
         self.exposure_time = self._exposure_time or self.camera().get_exposure_time()
 
-        if not self._dispersion_fitting_parameters:
+        if np.any(self._dispersion_fitting_parameters[self._dispersion_fitting_parameters==None]):
             self.fit_spectrometer_dispersion()
 
         if self.camera_constraints.has_cooler:
@@ -656,7 +656,7 @@ class SpectrumLogic(GenericLogic):
         input_types = [port.type for port in self._input_ports]
         if port not in input_types:
             self.log.error('Input port {} doesn\'t exist on your hardware '.format(port.name))
-            return
+            return 0
         index = input_types.index(port)
         return self._input_slit_width[index]
 
@@ -711,7 +711,7 @@ class SpectrumLogic(GenericLogic):
         output_types = [port.type for port in self._output_ports]
         if port not in output_types:
             self.log.error('Output port {} doesn\'t exist on your hardware '.format(port.name))
-            return
+            return 0
         index = output_types.index(port)
         return self._output_slit_width[index]
 

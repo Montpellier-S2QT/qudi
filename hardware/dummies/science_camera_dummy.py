@@ -53,7 +53,7 @@ class Main(Base, ScienceCameraInterface):
         self._exposure = 1
         self._trigger_mode = self.get_constraints().trigger_modes[0]
 
-        self._shutter_open_state = True
+        self._shutter_open_state = 'OPEN'
         self._cooler_on = True
         self._temperature_setpoint = 183  # ~-90°C
 
