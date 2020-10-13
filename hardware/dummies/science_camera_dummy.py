@@ -46,7 +46,7 @@ class Main(Base, ScienceCameraInterface):
 
         self._acquired_data = None
         self._read_mode = ReadMode.FVB
-        self._readout_speed = self.get_constraints().read_modes[0]
+        self._readout_speed = self.get_constraints().readout_speeds[0]
         self._active_tracks = []
         self._image_advanced_parameters = None
         self._gain = self.get_constraints().internal_gains[0]
