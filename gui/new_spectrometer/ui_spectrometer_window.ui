@@ -149,6 +149,9 @@
                      <verstretch>0</verstretch>
                     </sizepolicy>
                    </property>
+                   <property name="maximum">
+                    <double>100000.000000000000000</double>
+                   </property>
                   </widget>
                  </item>
                  <item row="0" column="2">
@@ -185,12 +188,15 @@
                   </widget>
                  </item>
                  <item row="1" column="1">
-                  <widget class="QDoubleSpinBox" name="input_slit_with_side">
+                  <widget class="QDoubleSpinBox" name="input_slit_width_side">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="maximum">
+                    <double>100000.000000000000000</double>
                    </property>
                   </widget>
                  </item>
@@ -226,6 +232,9 @@
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="maximum">
+                    <double>100000.000000000000000</double>
                    </property>
                   </widget>
                  </item>
@@ -276,6 +285,9 @@
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="maximum">
+                    <double>100000.000000000000000</double>
                    </property>
                   </widget>
                  </item>
@@ -420,6 +432,9 @@
                      <verstretch>0</verstretch>
                     </sizepolicy>
                    </property>
+                   <property name="maximum">
+                    <double>300.000000000000000</double>
+                   </property>
                   </widget>
                  </item>
                  <item>
@@ -430,7 +445,7 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QPushButton" name="pushButton_14">
+                  <widget class="QPushButton" name="cooler_on">
                    <property name="text">
                     <string>ON</string>
                    </property>
@@ -464,7 +479,17 @@
                    </property>
                    <item>
                     <property name="text">
-                     <string>Internal</string>
+                     <string>AUTO</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>OPEN</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>CLOSED</string>
                     </property>
                    </item>
                   </widget>
@@ -525,16 +550,16 @@
                    <item>
                     <layout class="QHBoxLayout" name="horizontalLayout_8">
                      <item>
-                      <widget class="QLabel" name="counter_read_modes_label_2">
+                      <widget class="QLabel" name="counter_read_modes_label">
                        <property name="text">
                         <string>Read mode :</string>
                        </property>
                       </widget>
                      </item>
                      <item>
-                      <widget class="QComboBox" name="counter_read_modes_2">
+                      <widget class="QComboBox" name="counter_read_modes">
                        <property name="sizePolicy">
-                        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                        <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
                          <horstretch>0</horstretch>
                          <verstretch>0</verstretch>
                         </sizepolicy>
@@ -544,12 +569,27 @@
                          <string>FVB</string>
                         </property>
                        </item>
+                       <item>
+                        <property name="text">
+                         <string>MULTIPLE_TRACKS</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>IMAGE</string>
+                        </property>
+                       </item>
+                       <item>
+                        <property name="text">
+                         <string>IMAGE_ADVANCED</string>
+                        </property>
+                       </item>
                       </widget>
                      </item>
                     </layout>
                    </item>
                    <item>
-                    <widget class="Line" name="separator7_2">
+                    <widget class="Line" name="separator7">
                      <property name="orientation">
                       <enum>Qt::Horizontal</enum>
                      </property>
@@ -558,24 +598,27 @@
                    <item>
                     <layout class="QHBoxLayout" name="horizontalLayout_9">
                      <item>
-                      <widget class="QLabel" name="counter_exposure_time_label_2">
+                      <widget class="QLabel" name="counter_exposure_time_label">
                        <property name="text">
                         <string>Exposure time :</string>
                        </property>
                       </widget>
                      </item>
                      <item>
-                      <widget class="QDoubleSpinBox" name="counter_exposure_time_2">
+                      <widget class="QDoubleSpinBox" name="counter_exposure_time">
                        <property name="sizePolicy">
                         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                          <horstretch>0</horstretch>
                          <verstretch>0</verstretch>
                         </sizepolicy>
                        </property>
+                       <property name="maximum">
+                        <double>1000.000000000000000</double>
+                       </property>
                       </widget>
                      </item>
                      <item>
-                      <widget class="QLabel" name="counter_exposure_time_unit_2">
+                      <widget class="QLabel" name="counter_exposure_time_unit">
                        <property name="text">
                         <string>s</string>
                        </property>
@@ -600,14 +643,14 @@
                  </spacer>
                 </item>
                 <item>
-                 <widget class="QPushButton" name="start_counter_2">
+                 <widget class="QPushButton" name="start_counter_acquisition">
                   <property name="text">
                    <string>Start Counter</string>
                   </property>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QPushButton" name="stop_counter_2">
+                 <widget class="QPushButton" name="stop_counter_acquisition">
                   <property name="text">
                    <string>Stop Counter</string>
                   </property>
@@ -712,9 +755,20 @@
                    </item>
                    <item>
                     <widget class="QComboBox" name="image_read_modes">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
                      <item>
                       <property name="text">
-                       <string>Image Advanced</string>
+                       <string>IMAGE_ADVANCED</string>
+                      </property>
+                     </item>
+                     <item>
+                      <property name="text">
+                       <string>IMAGE</string>
                       </property>
                      </item>
                     </widget>
@@ -739,9 +793,20 @@
                    </item>
                    <item>
                     <widget class="QComboBox" name="image_acquisition_modes">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
                      <item>
                       <property name="text">
-                       <string>Live</string>
+                       <string>LIVE_SCAN</string>
+                      </property>
+                     </item>
+                     <item>
+                      <property name="text">
+                       <string>SINGLE_SCAN</string>
                       </property>
                      </item>
                     </widget>
@@ -765,7 +830,11 @@
                     </widget>
                    </item>
                    <item>
-                    <widget class="QDoubleSpinBox" name="image_exposure_time"/>
+                    <widget class="QDoubleSpinBox" name="image_exposure_time">
+                     <property name="maximum">
+                      <double>1000.000000000000000</double>
+                     </property>
+                    </widget>
                    </item>
                    <item>
                     <widget class="QLabel" name="image_exposure_time_unit">
@@ -793,12 +862,16 @@
                     </widget>
                    </item>
                    <item>
-                    <widget class="QDoubleSpinBox" name="image_readout_speed"/>
+                    <widget class="QDoubleSpinBox" name="image_readout_speed">
+                     <property name="maximum">
+                      <double>1000000.000000000000000</double>
+                     </property>
+                    </widget>
                    </item>
                    <item>
                     <widget class="QLabel" name="image_readoout_speed_unit">
                      <property name="text">
-                      <string>Hz</string>
+                      <string>kHz</string>
                      </property>
                     </widget>
                    </item>
@@ -919,6 +992,12 @@
                    </item>
                    <item>
                     <widget class="QComboBox" name="spectrum_read_modes">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
                      <item>
                       <property name="text">
                        <string>FVB</string>
@@ -926,12 +1005,7 @@
                      </item>
                      <item>
                       <property name="text">
-                       <string>Single Tracks</string>
-                      </property>
-                     </item>
-                     <item>
-                      <property name="text">
-                       <string>Multiple Tracks</string>
+                       <string>MULTIPLE_TRACKS</string>
                       </property>
                      </item>
                     </widget>
@@ -956,19 +1030,25 @@
                    </item>
                    <item>
                     <widget class="QComboBox" name="spectrum_acquisition_modes">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
                      <item>
                       <property name="text">
-                       <string>Single Scan</string>
+                       <string>SINGLE_SCAN</string>
                       </property>
                      </item>
                      <item>
                       <property name="text">
-                       <string>Multiple Scan</string>
+                       <string>MULTI_SCAN</string>
                       </property>
                      </item>
                      <item>
                       <property name="text">
-                       <string>Live Scan</string>
+                       <string>LIVE_SCAN</string>
                       </property>
                      </item>
                     </widget>
@@ -992,7 +1072,11 @@
                     </widget>
                    </item>
                    <item>
-                    <widget class="QDoubleSpinBox" name="spectrum_exposure_time"/>
+                    <widget class="QDoubleSpinBox" name="spectrum_exposure_time">
+                     <property name="maximum">
+                      <double>1000.000000000000000</double>
+                     </property>
+                    </widget>
                    </item>
                    <item>
                     <widget class="QLabel" name="spectrum_exposure_time_unit">
@@ -1020,12 +1104,16 @@
                     </widget>
                    </item>
                    <item>
-                    <widget class="QDoubleSpinBox" name="spectrum_readout_speed"/>
+                    <widget class="QDoubleSpinBox" name="spectrum_readout_speed">
+                     <property name="maximum">
+                      <double>1000000.000000000000000</double>
+                     </property>
+                    </widget>
                    </item>
                    <item>
                     <widget class="QLabel" name="spectrum_readout_speed_unit">
                      <property name="text">
-                      <string>Hz</string>
+                      <string>kHz</string>
                      </property>
                     </widget>
                    </item>
@@ -1068,7 +1156,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QPushButton" name="spectrum_stop_acquisition">
+               <widget class="QPushButton" name="stop_spectrum_acquisition">
                 <property name="text">
                  <string>Stop Acquisition</string>
                 </property>
@@ -1113,14 +1201,14 @@
        </spacer>
       </item>
       <item>
-       <widget class="QLabel" name="label">
+       <widget class="QLabel" name="center_wavelength_label">
         <property name="text">
          <string>Center wavelength</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QDoubleSpinBox" name="doubleSpinBox">
+       <widget class="QDoubleSpinBox" name="center_wavelength">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
           <horstretch>0</horstretch>
