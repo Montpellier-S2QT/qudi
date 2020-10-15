@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>827</width>
-    <height>443</height>
+    <height>488</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -30,6 +30,82 @@
     </sizepolicy>
    </property>
    <layout class="QGridLayout" name="gridLayout">
+    <item row="2" column="2">
+     <layout class="QHBoxLayout" name="horizontalLayout_19">
+      <item>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="center_wavelength_label">
+        <property name="text">
+         <string>Center wavelength</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDoubleSpinBox" name="center_wavelength">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>150</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="decimals">
+         <number>3</number>
+        </property>
+        <property name="maximum">
+         <double>100000.000000000000000</double>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="cooler_on_label">
+        <property name="text">
+         <string>TextLabel</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="camera_temperature">
+        <property name="text">
+         <string>TextLabel</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
     <item row="0" column="2">
      <layout class="QGridLayout" name="gridLayout_3">
       <item row="0" column="0">
@@ -56,7 +132,7 @@
          <string notr="true"/>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>3</number>
         </property>
         <widget class="QWidget" name="settings">
          <attribute name="title">
@@ -78,6 +154,174 @@
           </item>
           <item row="0" column="0">
            <layout class="QGridLayout" name="gridLayout_13">
+            <item row="0" column="2">
+             <widget class="QGroupBox" name="camera_settings">
+              <property name="styleSheet">
+               <string notr="true"/>
+              </property>
+              <property name="title">
+               <string>Camera Settings</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignBottom|Qt::AlignHCenter</set>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout_17">
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_13">
+                 <item>
+                  <widget class="QLabel" name="camera_gain_label">
+                   <property name="text">
+                    <string>Gain :</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="gain_1">
+                   <property name="text">
+                    <string>1</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="gain_2">
+                   <property name="text">
+                    <string>3</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="gain_3">
+                   <property name="text">
+                    <string>5</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <widget class="Line" name="separator4">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_14">
+                 <item>
+                  <widget class="QLabel" name="trigger_modes_label">
+                   <property name="text">
+                    <string>Trigger mode :</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="trigger_modes">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <item>
+                    <property name="text">
+                     <string>Internal</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <widget class="Line" name="separator5">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_15">
+                 <item>
+                  <widget class="QLabel" name="camera_cooler_label">
+                   <property name="text">
+                    <string>Camera cooler :</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QDoubleSpinBox" name="camera_temperature_setpoint">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="maximum">
+                    <double>300.000000000000000</double>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLabel" name="camera_temperature_setpoint_unit">
+                   <property name="text">
+                    <string>K</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="cooler_on">
+                   <property name="text">
+                    <string>ON</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <widget class="Line" name="separator6">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_16">
+                 <item>
+                  <widget class="QLabel" name="shutter_modes_label">
+                   <property name="text">
+                    <string>Shutter mode :</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="shutter_modes">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <item>
+                    <property name="text">
+                     <string>AUTO</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>OPEN</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>CLOSED</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
             <item row="0" column="0">
              <widget class="QGroupBox" name="spectro_settings">
               <property name="styleSheet">
@@ -331,174 +575,6 @@
               </layout>
              </widget>
             </item>
-            <item row="0" column="2">
-             <widget class="QGroupBox" name="camera_settings">
-              <property name="styleSheet">
-               <string notr="true"/>
-              </property>
-              <property name="title">
-               <string>Camera Settings</string>
-              </property>
-              <property name="alignment">
-               <set>Qt::AlignBottom|Qt::AlignHCenter</set>
-              </property>
-              <layout class="QVBoxLayout" name="verticalLayout_17">
-               <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_13">
-                 <item>
-                  <widget class="QLabel" name="camera_gain_label">
-                   <property name="text">
-                    <string>Gain :</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="gain_1">
-                   <property name="text">
-                    <string>1</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="gain_2">
-                   <property name="text">
-                    <string>3</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="gain_3">
-                   <property name="text">
-                    <string>5</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </item>
-               <item>
-                <widget class="Line" name="separator4">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_14">
-                 <item>
-                  <widget class="QLabel" name="trigger_modes_label">
-                   <property name="text">
-                    <string>Trigger mode :</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QComboBox" name="trigger_modes">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <item>
-                    <property name="text">
-                     <string>Internal</string>
-                    </property>
-                   </item>
-                  </widget>
-                 </item>
-                </layout>
-               </item>
-               <item>
-                <widget class="Line" name="separator5">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_15">
-                 <item>
-                  <widget class="QLabel" name="camera_cooler_label">
-                   <property name="text">
-                    <string>Camera cooler :</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QDoubleSpinBox" name="camera_temperature_setpoint">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <property name="maximum">
-                    <double>300.000000000000000</double>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="camera_temperature_setpoint_unit">
-                   <property name="text">
-                    <string>K</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QPushButton" name="cooler_on">
-                   <property name="text">
-                    <string>ON</string>
-                   </property>
-                  </widget>
-                 </item>
-                </layout>
-               </item>
-               <item>
-                <widget class="Line" name="separator6">
-                 <property name="orientation">
-                  <enum>Qt::Horizontal</enum>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <layout class="QHBoxLayout" name="horizontalLayout_16">
-                 <item>
-                  <widget class="QLabel" name="shutter_modes_label">
-                   <property name="text">
-                    <string>Shutter mode :</string>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QComboBox" name="shutter_modes">
-                   <property name="sizePolicy">
-                    <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-                     <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
-                    </sizepolicy>
-                   </property>
-                   <item>
-                    <property name="text">
-                     <string>AUTO</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>OPEN</string>
-                    </property>
-                   </item>
-                   <item>
-                    <property name="text">
-                     <string>CLOSED</string>
-                    </property>
-                   </item>
-                  </widget>
-                 </item>
-                </layout>
-               </item>
-              </layout>
-             </widget>
-            </item>
            </layout>
           </item>
          </layout>
@@ -510,33 +586,65 @@
          <layout class="QGridLayout" name="gridLayout_16">
           <item row="0" column="0">
            <layout class="QGridLayout" name="gridLayout_7">
-            <item row="0" column="0">
+            <item row="0" column="1">
              <layout class="QVBoxLayout" name="verticalLayout_3">
               <item>
-               <widget class="QOpenGLWidget" name="counter_graph">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-               </widget>
+               <widget class="PlotWidget" name="counter_graph"/>
               </item>
-              <item alignment="Qt::AlignHCenter">
-               <widget class="QLabel" name="counter_graph_xaxis_label">
-                <property name="text">
-                 <string>time in second</string>
-                </property>
-               </widget>
+              <item>
+               <layout class="QHBoxLayout" name="horizontalLayout_20">
+                <item>
+                 <spacer name="horizontalSpacer_3">
+                  <property name="orientation">
+                   <enum>Qt::Horizontal</enum>
+                  </property>
+                  <property name="sizeHint" stdset="0">
+                   <size>
+                    <width>40</width>
+                    <height>20</height>
+                   </size>
+                  </property>
+                 </spacer>
+                </item>
+                <item>
+                 <widget class="QLabel" name="counter_time_window_label">
+                  <property name="text">
+                   <string>Time window :</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QDoubleSpinBox" name="counter_time_window">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
+                  <property name="decimals">
+                   <number>3</number>
+                  </property>
+                  <property name="maximum">
+                   <double>1000.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
               </item>
              </layout>
             </item>
-            <item row="0" column="1">
+            <item row="0" column="2">
              <layout class="QVBoxLayout" name="verticalLayout_14">
               <item>
                <layout class="QVBoxLayout" name="verticalLayout_13">
                 <item>
                  <widget class="QGroupBox" name="counter_settings_2">
+                  <property name="maximumSize">
+                   <size>
+                    <width>300</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
                   <property name="styleSheet">
                    <string notr="true"/>
                   </property>
@@ -574,26 +682,9 @@
                          <string>MULTIPLE_TRACKS</string>
                         </property>
                        </item>
-                       <item>
-                        <property name="text">
-                         <string>IMAGE</string>
-                        </property>
-                       </item>
-                       <item>
-                        <property name="text">
-                         <string>IMAGE_ADVANCED</string>
-                        </property>
-                       </item>
                       </widget>
                      </item>
                     </layout>
-                   </item>
-                   <item>
-                    <widget class="Line" name="separator7">
-                     <property name="orientation">
-                      <enum>Qt::Horizontal</enum>
-                     </property>
-                    </widget>
                    </item>
                    <item>
                     <layout class="QHBoxLayout" name="horizontalLayout_9">
@@ -644,6 +735,12 @@
                 </item>
                 <item>
                  <widget class="QPushButton" name="start_counter_acquisition">
+                  <property name="maximumSize">
+                   <size>
+                    <width>300</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
                   <property name="text">
                    <string>Start Counter</string>
                   </property>
@@ -651,6 +748,12 @@
                 </item>
                 <item>
                  <widget class="QPushButton" name="stop_counter_acquisition">
+                  <property name="maximumSize">
+                   <size>
+                    <width>300</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
                   <property name="text">
                    <string>Stop Counter</string>
                   </property>
@@ -687,14 +790,7 @@
             <item row="0" column="0">
              <layout class="QVBoxLayout" name="verticalLayout_4">
               <item>
-               <widget class="QOpenGLWidget" name="image_graph">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-               </widget>
+               <widget class="PlotWidget" name="image_graph"/>
               </item>
               <item>
                <layout class="QHBoxLayout" name="horizontalLayout_3">
@@ -734,6 +830,12 @@
              <layout class="QVBoxLayout" name="verticalLayout_6">
               <item>
                <widget class="QGroupBox" name="image_settings">
+                <property name="maximumSize">
+                 <size>
+                  <width>300</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="styleSheet">
                  <string notr="true"/>
                 </property>
@@ -877,8 +979,18 @@
                    </item>
                   </layout>
                  </item>
+                 <item>
+                  <widget class="QLabel" name="image_dark_acquired_msg">
+                   <property name="text">
+                    <string>No dark acquired</string>
+                   </property>
+                  </widget>
+                 </item>
                 </layout>
                </widget>
+              </item>
+              <item>
+               <widget class="QWidget" name="image_acquire_dark_text" native="true"/>
               </item>
               <item>
                <spacer name="verticalSpacer_6">
@@ -892,6 +1004,19 @@
                  </size>
                 </property>
                </spacer>
+              </item>
+              <item>
+               <widget class="QPushButton" name="image_acquire_dark">
+                <property name="maximumSize">
+                 <size>
+                  <width>300</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Acquire Dark</string>
+                </property>
+               </widget>
               </item>
               <item>
                <spacer name="verticalSpacer_2">
@@ -908,6 +1033,12 @@
               </item>
               <item>
                <widget class="QPushButton" name="start_image_acquisition">
+                <property name="maximumSize">
+                 <size>
+                  <width>300</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>Start Acquisition</string>
                 </property>
@@ -915,6 +1046,12 @@
               </item>
               <item>
                <widget class="QPushButton" name="stop_image_acquisition">
+                <property name="maximumSize">
+                 <size>
+                  <width>300</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>Stop Acquisition</string>
                 </property>
@@ -949,21 +1086,7 @@
             <item row="0" column="0">
              <layout class="QVBoxLayout" name="verticalLayout_9">
               <item>
-               <widget class="QOpenGLWidget" name="spectrum_graph">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
-                </property>
-               </widget>
-              </item>
-              <item alignment="Qt::AlignHCenter">
-               <widget class="QLabel" name="spectrum_graph_xaxis_label">
-                <property name="text">
-                 <string>wavelength in nm</string>
-                </property>
-               </widget>
+               <widget class="PlotWidget" name="spectrum_graph"/>
               </item>
              </layout>
             </item>
@@ -971,6 +1094,12 @@
              <layout class="QVBoxLayout" name="verticalLayout_2">
               <item>
                <widget class="QGroupBox" name="spectrum_settings">
+                <property name="maximumSize">
+                 <size>
+                  <width>300</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="styleSheet">
                  <string notr="true"/>
                 </property>
@@ -1119,7 +1248,43 @@
                    </item>
                   </layout>
                  </item>
+                 <item>
+                  <widget class="QLabel" name="spectrum_dark_acquired">
+                   <property name="text">
+                    <string>No dark acquired</string>
+                   </property>
+                  </widget>
+                 </item>
                 </layout>
+               </widget>
+              </item>
+              <item>
+               <spacer name="verticalSpacer_10">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item>
+               <widget class="QWidget" name="spectrum_acquire_dark_2" native="true"/>
+              </item>
+              <item>
+               <widget class="QPushButton" name="spectrum_acquire_dark">
+                <property name="maximumSize">
+                 <size>
+                  <width>300</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>Acquire Dark</string>
+                </property>
                </widget>
               </item>
               <item>
@@ -1150,6 +1315,12 @@
               </item>
               <item>
                <widget class="QPushButton" name="start_spectrum_acquisition">
+                <property name="maximumSize">
+                 <size>
+                  <width>300</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>Start Acquisition</string>
                 </property>
@@ -1157,6 +1328,12 @@
               </item>
               <item>
                <widget class="QPushButton" name="stop_spectrum_acquisition">
+                <property name="maximumSize">
+                 <size>
+                  <width>300</width>
+                  <height>16777215</height>
+                 </size>
+                </property>
                 <property name="text">
                  <string>Stop Acquisition</string>
                 </property>
@@ -1185,72 +1362,16 @@
       </item>
      </layout>
     </item>
-    <item row="2" column="2">
-     <layout class="QHBoxLayout" name="horizontalLayout_19">
-      <item>
-       <spacer name="horizontalSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="QLabel" name="center_wavelength_label">
-        <property name="text">
-         <string>Center wavelength</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QDoubleSpinBox" name="center_wavelength">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="minimumSize">
-         <size>
-          <width>150</width>
-          <height>0</height>
-         </size>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignCenter</set>
-        </property>
-        <property name="decimals">
-         <number>3</number>
-        </property>
-        <property name="maximum">
-         <double>100000.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="horizontalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-     </layout>
-    </item>
    </layout>
   </widget>
-  <widget class="QStatusBar" name="footer"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>PlotWidget</class>
+   <extends>QGraphicsView</extends>
+   <header location="global">pyqtgraph</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

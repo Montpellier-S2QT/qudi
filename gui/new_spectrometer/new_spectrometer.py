@@ -22,11 +22,13 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 import os
 import pyqtgraph as pg
 import numpy as np
+from functools import partial
 
 from core.connector import Connector
 from core.util import units
 from core.statusvariable import StatusVar
 from gui.colordefs import QudiPalettePale as palette
+from gui.colordefs import ColorScaleMagma
 from gui.guibase import GUIBase
 from gui.fitsettings import FitSettingsDialog, FitSettingsComboBox
 from qtpy import QtCore
@@ -55,6 +57,7 @@ class Main(GUIBase):
 
     _counter_read_mode = StatusVar('counter_read_mode', 'FVB')
     _counter_exposure_time = StatusVar('counter_exposure_time', 0)
+    _counter_time_window = StatusVar('counter_time_window', 60)
     _image_read_mode = StatusVar('image_read_mode', 'IMAGE_ADVANCED')
     _image_acquisition_mode = StatusVar('image_acquisition_mode', 'LIVE')
     _image_exposure_time = StatusVar('image_exposure_time', None)
@@ -63,6 +66,10 @@ class Main(GUIBase):
     _spectrum_acquisition_mode = StatusVar('spectrum_acquisition_mode', 'SINGLE_SCAN')
     _spectrum_exposure_time = StatusVar('spectrum_exposure_time', None)
     _spectrum_readout_speed = StatusVar('spectrum_readout_speed', None)
+
+    _counter_data = StatusVar('counter_data', np.zeros((2, 1000)), )
+    _image_data = StatusVar('image_data', np.zeros((1000, 1000)))
+    _spectrum_data = StatusVar('spectrum_data', np.zeros((2, 1000)))
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -82,6 +89,12 @@ class Main(GUIBase):
         self._output_port_buttons = [self._mw.output_front, self._mw.output_side]
         self._output_slit_width_spins = [self._mw.output_slit_width_front, self._mw.output_slit_width_side]
         self._camera_gain_buttons = [self._mw.gain_1, self._mw.gain_2, self._mw.gain_3]
+
+        self._start_acquisition_buttons = [self._mw.start_counter_acquisition, self._mw.start_image_acquisition,
+                                           self._mw.start_spectrum_acquisition]
+        self._start_dark_acquisition_buttons = [self._mw.image_acquire_dark, self._mw.spectrum_acquire_dark]
+        self._stop_acquisition_buttons = [self._mw.stop_counter_acquisition, self._mw.stop_image_acquisition,
+                                           self._mw.stop_spectrum_acquisition]
 
         trigger_modes = self._spectrumlogic.camera_constraints.trigger_modes
         for i in range(len(trigger_modes)):
@@ -116,6 +129,10 @@ class Main(GUIBase):
         self._mw.camera_temperature_setpoint.setValue(self._spectrumlogic.temperature_setpoint)
         self._mw.cooler_on.setDown(self._spectrumlogic.cooler_status)
 
+        self._camera_temperature_timer = QtCore.QTimer()
+        self._camera_temperature_timer.timeout.connect(self._update_camera_temperature, QtCore.Qt.QueuedConnection)
+        self._camera_temperature_timer.start(5000)
+
         self._mw.trigger_modes.setCurrentText(self._spectrumlogic.trigger_mode)
 
         self._mw.camera_temperature_setpoint.setValue(self._spectrumlogic.temperature_setpoint)
@@ -130,6 +147,7 @@ class Main(GUIBase):
 
         self._mw.counter_read_modes.setCurrentText(self._counter_read_mode)
         self._mw.counter_exposure_time.setValue(self._counter_exposure_time)
+        self._mw.counter_time_window.setValue(self._counter_time_window)
 
         self._mw.image_read_modes.setCurrentText(self._image_read_mode)
         self._mw.image_acquisition_modes.setCurrentText(self._image_acquisition_mode)
@@ -153,36 +171,59 @@ class Main(GUIBase):
         else:
             self._mw.spectrum_readout_speed.setValue(self._spectrumlogic.readout_speed)
 
-        # Connect signals
-        self._mw.grating_1.clicked.connect(self.manage_grating_index_buttons)
-        self._mw.grating_2.clicked.connect(self.manage_grating_index_buttons)
-        self._mw.grating_3.clicked.connect(self.manage_grating_index_buttons)
+        # Connect signals :
+        for btn in self._grating_index_buttons:
+            btn.clicked.connect(self.manage_grating_index_buttons)
 
-        self._mw.input_front.clicked.connect(self.manage_input_port_buttons)
-        self._mw.input_side.clicked.connect(self.manage_input_port_buttons)
+        for btn in self._input_port_buttons:
+            btn.clicked.connect(self.manage_input_port_buttons)
 
-        self._mw.output_front.clicked.connect(self.manage_output_port_buttons)
-        self._mw.output_side.clicked.connect(self.manage_output_port_buttons)
+        for btn in self._output_port_buttons:
+            btn.clicked.connect(self.manage_output_port_buttons)
 
         self._mw.cooler_on.clicked.connect(self.manage_cooler_status)
 
-        self._mw.gain_1.clicked.connect(self.manage_camera_gain_buttons)
-        self._mw.gain_2.clicked.connect(self.manage_camera_gain_buttons)
-        self._mw.gain_3.clicked.connect(self.manage_camera_gain_buttons)
+        for btn in self._camera_gain_buttons:
+            btn.clicked.connect(self.manage_camera_gain_buttons)
 
-        self._mw.start_counter_acquisition.clicked.connect(self.start_counter_acquisition)
-        self._mw.stop_counter_acquisition.clicked.connect(self._spectrumlogic.stop_acquisition)
+        for i in range(len(self._start_acquisition_buttons)):
+            self._start_acquisition_buttons[i].clicked.connect(partial(self.start_acquisition, i, False))
+            self._start_acquisition_buttons[i].setEnabled(True)
 
-        self._mw.start_image_acquisition.clicked.connect(self.start_image_acquisition)
-        self._mw.stop_image_acquisition.clicked.connect(self._spectrumlogic.stop_acquisition)
+        for i in range(len(self._start_dark_acquisition_buttons)):
+            self._start_dark_acquisition_buttons[i].clicked.connect(partial(self.start_acquisition, i, True))
+            self._start_dark_acquisition_buttons[i].setEnabled(True)
 
-        self._mw.start_spectrum_acquisition.clicked.connect(self.start_spectrum_acquisition)
-        self._mw.stop_spectrum_acquisition.clicked.connect(self._spectrumlogic.stop_acquisition)
+        for i in range(len(self._stop_acquisition_buttons)):
+            self._stop_acquisition_buttons[i].clicked.connect(partial(self.stop_acquisition, i))
+            self._stop_acquisition_buttons[i].setEnabled(False)
+
+        self._mw.counter_graph.setLabel('left', 'photon counts', units='counts/s')
+        self._mw.counter_graph.setLabel('bottom', 'acquisition time', units='s')
+        self._counter_plot = self._mw.counter_graph.plot(self._counter_data[0], self._counter_data[1])
+
+        self._image = pg.ImageItem(image=self._image_data, axisOrder='row-major')
+        self._mw.image_graph.addItem(self._image)
+        self._color_map = ColorScaleMagma()
+        self._image.setLookupTable(self._color_map.lut)
+
+        self._mw.spectrum_graph.setLabel('left', 'Photoluminescence', units='counts/s')
+        self._mw.spectrum_graph.setLabel('bottom', 'wavelength', units='m')
+        self._spectrum_plot = self._mw.spectrum_graph.plot(self._spectrum_data[0], self._spectrum_data[1])
 
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.
         """
-
+        self._counter_read_mode = self._mw.counter_read_modes.currentText()
+        self._counter_exposure_time = self._mw.counter_exposure_time.value()
+        self._image_read_mode = self._mw.image_read_modes.currentText()
+        self._image_acquisition_mode = self._mw.image_acquisition_modes.currentText()
+        self._image_exposure_time = self._mw.image_exposure_time.value()
+        self._image_readout_speed = self._mw.image_readout_speed.value()
+        self._spectrum_read_mode = self._mw.spectrum_read_modes.currentText()
+        self._spectrum_acquisition_mode = self._mw.spectrum_acquisition_modes.currentText()
+        self._spectrum_exposure_time = self._mw.spectrum_exposure_time.value()
+        self._spectrum_readout_speed = self._mw.spectrum_readout_speed.value()
         self._mw.close()
 
     def show(self):
@@ -214,24 +255,78 @@ class Main(GUIBase):
 
         self._spectrumlogic.shutter_state = self._mw.shutter_modes.currentText()
 
-    def start_counter_acquisition(self):
+    def _buttons_enable_config(self, mode_index, acquisition_started):
+
+        for i in range(3):
+            stop_btn_state = acquisition_started
+            start_btn_state = not acquisition_started
+            if i != mode_index and acquisition_started:
+                stop_btn_state = False
+            if i<2:
+                self._start_dark_acquisition_buttons[i].setEnabled(start_btn_state)
+            self._stop_acquisition_buttons[i].setEnabled(stop_btn_state)
+            self._start_acquisition_buttons[i].setEnabled(start_btn_state)
+
+    def start_acquisition(self, mode_index, acquire_dark):
+
+        self._buttons_enable_config(mode_index, True)
         self.update_general_settings()
-        
+        if mode_index == 0:
+            self._spectrumlogic.read_mode = self._mw.counter_read_modes.currentText()
+            self._spectrumlogic.exposure_time = self._mw.counter_exposure_time.value()
+            # TODO : Add readout speed
+            self._spectrumlogic.acquisition_mode = "LIVE_SCAN"
+            self._counter_time_window = self._mw.counter_time_window.value()
+            self._spectrumlogic.sigUpdateData.connect(lambda: self._update_data(mode_index))
+        elif mode_index == 1:
+            self._spectrumlogic.read_mode = self._mw.image_read_modes.currentText()
+            self._spectrumlogic.acquisition_mode = self._mw.image_acquisition_modes.currentText()
+            self._spectrumlogic.exposure_time = self._mw.image_exposure_time.value()
+            self._spectrumlogic.sigUpdateData.connect(lambda: self._update_data(mode_index))
+            self._spectrumlogic.start_acquisition()
+        else:
+            self._spectrumlogic.read_mode = self._mw.spectrum_read_modes.currentText()
+            self._spectrumlogic.acquisition_mode = self._mw.spectrum_acquisition_modes.currentText()
+            self._spectrumlogic.exposure_time = self._mw.spectrum_exposure_time.value()
+            self._spectrumlogic.sigUpdateData.connect(lambda: self._update_data(mode_index))
 
-    def stop_counter_acquisition(self):
-        pass
+        if acquire_dark:
+            self._spectrumlogic.shutter_state = 'CLOSED'
+        else:
+            self._spectrumlogic.shutter_state = self._mw.shutter_modes.currentText()
 
-    def start_image_acquisition(self):
-        self.update_general_settings()
+        self._spectrumlogic.start_acquisition()
 
-    def stop_image_acquisition(self):
-        pass
+    def _update_data(self, mode_index):
 
-    def start_spectrum_acquisition(self):
-        self.update_general_settings()
+        data = self._spectrumlogic.acquired_data
 
-    def stop_spectrum_acquisition(self):
-        pass
+        if mode_index == 0:
+            counts = sum([track.sum() for track in data])
+            x = np.append(self._counter_data[0], self._counter_data[0][-1]+self._spectrumlogic.exposure_time)
+            y = np.append(self._counter_data[1], counts)
+            self._counter_data = np.array([x, y])
+            self._counter_plot.setData(x, y)
+            #self._mw.counter_graph.setRange(xRange=(x[-1] - self._counter_time_window, x[-1]))
+        if mode_index == 1:
+            self._image_data = data
+            self._image.setImage(data)
+        else:
+            x = self._spectrumlogic.wavelength_spectrum
+            if self._spectrumlogic.acquisition_mode == "MULTI_SCAN":
+                y = np.sum(self._spectrumlogic.acquired_data, axis=0)
+            else:
+                y = self._spectrumlogic.acquired_data
+            self._spectrum_data = np.array([x, y])
+            self._spectrum_plot.setData(x, y)
+
+        if self._spectrumlogic.module_state() == "idle":
+            self._spectrumlogic.sigUpdateData.disconnect()
+            self._buttons_enable_config(mode_index, False)
+
+    def stop_acquisition(self, mode_index):
+        self._buttons_enable_config(mode_index, False)
+        self._spectrumlogic.stop_acquisition()
 
     def manage_grating_index_buttons(self):
 
@@ -280,3 +375,7 @@ class Main(GUIBase):
         self._spectrumlogic.cooler_status = not cooler_status
         self._mw.cooler_on.setDown(not cooler_status)
 
+    def _update_camera_temperature(self):
+
+        self._mw.cooler_on_label.setText("Cooler "+ "ON" if self._spectrumlogic.cooler_status else "OFF")
+        self._mw.camera_temperature.setText(str(round(self._spectrumlogic.camera_temperature-273.15, 2))+"°C")

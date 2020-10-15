@@ -78,11 +78,17 @@ class SpectrumLogic(GenericLogic):
     _acquisition_mode = StatusVar('acquisition_mode', 'SINGLE_SCAN')
     _temperature_setpoint = StatusVar('temperature_setpoint', None)
 
+    _image_advanced_binning = StatusVar('image_advanced_binning', None)
+    _image_advanced_area = StatusVar('image_advanced_area', None)
+    _active_tracks = StatusVar('active_tracks', None)
+
     # cosmic rejection coeff :
     _coeff_rej_cosmic = StatusVar('coeff_cosmic_rejection', 2.2)
 
     _sigStart = QtCore.Signal()
     _sigCheckStatus = QtCore.Signal()
+    sigUpdateData = QtCore.Signal()
+
     ##############################################################################
     #                            Basic functions
     ##############################################################################
@@ -115,6 +121,7 @@ class SpectrumLogic(GenericLogic):
         self._shutter_state = None
         self._loop_counter = None
         self._loop_timer = None
+        self._acquisition_params = None
 
     def on_activate(self):
         """ Initialisation performed during activation of the module. """
@@ -150,14 +157,20 @@ class SpectrumLogic(GenericLogic):
         if np.any(self._dispersion_fitting_parameters[self._dispersion_fitting_parameters==None]):
             self.fit_spectrometer_dispersion()
 
-        if self.camera_constraints.has_cooler:
+        if not self.camera_constraints.has_cooler:
             self.temperature_setpoint = self._temperature_setpoint or self.camera().get_temperature_setpoint()
 
-        if self._image_advanced == None:
-            self._image_advanced = self.camera().get_image_advanced_parameters()
+        self._image_advanced = self.camera().get_image_advanced_parameters()
+        if not self._image_advanced_binning:
+            self.image_advanced_binning = self._image_advanced_binning
 
-        if self._active_tracks == None:
-            self._active_tracks = self.camera().get_active_tracks()
+        if not self.image_advanced_area:
+            self.image_advanced_area = self._image_advanced_area
+
+        if self._active_tracks:
+            self.active_tracks = self._active_tracks
+        else:
+            self.active_tracks = self.camera().get_active_tracks()
 
         if self.camera_constraints.has_shutter:
             self._shutter_state = self.camera().get_shutter_state()
@@ -171,7 +184,7 @@ class SpectrumLogic(GenericLogic):
         self._sigCheckStatus.connect(self._check_status, QtCore.Qt.QueuedConnection)
         self._loop_timer = QtCore.QTimer()
         self._loop_timer.setSingleShot(True)
-        self._loop_timer.timeout.connect(self._acquisition_loop)
+        self._loop_timer.timeout.connect(self._acquisition_loop, QtCore.Qt.QueuedConnection)
 
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module. """
@@ -179,8 +192,13 @@ class SpectrumLogic(GenericLogic):
             self.stop_acquisition()
             self.log.warning('Stopping running acquisition du to module deactivation.')
 
+        self._active_tracks = self.active_tracks
+        self._image_advanced_area = self.image_advanced_area
+        self._image_advanced_binning = self.image_advanced_binning
+
         self._sigStart.disconnect()
         self._sigCheckStatus.disconnect()
+        self.sigUpdateData.disconnect()
 
     ##############################################################################
     #                            Acquisition functions
@@ -236,6 +254,7 @@ class SpectrumLogic(GenericLogic):
         # If module unlocked by stop_acquisition
         if self.module_state() != 'locked':
             self._acquired_data = self.get_acquired_data()
+            self.sigUpdateData.emit()
             self.log.debug("Acquisition stopped. Status loop stopped.")
             return
 
@@ -248,13 +267,15 @@ class SpectrumLogic(GenericLogic):
         if self.acquisition_mode == 'SINGLE_SCAN':
             self._acquired_data = self.get_acquired_data()
             self.module_state.unlock()
+            self.sigUpdateData.emit()
             self.log.debug("Acquisition finished : module state is 'idle' ")
             return
 
         elif self.acquisition_mode == 'LIVE_SCAN':
             self._loop_counter += 1
             self._acquired_data = self.get_acquired_data()
-            self._acquisition()
+            self.sigUpdateData.emit()
+            self._acquisition_loop()
             return
 
         else:
@@ -262,6 +283,7 @@ class SpectrumLogic(GenericLogic):
 
             if self._loop_counter <= 0:
                 self.module_state.unlock()
+                self.sigUpdateData.emit()
                 self.log.debug("Acquisition finished : module state is 'idle' ")
             else:
                 self._loop_timer.start(self.scan_delay*1000)
@@ -290,7 +312,8 @@ class SpectrumLogic(GenericLogic):
 
     def stop_acquisition(self):
         """ Method to abort the acquisition """
-        self.module_state.unlock()
+        if self.module_state() == 'locked':
+            self.module_state.unlock()
         self.camera().abort_acquisition()
         self.log.debug("Acquisition stopped : module state is 'idle' ")
 
@@ -905,6 +928,7 @@ class SpectrumLogic(GenericLogic):
             return
         self._image_advanced.horizontal_binning = int(binning[0])
         self._image_advanced.vertical_binning = int(binning[1])
+        self._image_advanced_binning = [int(binning[0]), int(binning[1])]
 
         self.camera().set_image_advanced_parameters(self._image_advanced)
 
@@ -1044,7 +1068,7 @@ class SpectrumLogic(GenericLogic):
                            " until the acquisition is completely stopped ")
             return
         exposure_time = float(exposure_time)
-        if not exposure_time > 0:
+        if not exposure_time >= 0:
             self.log.error("Exposure time parameter must be a positive number ")
             return
         if exposure_time == self._exposure_time:
@@ -1187,7 +1211,7 @@ class SpectrumLogic(GenericLogic):
             self.log.error("Shutter state parameter do not match with shutter states of the camera ")
             return
         self.camera().set_shutter_state(shutter_state)
-        self._shutter_state = self.camera().get_shutter_state().name
+        self._shutter_state = self.camera().get_shutter_state()
 
     ##############################################################################
     #                           Temperature functions
