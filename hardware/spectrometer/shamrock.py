@@ -19,6 +19,7 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 na=not applicable
 """
+import os
 import numpy as np
 import ctypes as ct
 
@@ -60,7 +61,8 @@ class Shamrock(Base, GratingSpectrometerInterface):
         module.Class: 'spectrometer.shamrock.Shamrock'
     """
 
-    _dll_location = ConfigOption('dll_location', missing='error')
+    _dll_path = ConfigOption('dll_path', r'C:\Program Files\Andor SDK\Shamrock64\C\All')
+    # for some reason, the dll in Shamrock64 doesn't work..
     _serial_number = ConfigOption('serial_number', None)  # Optional - needed if multiple Shamrock are connected
 
     SLIT_MIN_WIDTH = 10e-6  # todo: can this be get from the DLL ? Or else is it the same for ALL spectro ? If not, maybe a config option ?
@@ -79,8 +81,11 @@ class Shamrock(Base, GratingSpectrometerInterface):
     ##############################################################################
     def on_activate(self):
         """ Activate module """
+        os.environ['PATH'] = os.environ['PATH']+';' if os.environ['PATH'][-1] != ';' else os.environ['PATH']
+        os.environ['PATH'] += self._dll_path
+
         try:
-            self._dll = ct.cdll.LoadLibrary(self._dll_location)
+            self._dll = ct.windll.LoadLibrary('ShamrockCIF.dll')
         except OSError:
             self.log.error('Error during dll loading of the Shamrock spectrometer, check the dll path.')
             return
