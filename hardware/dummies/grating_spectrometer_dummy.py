@@ -121,6 +121,17 @@ class Main(Base, GratingSpectrometerInterface):
     ##############################################################################
     #                            Interface functions
     ##############################################################################
+
+    def get_spectrometer_dispersion(self, number_pixels, pixel_width):
+        """ Return the spectrometer dispersion for a given center wavelength measured by the fabricant.
+        This function has to be used only for fitting purpose since the dispersion spectrum must be measured inside the
+        logic module. The fitting of the dispersion give better accuracy of our dispersion calculations in the
+        'spectrumlogic' module.
+
+        @return (list or ndarray): wavelength spectrum related to the spectrometer dispersion
+        """
+        return np.arange(number_pixels)*pixel_width
+
     def get_constraints(self):
         """ Returns all the fixed parameters of the hardware which can be used by the logic.
 

@@ -62,8 +62,12 @@ class SpectrumLogic(GenericLogic):
     savelogic = Connector(interface='SaveLogic')
 
     # declare status variables (logic attribute) :
+    _reverse_data_with_side_output = ConfigOption('reverse_data_with_side_output', False)
+
+    # declare status variables (logic attribute) :
     _acquired_data = StatusVar('wavelength_calibration', np.empty((2, 0)))
     _wavelength_calibration = StatusVar('wavelength_calibration', 0)
+    _dispersion_fitting_parameters = StatusVar('dispersion_fitting_parameters', None)
 
     # declare status variables (camera attribute) :
     _camera_gain = StatusVar('camera_gain', None)
@@ -73,14 +77,18 @@ class SpectrumLogic(GenericLogic):
     _number_of_scan = StatusVar('number_of_scan', 1)
     _acquisition_mode = StatusVar('acquisition_mode', 'SINGLE_SCAN')
     _temperature_setpoint = StatusVar('temperature_setpoint', None)
+
+    _image_advanced_binning = StatusVar('image_advanced_binning', None)
+    _image_advanced_area = StatusVar('image_advanced_area', None)
     _active_tracks = StatusVar('active_tracks', None)
-    _image_advanced = StatusVar('image_advanced', None)
 
     # cosmic rejection coeff :
     _coeff_rej_cosmic = StatusVar('coeff_cosmic_rejection', 2.2)
 
     _sigStart = QtCore.Signal()
     _sigCheckStatus = QtCore.Signal()
+    sigUpdateData = QtCore.Signal()
+
     ##############################################################################
     #                            Basic functions
     ##############################################################################
@@ -113,6 +121,7 @@ class SpectrumLogic(GenericLogic):
         self._shutter_state = None
         self._loop_counter = None
         self._loop_timer = None
+        self._acquisition_params = None
 
     def on_activate(self):
         """ Initialisation performed during activation of the module. """
@@ -131,9 +140,9 @@ class SpectrumLogic(GenericLogic):
         self._center_wavelength = self.spectrometer().get_wavelength()
         self._input_port = self.spectrometer().get_input_port()
         self._output_port = self.spectrometer().get_output_port()
-        self._input_slit_width = [self.spectrometer().get_slit_width(port.type) if port.is_motorized else None
+        self._input_slit_width = [self.spectrometer().get_slit_width(port.type) if port.is_motorized else 0
                                   for port in self._input_ports]
-        self._output_slit_width = [self.spectrometer().get_slit_width(port.type) if port.is_motorized else None
+        self._output_slit_width = [self.spectrometer().get_slit_width(port.type) if port.is_motorized else 0
                                    for port in self._output_ports]
 
         # Get camera state
@@ -144,13 +153,24 @@ class SpectrumLogic(GenericLogic):
         self.readout_speed = self._readout_speed or self.camera().get_readout_speed()
         self.camera_gain = self._camera_gain or self.camera().get_gain()
         self.exposure_time = self._exposure_time or self.camera().get_exposure_time()
-        if self.camera_constraints.has_cooler:
+
+        if np.any(self._dispersion_fitting_parameters[self._dispersion_fitting_parameters==None]):
+            self.fit_spectrometer_dispersion()
+
+        if not self.camera_constraints.has_cooler:
             self.temperature_setpoint = self._temperature_setpoint or self.camera().get_temperature_setpoint()
 
-        if self._image_advanced == None:
-            self._image_advanced = self.camera().get_image_advanced_parameters()
-        if self._active_tracks == None:
-            self._active_tracks = self.camera().get_active_tracks()
+        self._image_advanced = self.camera().get_image_advanced_parameters()
+        if not self._image_advanced_binning:
+            self.image_advanced_binning = self._image_advanced_binning
+
+        if not self.image_advanced_area:
+            self.image_advanced_area = self._image_advanced_area
+
+        if self._active_tracks:
+            self.active_tracks = self._active_tracks
+        else:
+            self.active_tracks = self.camera().get_active_tracks()
 
         if self.camera_constraints.has_shutter:
             self._shutter_state = self.camera().get_shutter_state()
@@ -158,11 +178,13 @@ class SpectrumLogic(GenericLogic):
         # QTimer for asynchronous execution :
         self._loop_counter = 0
 
+        self._acquisition_params = OrderedDict()
+
         self._sigStart.connect(self._start_acquisition)
         self._sigCheckStatus.connect(self._check_status, QtCore.Qt.QueuedConnection)
         self._loop_timer = QtCore.QTimer()
         self._loop_timer.setSingleShot(True)
-        self._loop_timer.timeout.connect(self._acquisition_loop)
+        self._loop_timer.timeout.connect(self._acquisition_loop, QtCore.Qt.QueuedConnection)
 
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module. """
@@ -170,8 +192,13 @@ class SpectrumLogic(GenericLogic):
             self.stop_acquisition()
             self.log.warning('Stopping running acquisition du to module deactivation.')
 
+        self._active_tracks = self.active_tracks
+        self._image_advanced_area = self.image_advanced_area
+        self._image_advanced_binning = self.image_advanced_binning
+
         self._sigStart.disconnect()
         self._sigCheckStatus.disconnect()
+        self.sigUpdateData.disconnect()
 
     ##############################################################################
     #                            Acquisition functions
@@ -195,6 +222,7 @@ class SpectrumLogic(GenericLogic):
         if self.module_state() == 'locked':
             self.log.error("Module acquisition is still running, module state is currently locked.")
             return
+        self._update_acquisition_params()
         self.module_state.lock()
         self._sigStart.emit()
 
@@ -226,7 +254,9 @@ class SpectrumLogic(GenericLogic):
         # If module unlocked by stop_acquisition
         if self.module_state() != 'locked':
             self._acquired_data = self.get_acquired_data()
+            self.sigUpdateData.emit()
             self.log.debug("Acquisition stopped. Status loop stopped.")
+            return
 
         # If hardware still running
         if not self.get_ready_state():
@@ -237,21 +267,26 @@ class SpectrumLogic(GenericLogic):
         if self.acquisition_mode == 'SINGLE_SCAN':
             self._acquired_data = self.get_acquired_data()
             self.module_state.unlock()
+            self.sigUpdateData.emit()
             self.log.debug("Acquisition finished : module state is 'idle' ")
             return
 
         elif self.acquisition_mode == 'LIVE_SCAN':
             self._loop_counter += 1
             self._acquired_data = self.get_acquired_data()
-            self._acquisition()
+            self.sigUpdateData.emit()
+            self._acquisition_loop()
             return
 
         else:
             self._acquired_data.append(self.get_acquired_data())
 
-            if self._loop_counter >= 0:
+            if self._loop_counter <= 0:
                 self.module_state.unlock()
-                self._loop_timer.start(self.scan_delay)
+                self.sigUpdateData.emit()
+                self.log.debug("Acquisition finished : module state is 'idle' ")
+            else:
+                self._loop_timer.start(self.scan_delay*1000)
                 return
 
     def reject_cosmic(self, data):
@@ -277,7 +312,8 @@ class SpectrumLogic(GenericLogic):
 
     def stop_acquisition(self):
         """ Method to abort the acquisition """
-        self.module_state.unlock()
+        if self.module_state() == 'locked':
+            self.module_state.unlock()
         self.camera().abort_acquisition()
         self.log.debug("Acquisition stopped : module state is 'idle' ")
 
@@ -287,22 +323,39 @@ class SpectrumLogic(GenericLogic):
         return self._acquired_data
 
     @property
-    def photon_counter(self):
-        """ Getter method returning the sum of the acquired data. """
-        return np.sum(self.acquired_data)
+    def acquisition_params(self):
+        """ Getter method returning the last acquisition parameters. """
+        return self._acquisition_params
 
+    def _update_acquisition_params(self):
+        self._acquisition_params['read_mode'] = self.read_mode
+        if self.read_mode == 'IMAGE_ADVANCED':
+            self._acquisition_params['image_advanced'] = (self.image_advanced_binning, self.image_advanced_area)
+        if self.read_mode == 'MULTIPLE_TRACKS':
+            self._acquisition_params['multiple_tracks'] = self.active_tracks
+        self._acquisition_params['camera_gain'] = self.camera_gain
+        self._acquisition_params['readout_speed (Hz)'] = self.readout_speed
+        self._acquisition_params['exposure_time (s)'] = self.exposure_time
+        self._acquisition_params['scan_delay (s)'] = self.scan_delay
+        self._acquisition_params['number_of_scan'] = self.number_of_scan
+        self._acquisition_params['center_wavelength  (m)'] = self.center_wavelength
+        self._acquisition_params['grating_index'] = self.grating_index
+        self._acquisition_params['spectro_ports'] = self.input_port, self.output_port
+        self._acquisition_params['slit_width (m)'] = self._input_slit_width, self._output_slit_width
+        self._acquisition_params['wavelength_calibration (m)'] = self.wavelength_calibration
+
+        """ Getter method returning the last acquisition parameters. """
     def save_acquired_data(self, filename=None):
-        parameters = OrderedDict()
-        parameters['camera_gain'] = self.camera_gain
-        parameters['readout_speed'] = self.readout_speed
-        parameters['exposure_time'] = self.exposure_time
-
-        parameters['scan_delay'] = self._scan_delay
-        parameters['grating_number'] = self._grating_number
 
         filepath = self.savelogic().get_path_for_module(module_name='spectrum_logic')
 
-        self.save_data(self._acquired_data, filepath=filepath, parameters=parameters , filename=filename)
+        if self.acquisition_params['read_mode'] == 'IMAGE_ADVANCED':
+            data = {'data' : self._acquired_data.flatten()}
+        else:
+            data = {'wavelength (m)' : self.wavelength_spectrum, 'data' : self._acquired_data.flatten()}
+
+        self.savelogic().save_data(data, filepath=filepath,
+                                   parameters=self.acquisition_params,filename=filename)
 
     ##############################################################################
     #                            Spectrometer functions
@@ -385,6 +438,68 @@ class SpectrumLogic(GenericLogic):
         self.spectrometer().set_wavelength(wavelength)
         self._center_wavelength = self.spectrometer().get_wavelength()
 
+    def _fitting_correction(self, lam_c, pixels, a, b, c, d, e):
+        """ Function both used by the fitting function and the wavelength spectrum. This polynomial function
+        depending on both the pixels position and the center wavelength correct the analytic dispersion through
+        the error with hardware dispersion function.
+
+        @return fitting_correction: (list or ndarray) correction of the analytic dispersion
+        """
+        return (a * lam_c + b) * pixels ** 2 + (c * lam_c + d) * pixels + e
+
+    def fit_spectrometer_dispersion(self):
+        """ Method fitting the hardware wavelength dispersion with the polynomial fitting_correction function to update
+        fitting parameters.
+
+        """
+
+        def _func(M, *args):
+            x, y = M
+            arr = np.zeros(x.shape)
+            for i in range(len(args) // 5):
+                arr += self._fitting_correction(x, y, *args[i * 5:i * 5 + 5])
+            return arr
+
+        image_width = self.camera_constraints.width
+        pixel_width = self.camera_constraints.pixel_size_width
+
+        diff_surf = self.spectrometer().get_spectrometer_dispersion(image_width, pixel_width) - self._analytic_dispersion()
+
+        x = self.center_wavelength
+        y = np.arange(-image_width//2, image_width//2 - image_width%2)*pixel_width
+        X, Y = np.meshgrid(x, y)
+        xdata = np.vstack((X.ravel(), Y.ravel()))
+        ydata = diff_surf.T.ravel()
+
+        popt, pcov = optimize.curve_fit(_func, xdata, ydata, p0=[0, 0, 0, 0, 0])
+        self._dispersion_fitting_parameters = popt
+
+
+    def _analytic_dispersion(self):
+        """ Analytic dispersion calculation based on hardware constraints parameters and the actual center wavelength
+        based on geometric optics for a standard Czerny-Turner spectrometer configuration.
+
+        @return: (ndarray) analytic wavelength array
+        """
+
+        image_width = self.camera_constraints.width
+        pixel_width = self.camera_constraints.pixel_size_width
+        focal_length = self.spectro_constraints.focal_length
+        angular_dev = self.spectro_constraints.angular_deviation
+        focal_tilt = self.spectro_constraints.focal_tilt
+        grating = self.spectro_constraints.gratings[self.grating_index]
+        lam_c = self.center_wavelength
+
+        trans_eq = lambda alpha: (np.sin(angular_dev + alpha) + np.sin(alpha - angular_dev)) - lam_c * grating.ruling
+
+        alpha = optimize.newton(trans_eq, 0)
+
+        pixels_vector = np.arange(-image_width // 2, image_width // 2 - image_width % 2) * pixel_width
+        theta = np.arctan(pixels_vector * np.cos(focal_tilt) / focal_length)
+        effective_rulling = grating.ruling / np.cos(angular_dev + alpha)
+
+        return 1/effective_rulling*(np.sin(angular_dev+alpha+theta)-np.sin(angular_dev+alpha)) + lam_c
+
     @property
     def wavelength_spectrum(self):
         """Getter method returning the wavelength array of the full measured spectral range.
@@ -397,26 +512,9 @@ class SpectrumLogic(GenericLogic):
         """
         image_width = self.camera_constraints.width
         pixel_width = self.camera_constraints.pixel_size_width
-        focal_length = self.spectro_constraints.focal_length
-        angular_dev = self.spectro_constraints.angular_deviation
-        focal_tilt = self.spectro_constraints.focal_tilt
-        grating = self.spectro_constraints.gratings[self.grating_index]
-        lam_c = self.center_wavelength
-
-        A = np.cos(angular_dev) ** 2
-        B = np.cos(angular_dev) * np.sin(angular_dev)
-        trans_eq = lambda alpha : A*np.sin(alpha)*np.cos(alpha) - B*np.sin(alpha)**2 -lam_c*grating.ruling/2
-        alpha = optimize.newton(trans_eq, 0) + angular_dev
-
         pixels_vector = np.arange(-image_width // 2, image_width // 2 - image_width % 2) * pixel_width
-        theta = np.arctan(pixels_vector * np.cos(focal_tilt) / focal_length)
-
-        effective_rulling = grating.ruling / np.cos(angular_dev + alpha)
-        wavelength_spectrum = 1 / effective_rulling * (np.sin(angular_dev + alpha + theta) - np.sin(angular_dev + alpha)) + lam_c
-
-        self.spectrometer()._set_pixel_width(self.camera_constraints.pixel_size_width)
-        self.spectrometer()._set_number_of_pixels(self.camera_constraints.width)
-        return self.spectrometer()._get_calibration() + self.wavelength_calibration
+        fitting_correction = self._fitting_correction(self.center_wavelength, pixels_vector, *self._dispersion_fitting_parameters)
+        return self._analytic_dispersion() + fitting_correction
 
     @property
     def wavelength_calibration(self):
@@ -581,7 +679,7 @@ class SpectrumLogic(GenericLogic):
         input_types = [port.type for port in self._input_ports]
         if port not in input_types:
             self.log.error('Input port {} doesn\'t exist on your hardware '.format(port.name))
-            return
+            return 0
         index = input_types.index(port)
         return self._input_slit_width[index]
 
@@ -591,10 +689,6 @@ class SpectrumLogic(GenericLogic):
         @param slit_width: (float) input port slit width
         @param input port: (Port|str) port
         """
-        if self.module_state() == 'locked':
-            self.log.error("Acquisition process is currently running : you can't change this parameter"
-                           " until the acquisition is completely stopped ")
-            return
         if isinstance(port, PortType):
             port = port.name
         port = str(port)
@@ -640,7 +734,7 @@ class SpectrumLogic(GenericLogic):
         output_types = [port.type for port in self._output_ports]
         if port not in output_types:
             self.log.error('Output port {} doesn\'t exist on your hardware '.format(port.name))
-            return
+            return 0
         index = output_types.index(port)
         return self._output_slit_width[index]
 
@@ -653,10 +747,6 @@ class SpectrumLogic(GenericLogic):
         Tested : yes
         SI check : yes
         """
-        if self.module_state() == 'locked':
-            self.log.error("Acquisition process is currently running : you can't change this parameter"
-                           " until the acquisition is completely stopped ")
-            return
         if isinstance(port, PortType):
             port = port.name
         port = str(port)
@@ -703,6 +793,8 @@ class SpectrumLogic(GenericLogic):
 
            Each value might be a float or an integer.
            """
+        if self._reverse_data_with_side_output and self.output_port == "OUTPUT_SIDE":
+            return netobtain(self.camera().get_acquired_data()[:, ::-1])
         return netobtain(self.camera().get_acquired_data())
 
     ##############################################################################
@@ -801,7 +893,7 @@ class SpectrumLogic(GenericLogic):
             self.log.error("Acquisition process is currently running : you can't change this parameter"
                            " until the acquisition is completely stopped ")
             return
-        active_tracks = np.array(active_tracks)
+        active_tracks = np.array(active_tracks, dtype=int)
         image_height = self.camera_constraints.height
         if not (np.all(0<=active_tracks) and np.all(active_tracks<image_height)):
             self.log.error("Active tracks positions are out of range : some position given are outside the "
@@ -836,6 +928,7 @@ class SpectrumLogic(GenericLogic):
             return
         self._image_advanced.horizontal_binning = int(binning[0])
         self._image_advanced.vertical_binning = int(binning[1])
+        self._image_advanced_binning = [int(binning[0]), int(binning[1])]
 
         self.camera().set_image_advanced_parameters(self._image_advanced)
 
@@ -975,7 +1068,7 @@ class SpectrumLogic(GenericLogic):
                            " until the acquisition is completely stopped ")
             return
         exposure_time = float(exposure_time)
-        if not exposure_time > 0:
+        if not exposure_time >= 0:
             self.log.error("Exposure time parameter must be a positive number ")
             return
         if exposure_time == self._exposure_time:
@@ -1008,12 +1101,8 @@ class SpectrumLogic(GenericLogic):
                            " until the acquisition is completely stopped ")
             return
         scan_delay = float(scan_delay)
-        if not scan_delay > 0:
+        if not scan_delay >= 0:
             self.log.error("Scan delay parameter must be a positive number ")
-            return
-        if not self._exposure_time < scan_delay:
-            self.log.error("Scan delay parameter must be a value bigger than"
-                           "the current exposure time {} ".format(self._exposure_time))
             return
         if scan_delay == self._scan_delay:
             return
@@ -1122,7 +1211,7 @@ class SpectrumLogic(GenericLogic):
             self.log.error("Shutter state parameter do not match with shutter states of the camera ")
             return
         self.camera().set_shutter_state(shutter_state)
-        self._shutter_state = self.camera().get_shutter_state().name
+        self._shutter_state = self.camera().get_shutter_state()
 
     ##############################################################################
     #                           Temperature functions

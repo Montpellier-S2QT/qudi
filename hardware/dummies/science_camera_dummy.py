@@ -26,6 +26,8 @@ from interface.science_camera_interface import ReadMode, Constraints, ImageAdvan
 
 from qtpy import QtCore
 
+import time
+
 
 class Main(Base, ScienceCameraInterface):
     """ This module is the dummy module for the ScienceCameraInterface interface
@@ -40,20 +42,22 @@ class Main(Base, ScienceCameraInterface):
         """ Activate module """
         self._build_constraints()
 
-        self._acquisition_timer = QtCore.QTimer()
-        self._acquisition_timer.setSingleShot(True)
-        self._acquisition_timer.timeout.connect(self._end_acquisition, QtCore.Qt.QueuedConnection)
+        #self._acquisition_timer = QtCore.QTimer()
+        #self._acquisition_timer.setSingleShot(True)
+        #self._acquisition_timer.timeout.connect(self._end_acquisition, QtCore.Qt.QueuedConnection)
 
         self._acquired_data = None
         self._read_mode = ReadMode.FVB
-        self._readout_speed = self.get_constraints().read_modes[0]
+        self._readout_speed = self.get_constraints().readout_speeds[0]
         self._active_tracks = []
-        self._image_advanced_parameters = None
+        self._image_advanced_parameters = ImageAdvancedParameters()
+        self._image_advanced_parameters.horizontal_end = self._constraints.width - 1
+        self._image_advanced_parameters.vertical_end = self._constraints.height - 1
         self._gain = self.get_constraints().internal_gains[0]
         self._exposure = 1
         self._trigger_mode = self.get_constraints().trigger_modes[0]
 
-        self._shutter_open_state = True
+        self._shutter_open_state = 'OPEN'
         self._cooler_on = True
         self._temperature_setpoint = 183  # ~-90°C
 
@@ -93,11 +97,13 @@ class Main(Base, ScienceCameraInterface):
         """ Starts an acquisition of the current mode and returns immediately """
         self._acquired_data = None
         self.module_state.lock()
-        self._acquisition_timer.start()
+        time.sleep(self.get_exposure_time())
+        self._end_acquisition()
 
     def _end_acquisition(self):
         """ Function called when the dummy acquisition is finished (after the exposure time) """
-        self.module_state.unlock()
+        if self.module_state() == "locked":
+            self.module_state.unlock()
         if self.get_read_mode() == ReadMode.FVB:
             self._acquired_data = self._get_fake_spectra()
         elif self.get_read_mode() == ReadMode.MULTIPLE_TRACKS:
@@ -112,8 +118,6 @@ class Main(Base, ScienceCameraInterface):
         width = self.get_constraints().width
         data = np.random.uniform(0, 10, width)  # constant noise
         data += np.random.uniform(0, 1 * self.get_exposure_time(), width)  # noise linear with time
-        if self.get_shutter_open_state():
-            data += np.random.uniform(0, 0.2 * self.get_exposure_time(), width) # noise for background
         number_of_peaks = round(np.random.uniform(0, 20))
         peak_position = np.random.uniform(0, width, number_of_peaks)
         peak_linewidth = np.random.uniform(1, 5, number_of_peaks)
@@ -141,8 +145,10 @@ class Main(Base, ScienceCameraInterface):
 
     def abort_acquisition(self):
         """ Abort acquisition """
-        self._acquisition_timer.stop()
-        self.module_state.unlock()
+        #self._acquisition_timer.stop()
+        if self.module_state() == "locked":
+            self.module_state.unlock()
+        return
 
     def get_ready_state(self):
         """ Get the status of the camera, to know if the acquisition is finished or still ongoing.
@@ -294,7 +300,7 @@ class Main(Base, ScienceCameraInterface):
         """
         if value > 0:
             self._exposure = value
-        self._acquisition_timer.setInterval(value*1e3)
+        #self._acquisition_timer.setInterval(value*1e3)
 
     ##############################################################################
     #                           Trigger mode functions
