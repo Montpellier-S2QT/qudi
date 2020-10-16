@@ -85,7 +85,7 @@ class Main(GUIBase):
 
         self._grating_index_buttons = [self._mw.grating_1, self._mw.grating_2, self._mw.grating_3]
         self._input_port_buttons = [self._mw.input_front, self._mw.input_side]
-        self. _input_slit_width_spins = [self._mw.input_slit_width_front, self._mw.input_slit_width_side]
+        self._input_slit_width_spins = [self._mw.input_slit_width_front, self._mw.input_slit_width_side]
         self._output_port_buttons = [self._mw.output_front, self._mw.output_side]
         self._output_slit_width_spins = [self._mw.output_slit_width_front, self._mw.output_slit_width_side]
         self._camera_gain_buttons = [self._mw.gain_1, self._mw.gain_2, self._mw.gain_3]
@@ -95,6 +95,16 @@ class Main(GUIBase):
         self._start_dark_acquisition_buttons = [self._mw.image_acquire_dark, self._mw.spectrum_acquire_dark]
         self._stop_acquisition_buttons = [self._mw.stop_counter_acquisition, self._mw.stop_image_acquisition,
                                            self._mw.stop_spectrum_acquisition]
+
+        for btn in self._grating_index_buttons:
+            btn.setCheckable(True)
+        for btn in self._input_port_buttons:
+            btn.setCheckable(True)
+        for btn in self._output_port_buttons:
+            btn.setCheckable(True)
+        for btn in self._camera_gain_buttons:
+            btn.setCheckable(True)
+
 
         trigger_modes = self._spectrumlogic.camera_constraints.trigger_modes
         for i in range(len(trigger_modes)):
@@ -120,22 +130,20 @@ class Main(GUIBase):
         else:
             self._output_port_buttons[0].setDown(True)
 
-        self._mw.wavelength_correction.setValue(self._spectrumlogic.wavelength_calibration)
+        self._mw.wavelength_correction.setValue(self._spectrumlogic.wavelength_calibration*1e9)
 
         self._camera_internal_gains = self._spectrumlogic.camera_constraints.internal_gains
-        camera_gain_index = np.where([ gain == self._spectrumlogic.camera_gain for gain in self._camera_internal_gains])
+        camera_gain_index = np.where([gain == self._spectrumlogic.camera_gain for gain in self._camera_internal_gains])
         self._camera_gain_buttons[camera_gain_index[0][0]].setDown(True)
-
-        self._mw.camera_temperature_setpoint.setValue(self._spectrumlogic.temperature_setpoint)
-        self._mw.cooler_on.setDown(self._spectrumlogic.cooler_status)
 
         self._camera_temperature_timer = QtCore.QTimer()
         self._camera_temperature_timer.timeout.connect(self._update_camera_temperature, QtCore.Qt.QueuedConnection)
-        self._camera_temperature_timer.start(5000)
+        self._camera_temperature_timer.start(500)
 
         self._mw.trigger_modes.setCurrentText(self._spectrumlogic.trigger_mode)
 
         self._mw.camera_temperature_setpoint.setValue(self._spectrumlogic.temperature_setpoint)
+        self._mw.cooler_on.setCheckable(True)
         self._mw.cooler_on.setDown(self._spectrumlogic.cooler_status)
 
         if self._spectrumlogic.camera_constraints.has_shutter:
@@ -143,7 +151,7 @@ class Main(GUIBase):
         else:
             self._mw.shutter_modes.setEnabled(False)
 
-        self._mw.center_wavelength.setValue(self._spectrumlogic.center_wavelength)
+        self._mw.center_wavelength.setValue(self._spectrumlogic.center_wavelength*1e9)
 
         self._mw.counter_read_modes.setCurrentText(self._counter_read_mode)
         self._mw.counter_exposure_time.setValue(self._counter_exposure_time)
@@ -173,18 +181,18 @@ class Main(GUIBase):
 
         # Connect signals :
         for btn in self._grating_index_buttons:
-            btn.clicked.connect(self.manage_grating_index_buttons)
+            btn.toggled.connect(self.manage_grating_index_buttons)
 
         for btn in self._input_port_buttons:
-            btn.clicked.connect(self.manage_input_port_buttons)
+            btn.toggled.connect(self.manage_input_port_buttons)
 
         for btn in self._output_port_buttons:
-            btn.clicked.connect(self.manage_output_port_buttons)
+            btn.toggled.connect(self.manage_output_port_buttons)
 
-        self._mw.cooler_on.clicked.connect(self.manage_cooler_status)
+        self._mw.cooler_on.toggled.connect(self.manage_cooler_status)
 
         for btn in self._camera_gain_buttons:
-            btn.clicked.connect(self.manage_camera_gain_buttons)
+            btn.toggled.connect(self.manage_camera_gain_buttons)
 
         for i in range(len(self._start_acquisition_buttons)):
             self._start_acquisition_buttons[i].clicked.connect(partial(self.start_acquisition, i, False))
@@ -235,25 +243,13 @@ class Main(GUIBase):
 
     def update_general_settings(self):
 
-        grating_index = np.where([btn.isDown() for btn in self._grating_index_buttons])[0][0]
-        self._spectrumlogic.grating_index = grating_index
-
-        input_port_index = np.where([btn.isDown() for btn in self._input_port_buttons])[0][0]
-        self._spectrumlogic.input_port = self._spectrumlogic.spectro_constraints.ports[input_port_index].type
-        self._spectrumlogic.input_slit_width =self._input_slit_width_spins[input_port_index].value()
-
-        output_port_index = np.where([btn.isDown() for btn in self._output_port_buttons])[0][0]
-        self._spectrumlogic.output_port = self._spectrumlogic.spectro_constraints.ports[2 + output_port_index].type
-        self._spectrumlogic.output_slit_width =self._output_slit_width_spins[output_port_index].value()
-
-        self._spectrumlogic.wavelength_calibration = self._mw.wavelength_correction.value()
-
-        camera_gain_index = np.where([button.isDown() for button in self._camera_gain_buttons])[0][0]
-        self._spectrumlogic.camera_gain = self._spectrumlogic.camera_constraints.internal_gains[camera_gain_index]
+        self._spectrumlogic.wavelength_calibration = self._mw.wavelength_correction.value()*1e-9
 
         self._spectrumlogic.trigger_mode = self._mw.trigger_modes.currentText()
 
         self._spectrumlogic.shutter_state = self._mw.shutter_modes.currentText()
+
+        self._spectrumlogic.center_wavelength = self._mw.center_wavelength.value()*1e-9
 
     def _buttons_enable_config(self, mode_index, acquisition_started):
 
@@ -283,7 +279,6 @@ class Main(GUIBase):
             self._spectrumlogic.acquisition_mode = self._mw.image_acquisition_modes.currentText()
             self._spectrumlogic.exposure_time = self._mw.image_exposure_time.value()
             self._spectrumlogic.sigUpdateData.connect(lambda: self._update_data(mode_index))
-            self._spectrumlogic.start_acquisition()
         else:
             self._spectrumlogic.read_mode = self._mw.spectrum_read_modes.currentText()
             self._spectrumlogic.acquisition_mode = self._mw.spectrum_acquisition_modes.currentText()
@@ -330,11 +325,13 @@ class Main(GUIBase):
 
     def manage_grating_index_buttons(self):
 
-        for grating_index_button in self._grating_index_buttons:
-            if grating_index_button == self.sender():
-                grating_index_button.setDown(True)
+        for i in range(len(self._grating_index_buttons)):
+            btn = self._grating_index_buttons[i]
+            if btn == self.sender():
+                btn.setDown(True)
+                self._spectrumlogic.grating_index = i
             else:
-                grating_index_button.setDown(False)
+                btn.setDown(False)
 
     def get_grating_index(self):
 
@@ -346,27 +343,35 @@ class Main(GUIBase):
 
     def manage_camera_gain_buttons(self):
 
-        for camera_gain_button in self._camera_gain_buttons:
-            if camera_gain_button == self.sender():
-                camera_gain_button.setDown(True)
+        for i in range(len(self._camera_gain_buttons)):
+            btn = self._camera_gain_buttons[i]
+            if btn == self.sender():
+                btn.setDown(True)
+                self._spectrumlogic.camera_gain = self._spectrumlogic.camera_constraints.internal_gains[i]
             else:
-                camera_gain_button.setDown(False)
+                btn.setDown(False)
 
     def manage_input_port_buttons(self):
 
-        for input_port_button in self._input_port_buttons:
-            if input_port_button == self.sender():
-                input_port_button.setDown(True)
+        for i in range(len(self._input_port_buttons)):
+            btn = self._input_port_buttons[i]
+            if btn == self.sender():
+                btn.setDown(True)
+                self._spectrumlogic.input_port = self._spectrumlogic.spectro_constraints.ports[i].type
+                self._spectrumlogic.input_slit_width = self._input_slit_width_spins[i].value() * 1e-6
             else:
-                input_port_button.setDown(False)
+                btn.setDown(False)
 
     def manage_output_port_buttons(self):
 
-        for output_port_button in self._output_port_buttons:
-            if output_port_button == self.sender():
-                output_port_button.setDown(True)
+        for i in range(len(self._output_port_buttons)):
+            btn = self._output_port_buttons[i]
+            if btn == self.sender():
+                btn.setDown(True)
+                self._spectrumlogic.output_port = self._spectrumlogic.spectro_constraints.ports[i+2].type
+                self._spectrumlogic.output_slit_width = self._output_slit_width_spins[i].value() * 1e-6
             else:
-                output_port_button.setDown(False)
+                btn.setDown(False)
 
     def manage_cooler_status(self):
 
