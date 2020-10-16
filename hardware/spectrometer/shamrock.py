@@ -340,7 +340,7 @@ class Shamrock(Base, GratingSpectrometerInterface):
             self._dll.ShamrockSetAutoSlitWidth.argtypes = [ct.c_int32, ct.c_int32, ct.c_float]
             self._check(self._dll.ShamrockSetAutoSlitWidth(self._device_id, index, value*1e6))
         else:
-            self.log.error('Slit with ({} um) out of range.'.format(value*1e6))
+            self.log.error('Slit width ({} um) out of range.'.format(value*1e6))
 
     ##############################################################################
     #                            DLL tools functions
@@ -536,7 +536,7 @@ class Shamrock(Base, GratingSpectrometerInterface):
         self._check(self._dll.ShamrockGetDetectorOffset(self._device_id, ct.byref(offset)))
         return offset.value
 
-    def get_spectrometer_dispersion(self):
+    def get_spectrometer_dispersion(self, number_pixels, pixel_width):
         """ Returns the wavelength calibration of each pixel
 
         Shamrock DLL can give a estimate of the calibration if the required parameters are given.
@@ -544,7 +544,8 @@ class Shamrock(Base, GratingSpectrometerInterface):
 
         Call _set_number_of_pixels and _set_pixel_width before calling this function.
         """
-        number_pixels = self._get_number_of_pixels()
+        self._set_number_of_pixels(number_pixels)
+        self._set_pixel_width(pixel_width)
         wl_array = np.ones((number_pixels,), dtype=np.float32)
         self._dll.ShamrockGetCalibration.argtypes = [ct.c_int32, ct.c_void_p, ct.c_int32]
         self._check(self._dll.ShamrockGetCalibration(self._device_id, wl_array.ctypes.data, number_pixels))

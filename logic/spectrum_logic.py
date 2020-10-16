@@ -67,7 +67,6 @@ class SpectrumLogic(GenericLogic):
     # declare status variables (logic attribute) :
     _acquired_data = StatusVar('wavelength_calibration', np.empty((2, 0)))
     _wavelength_calibration = StatusVar('wavelength_calibration', 0)
-    _dispersion_fitting_parameters = StatusVar('dispersion_fitting_parameters', None)
 
     # declare status variables (camera attribute) :
     _camera_gain = StatusVar('camera_gain', None)
@@ -77,10 +76,7 @@ class SpectrumLogic(GenericLogic):
     _number_of_scan = StatusVar('number_of_scan', 1)
     _acquisition_mode = StatusVar('acquisition_mode', 'SINGLE_SCAN')
     _temperature_setpoint = StatusVar('temperature_setpoint', None)
-
-    _image_advanced_binning = StatusVar('image_advanced_binning', None)
-    _image_advanced_area = StatusVar('image_advanced_area', None)
-    _active_tracks = StatusVar('active_tracks', None)
+    _shutter_state = StatusVar('shutter_state', "AUTO")
 
     # cosmic rejection coeff :
     _coeff_rej_cosmic = StatusVar('coeff_cosmic_rejection', 2.2)
@@ -116,12 +112,12 @@ class SpectrumLogic(GenericLogic):
         self._output_slit_width = None
         self._read_mode = None
         self._trigger_mode = None
-        self._active_tracks = None
         self._image_advanced = None
-        self._shutter_state = None
         self._loop_counter = None
         self._loop_timer = None
         self._acquisition_params = None
+        self._active_tracks = None
+        self._dispersion_fitting_parameters = None
 
     def on_activate(self):
         """ Initialisation performed during activation of the module. """
@@ -154,26 +150,15 @@ class SpectrumLogic(GenericLogic):
         self.camera_gain = self._camera_gain or self.camera().get_gain()
         self.exposure_time = self._exposure_time or self.camera().get_exposure_time()
 
-        if np.any(self._dispersion_fitting_parameters[self._dispersion_fitting_parameters==None]):
-            self.fit_spectrometer_dispersion()
+        self.fit_spectrometer_dispersion()
 
-        if not self.camera_constraints.has_cooler:
-            self.temperature_setpoint = self._temperature_setpoint or self.camera().get_temperature_setpoint()
+        if self.camera_constraints.has_cooler:
+            if self._temperature_setpoint:
+                self.temperature_setpoint = self._temperature_setpoint
+            else:
+                self.temperature_setpoint = self.camera().get_temperature_setpoint()
 
         self._image_advanced = self.camera().get_image_advanced_parameters()
-        if not self._image_advanced_binning:
-            self.image_advanced_binning = self._image_advanced_binning
-
-        if not self.image_advanced_area:
-            self.image_advanced_area = self._image_advanced_area
-
-        if self._active_tracks:
-            self.active_tracks = self._active_tracks
-        else:
-            self.active_tracks = self.camera().get_active_tracks()
-
-        if self.camera_constraints.has_shutter:
-            self._shutter_state = self.camera().get_shutter_state()
 
         # QTimer for asynchronous execution :
         self._loop_counter = 0
@@ -191,10 +176,6 @@ class SpectrumLogic(GenericLogic):
         if self.module_state() != 'idle':
             self.stop_acquisition()
             self.log.warning('Stopping running acquisition du to module deactivation.')
-
-        self._active_tracks = self.active_tracks
-        self._image_advanced_area = self.image_advanced_area
-        self._image_advanced_binning = self.image_advanced_binning
 
         self._sigStart.disconnect()
         self._sigCheckStatus.disconnect()
@@ -253,7 +234,7 @@ class SpectrumLogic(GenericLogic):
         """ Method / Slot used by the acquisition call by Qtimer signal to check if the acquisition is complete """
         # If module unlocked by stop_acquisition
         if self.module_state() != 'locked':
-            self._acquired_data = self.get_acquired_data()
+            #self._acquired_data = self.get_acquired_data()
             self.sigUpdateData.emit()
             self.log.debug("Acquisition stopped. Status loop stopped.")
             return
@@ -395,6 +376,7 @@ class SpectrumLogic(GenericLogic):
             return
         self.spectrometer().set_grating_index(grating_index)
         self._grating_index = self.spectrometer().get_grating_index()
+        self.fit_spectrometer_dispersion()
 
     ##############################################################################
     #                            Wavelength functions
@@ -901,9 +883,9 @@ class SpectrumLogic(GenericLogic):
             return
         if not len(active_tracks)%2 == 0:
             active_tracks = np.append(active_tracks, image_height-1)
-        active_tracks = [(active_tracks[i], active_tracks[i+1]) for i in range(0, len(active_tracks), 2)]
+        active_tracks = [(active_tracks[i], active_tracks[i+1]) for i in range(0, len(active_tracks)-1, 2)]
         self.camera().set_active_tracks(active_tracks)
-        self._active_tracks = self.camera().get_active_tracks()
+        self._active_tracks = active_tracks
 
     @property
     def image_advanced_binning(self):
@@ -928,7 +910,6 @@ class SpectrumLogic(GenericLogic):
             return
         self._image_advanced.horizontal_binning = int(binning[0])
         self._image_advanced.vertical_binning = int(binning[1])
-        self._image_advanced_binning = [int(binning[0]), int(binning[1])]
 
         self.camera().set_image_advanced_parameters(self._image_advanced)
 
@@ -968,6 +949,7 @@ class SpectrumLogic(GenericLogic):
         self._image_advanced.horizontal_end = int(image_advanced_area[1])
         self._image_advanced.vertical_start = int(image_advanced_area[2])
         self._image_advanced.vertical_end = int(image_advanced_area[3])
+        self._image_advanced = image_advanced_area
 
         self.camera().set_image_advanced_parameters(self._image_advanced)
 
