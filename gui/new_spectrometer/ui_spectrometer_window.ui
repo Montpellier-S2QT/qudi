@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>827</width>
-    <height>488</height>
+    <height>549</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -132,7 +132,7 @@
          <string notr="true"/>
         </property>
         <property name="currentIndex">
-         <number>3</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="settings">
          <attribute name="title">
@@ -257,13 +257,6 @@
                    </property>
                    <property name="maximum">
                     <double>300.000000000000000</double>
-                   </property>
-                  </widget>
-                 </item>
-                 <item>
-                  <widget class="QLabel" name="camera_temperature_setpoint_unit">
-                   <property name="text">
-                    <string>K</string>
                    </property>
                   </widget>
                  </item>
@@ -563,13 +556,6 @@
                    </property>
                   </widget>
                  </item>
-                 <item row="0" column="2">
-                  <widget class="QLabel" name="wavelength_correction_unit">
-                   <property name="text">
-                    <string>nm</string>
-                   </property>
-                  </widget>
-                 </item>
                 </layout>
                </item>
               </layout>
@@ -641,7 +627,7 @@
                  <widget class="QGroupBox" name="counter_settings_2">
                   <property name="maximumSize">
                    <size>
-                    <width>300</width>
+                    <width>400</width>
                     <height>16777215</height>
                    </size>
                   </property>
@@ -737,7 +723,7 @@
                  <widget class="QPushButton" name="start_counter_acquisition">
                   <property name="maximumSize">
                    <size>
-                    <width>300</width>
+                    <width>400</width>
                     <height>16777215</height>
                    </size>
                   </property>
@@ -750,12 +736,25 @@
                  <widget class="QPushButton" name="stop_counter_acquisition">
                   <property name="maximumSize">
                    <size>
-                    <width>300</width>
+                    <width>400</width>
                     <height>16777215</height>
                    </size>
                   </property>
                   <property name="text">
                    <string>Stop Counter</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QPushButton" name="pushButton">
+                  <property name="maximumSize">
+                   <size>
+                    <width>400</width>
+                    <height>16777215</height>
+                   </size>
+                  </property>
+                  <property name="text">
+                   <string>PushButton</string>
                   </property>
                  </widget>
                 </item>
@@ -832,7 +831,7 @@
                <widget class="QGroupBox" name="image_settings">
                 <property name="maximumSize">
                  <size>
-                  <width>300</width>
+                  <width>400</width>
                   <height>16777215</height>
                  </size>
                 </property>
@@ -1009,7 +1008,7 @@
                <widget class="QPushButton" name="image_acquire_dark">
                 <property name="maximumSize">
                  <size>
-                  <width>300</width>
+                  <width>400</width>
                   <height>16777215</height>
                  </size>
                 </property>
@@ -1035,7 +1034,7 @@
                <widget class="QPushButton" name="start_image_acquisition">
                 <property name="maximumSize">
                  <size>
-                  <width>300</width>
+                  <width>400</width>
                   <height>16777215</height>
                  </size>
                 </property>
@@ -1048,7 +1047,7 @@
                <widget class="QPushButton" name="stop_image_acquisition">
                 <property name="maximumSize">
                  <size>
-                  <width>300</width>
+                  <width>400</width>
                   <height>16777215</height>
                  </size>
                 </property>
@@ -1096,7 +1095,7 @@
                <widget class="QGroupBox" name="spectrum_settings">
                 <property name="maximumSize">
                  <size>
-                  <width>300</width>
+                  <width>400</width>
                   <height>16777215</height>
                  </size>
                 </property>
@@ -1278,7 +1277,7 @@
                <widget class="QPushButton" name="spectrum_acquire_dark">
                 <property name="maximumSize">
                  <size>
-                  <width>300</width>
+                  <width>400</width>
                   <height>16777215</height>
                  </size>
                 </property>
@@ -1317,7 +1316,7 @@
                <widget class="QPushButton" name="start_spectrum_acquisition">
                 <property name="maximumSize">
                  <size>
-                  <width>300</width>
+                  <width>400</width>
                   <height>16777215</height>
                  </size>
                 </property>
@@ -1330,7 +1329,7 @@
                <widget class="QPushButton" name="stop_spectrum_acquisition">
                 <property name="maximumSize">
                  <size>
-                  <width>300</width>
+                  <width>400</width>
                   <height>16777215</height>
                  </size>
                 </property>

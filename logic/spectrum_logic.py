@@ -84,6 +84,7 @@ class SpectrumLogic(GenericLogic):
     _sigStart = QtCore.Signal()
     _sigCheckStatus = QtCore.Signal()
     sigUpdateData = QtCore.Signal()
+    sigUpdateSettings = QtCore.Signal(object)
 
     ##############################################################################
     #                            Basic functions
