@@ -554,6 +554,8 @@ class SpectrumLogic(GenericLogic):
         if len(self._input_ports) < 2:
             self.log.error('Input port has no flipper mirror : this port can\'t be changed ')
             return
+        if isinstance(input_port, PortType):
+            input_port = input_port.name
         if isinstance(input_port, str) and input_port in PortType.__members__:
             input_port = PortType[input_port]
         if not np.any([input_port==port.type for port in self._input_ports]):
@@ -592,6 +594,8 @@ class SpectrumLogic(GenericLogic):
         if len(self._output_ports) < 2:
             self.log.error('Output port has no flipper mirror : this port can\'t be changed ')
             return
+        if isinstance(output_port, PortType):
+            output_port = output_port.name
         if isinstance(output_port, str) and output_port in PortType.__members__:
             output_port = PortType[output_port]
         if not np.any([output_port==port.type for port in self._output_ports]):
@@ -647,16 +651,13 @@ class SpectrumLogic(GenericLogic):
         @param input port: (Port|str) port
         @return: (float) input port slit width
         """
-        if isinstance(port, PortType):
-            port = port.name
-        port = str(port)
         if port == 'current':
             port = self._input_port
         elif port == 'front':
             port = PortType.INPUT_FRONT
         elif port == 'side':
             port = PortType.INPUT_SIDE
-        else:
+        elif not isinstance(port, PortType):
             self.log.error("Port parameter do not match with the possible values : 'current', 'front' and 'side' ")
             return
         input_types = [port.type for port in self._input_ports]
@@ -672,9 +673,6 @@ class SpectrumLogic(GenericLogic):
         @param slit_width: (float) input port slit width
         @param input port: (Port|str) port
         """
-        if isinstance(port, PortType):
-            port = port.name
-        port = str(port)
         slit_width = float(slit_width)
         if port == 'current':
             port = self._input_port
@@ -682,7 +680,7 @@ class SpectrumLogic(GenericLogic):
             port = PortType.INPUT_FRONT
         elif port == 'side':
             port = PortType.INPUT_SIDE
-        else:
+        elif not isinstance(port, PortType):
             self.log.error("Port parameter do not match with the possible values : 'current', 'front' and 'side' ")
             return
         input_types = [port.type for port in self._input_ports]
@@ -704,14 +702,13 @@ class SpectrumLogic(GenericLogic):
         Tested : yes
         SI check : yes
         """
-        port = str(port)
         if port == 'current':
             port = self._output_port
         elif port == 'front':
             port = PortType.OUTPUT_FRONT
         elif port == 'side':
             port = PortType.OUTPUT_SIDE
-        else:
+        elif not isinstance(port, PortType):
             self.log.error("Port parameter do not match with the possible values : 'current', 'front' and 'side' ")
             return
         output_types = [port.type for port in self._output_ports]
@@ -730,9 +727,6 @@ class SpectrumLogic(GenericLogic):
         Tested : yes
         SI check : yes
         """
-        if isinstance(port, PortType):
-            port = port.name
-        port = str(port)
         slit_width = float(slit_width)
         if port == 'current':
             port = self._output_port
@@ -740,7 +734,7 @@ class SpectrumLogic(GenericLogic):
             port = PortType.OUTPUT_FRONT
         elif port == 'side':
             port = PortType.OUTPUT_SIDE
-        else:
+        elif not isinstance(port, PortType):
             self.log.error("Port parameter do not match with the possible values : 'current', 'front' and 'side' ")
             return
         output_types = [port.type for port in self._output_ports]
