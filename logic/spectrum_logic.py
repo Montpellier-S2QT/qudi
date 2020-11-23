@@ -327,7 +327,7 @@ class SpectrumLogic(GenericLogic):
         self._acquisition_params['wavelength_calibration (m)'] = self.wavelength_calibration
 
         """ Getter method returning the last acquisition parameters. """
-    def save_acquired_data(self, filename=None):
+    def save_acquired_data(self):
 
         filepath = self.savelogic().get_path_for_module(module_name='spectrum_logic')
 
@@ -336,8 +336,7 @@ class SpectrumLogic(GenericLogic):
         else:
             data = {'wavelength (m)' : self.wavelength_spectrum, 'data' : self._acquired_data.flatten()}
 
-        self.savelogic().save_data(data, filepath=filepath,
-                                   parameters=self.acquisition_params,filename=filename)
+        self.savelogic().save_data(data, filepath=filepath, parameters=self.acquisition_params)
 
     ##############################################################################
     #                            Spectrometer functions

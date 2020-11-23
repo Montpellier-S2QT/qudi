@@ -116,12 +116,13 @@ class Main(GUIBase):
     """
     # declare connectors
     spectrumlogic = Connector(interface='SpectrumLogic')
+    savelogic = Connector(interface='SaveLogic')
 
     _cooler_temperature_unit = ConfigOption('cooler_temperature_unit')
 
-    _counter_read_mode = StatusVar('counter_read_mode', 'FVB')
-    _counter_exposure_time = StatusVar('counter_exposure_time', 0)
-    _counter_time_window = StatusVar('counter_time_window', 60)
+    _alignement_read_mode = StatusVar('alignement_read_mode', 'FVB')
+    _alignement_exposure_time = StatusVar('alignement_exposure_time', 0)
+    _alignement_time_window = StatusVar('alignement_time_window', 60)
 
     _image_read_mode = StatusVar('image_read_mode', 'IMAGE_ADVANCED')
     _image_acquisition_mode = StatusVar('image_acquisition_mode', 'LIVE')
@@ -133,11 +134,15 @@ class Main(GUIBase):
     _spectrum_exposure_time = StatusVar('spectrum_exposure_time', None)
     _spectrum_readout_speed = StatusVar('spectrum_readout_speed', None)
 
+    _active_tracks = StatusVar('active_tracks', [])
+
     _image_data = StatusVar('image_data', np.zeros((1000, 1000)))
     _image_dark = StatusVar('image_dark', np.zeros((1000, 1000)))
+    _image_params = StatusVar('image_params', dict())
     _counter_data = StatusVar('counter_data', np.zeros((2, 1000)))
     _spectrum_data = StatusVar('spectrum_data', np.zeros((2, 1000)))
     _spectrum_dark = StatusVar('spectrum_dark', np.zeros(1000))
+    _spectrum_params = StatusVar('spectrum_params', dict())
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -145,6 +150,7 @@ class Main(GUIBase):
     def on_activate(self):
         """ Definition and initialisation of the GUI.
         """
+        self._image_data = np.zeros((1000, 1000))
 
         self._spectrumlogic = self.spectrumlogic()
 
@@ -163,6 +169,11 @@ class Main(GUIBase):
         self._acquire_dark_buttons = []
         self._start_acquisition_buttons = []
         self._stop_acquisition_buttons = []
+        self._save_data_buttons = []
+
+        self._track_buttons = [self._image_tab.track1, self._image_tab.track2,
+                               self._image_tab.track3, self._image_tab.track4]
+        self._track_selector = []
 
         self._activate_settings_tab()
         self._activate_image_tab()
@@ -174,16 +185,16 @@ class Main(GUIBase):
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.
         """
-        self._counter_read_mode = self._mw.counter_read_modes.currentText()
-        self._counter_exposure_time = self._mw.counter_exposure_time.value()
-        self._image_read_mode = self._mw.image_read_modes.currentText()
-        self._image_acquisition_mode = self._mw.image_acquisition_modes.currentText()
-        self._image_exposure_time = self._mw.image_exposure_time.value()
-        self._image_readout_speed = self._mw.image_readout_speed.value()
-        self._spectrum_read_mode = self._mw.spectrum_read_modes.currentText()
-        self._spectrum_acquisition_mode = self._mw.spectrum_acquisition_modes.currentText()
-        self._spectrum_exposure_time = self._mw.spectrum_exposure_time.value()
-        self._spectrum_readout_speed = self._mw.spectrum_readout_speed.value()
+        self._alignement_read_mode = self._alignement_tab.read_modes.currentData()
+        self._alignement_exposure_time = self.alignement_exposure_time_widget.value()
+        self._image_acquisition_mode = self._image_tab.acquisition_modes.currentData()
+        self._image_read_mode = self._image_tab.read_modes.currentData()
+        self._image_exposure_time = self.image_exposure_time_widget.value()
+        self._image_readout_speed = self._image_tab.readout_speed.currentData()
+        self._spectrum_acquisition_mode = self._spectrum_tab.acquisition_modes.currentData()
+        self._spectrum_read_mode = self._spectrum_tab.read_modes.currentData()
+        self._spectrum_exposure_time = self.spectrum_exposure_time_widget.value()
+        self._spectrum_readout_speed = self._spectrum_tab.readout_speed.currentData()
         self._mw.close()
 
     def show(self):
@@ -294,7 +305,7 @@ class Main(GUIBase):
         self._center_wavelength_widget.setMinimum(0)
         self._center_wavelength_widget.setValue(self._spectrumlogic.center_wavelength)
         self._center_wavelength_widget.setSuffix("m")
-        self._mw.footer_layout.addWidget(self._center_wavelength_widget, -3)
+        self._mw.center_wavelength.addWidget(self._center_wavelength_widget, 1)
         self._mw.go_to_wavelength.clicked.connect(self._manage_center_wavelength)
         self._mw.center_wavelength_current.setText("{:.2r}m".format(ScaledFloat(self._spectrumlogic.center_wavelength)))
 
@@ -305,26 +316,32 @@ class Main(GUIBase):
 
         for read_mode in self._spectrumlogic.camera_constraints.read_modes:
             if read_mode.name[:5] == "IMAGE":
-                self._image_tab.read_modes.addItem(str(read_mode.name), read_mode.name)
+                self._image_tab.read_modes.addItem(read_mode.name, read_mode.name)
                 if read_mode == self._spectrumlogic.read_mode:
-                    self._image_tab.read_modes.setCurrentText(str(read_mode.name))
+                    self._image_tab.read_modes.setCurrentText(read_mode.name)
+        self._image_tab.read_modes.currentTextChanged.connect(self.set_image_params)
 
         for acquisition_mode in AcquisitionMode.__members__:
             self._image_tab.acquisition_modes.addItem(acquisition_mode, acquisition_mode)
             if acquisition_mode == self._spectrumlogic.acquisition_mode:
                 self._image_tab.acquisition_modes.setCurrentText(acquisition_mode)
+        self._image_tab.acquisition_modes.currentTextChanged.connect(self.set_image_params)
 
         self.image_exposure_time_widget = ScienDSpinBox()
         self.image_exposure_time_widget.setMinimum(0)
         self.image_exposure_time_widget.setValue(10)
         self.image_exposure_time_widget.setSuffix('s')
+        self.image_exposure_time_widget.valueChanged.connect(self.set_image_params)
         self._image_tab.exposure_time_layout.addWidget(self.image_exposure_time_widget)
 
         for readout_speed in self._spectrumlogic.camera_constraints.readout_speeds:
             self._image_tab.readout_speed.addItem(str(readout_speed), readout_speed)
             if readout_speed == self._spectrumlogic.readout_speed:
                 self._image_tab.readout_speed.setCurrentText(str(readout_speed))
+        self._image_tab.readout_speed.currentTextChanged.connect(self.set_image_params)
 
+        self._image_tab.save.clicked.connect(partial(self.save_data, 0))
+        self._save_data_buttons.append(self._image_tab.save)
         self._image_tab.acquire_dark.clicked.connect(partial(self.start_dark_acquisition, 0))
         self._acquire_dark_buttons.append(self._image_tab.acquire_dark)
         self._image_tab.start_acquisition.clicked.connect(partial(self.start_acquisition, 0))
@@ -337,24 +354,47 @@ class Main(GUIBase):
         self._image.setLookupTable(self._color_map.lut)
         self._image_tab.graph.addItem(self._image)
 
+        track_colors = ["r", "b", "y", "g"]
+        for i in range(4):
+            self._track_buttons[i].setCheckable(True)
+            self._track_buttons[i].clicked.connect(partial(self._manage_track_buttons, i))
+            if 2*i<len(self._active_tracks):
+                top_pos = self._active_tracks[2*i]
+                bottom_pos = self._active_tracks[2*i+1]
+            else:
+                top_pos = 0
+                bottom_pos = 0
+            top = pg.InfiniteLine(pos=top_pos, angle=0, movable=True, pen=track_colors[i])
+            top.hide()
+            bottom = pg.InfiniteLine(pos=bottom_pos, angle=0, movable=True, pen=track_colors[i])
+            bottom.hide()
+            self._track_selector.append((top, bottom))
+            self._image_tab.graph.addItem(top)
+            self._image_tab.graph.addItem(bottom)
+
     def _activate_alignement_tab(self):
 
         self.time_window_widget = ScienDSpinBox()
         self.time_window_widget.setMinimum(0)
         self.time_window_widget.setValue(30)
         self.time_window_widget.setSuffix('s')
-        self._alignement_tab.time_window_layout.addWidget(self.time_window_widget)
+        self.time_window_widget.valueChanged.connect(self._change_time_window)
+        self._alignement_tab.time_window_layout.addWidget(self.time_window_widget,1)
+        self._alignement_tab.clean.clicked.connect(self._clean_time_window)
 
         for read_mode in self._spectrumlogic.camera_constraints.read_modes:
             self._alignement_tab.read_modes.addItem(str(read_mode.name), read_mode.name)
             if read_mode == self._spectrumlogic.read_mode:
                 self._alignement_tab.read_modes.setCurrentText(str(read_mode.name))
+        self._alignement_tab.read_modes.currentTextChanged.connect(self.set_alignement_params)
 
         self.alignement_exposure_time_widget = ScienDSpinBox()
         self.alignement_exposure_time_widget.setMinimum(0)
         self.alignement_exposure_time_widget.setValue(self._spectrumlogic.exposure_time)
         self.alignement_exposure_time_widget.setSuffix('s')
+        self.alignement_exposure_time_widget.valueChanged.connect(self.set_alignement_params)
         self._alignement_tab.exposure_time_layout.addWidget(self.alignement_exposure_time_widget)
+        self._change_time_window()
 
         self._alignement_tab.start_acquisition.clicked.connect(partial(self.start_acquisition, 1))
         self._start_acquisition_buttons.append(self._alignement_tab.start_acquisition)
@@ -372,24 +412,30 @@ class Main(GUIBase):
                 self._spectrum_tab.read_modes.addItem(str(read_mode.name), read_mode.name)
                 if read_mode == self._spectrumlogic.read_mode:
                     self._spectrum_tab.read_modes.setCurrentText(str(read_mode.name))
+        self._spectrum_tab.read_modes.currentTextChanged.connect(self.set_spectrum_params)
 
         for acquisition_mode in AcquisitionMode.__members__:
             self._spectrum_tab.acquisition_modes.addItem(acquisition_mode, acquisition_mode)
             if acquisition_mode == self._spectrumlogic.acquisition_mode:
                 self._spectrum_tab.acquisition_modes.setCurrentText(acquisition_mode)
+        self._spectrum_tab.acquisition_modes.currentTextChanged.connect(self.set_spectrum_params)
 
         self.spectrum_exposure_time_widget = ScienDSpinBox()
         self.spectrum_exposure_time_widget.setMinimum(0)
         self.spectrum_exposure_time_widget.setValue(self._spectrumlogic.exposure_time)
         self.spectrum_exposure_time_widget.setSuffix('s')
+        self.spectrum_exposure_time_widget.valueChanged.connect(self.set_spectrum_params)
         self._spectrum_tab.exposure_time_layout.addWidget(self.spectrum_exposure_time_widget)
 
         for readout_speed in self._spectrumlogic.camera_constraints.readout_speeds:
             self._spectrum_tab.readout_speed.addItem(str(readout_speed), readout_speed)
             if readout_speed == self._spectrumlogic.readout_speed:
                 self._spectrum_tab.readout_speed.setCurrentText(str(readout_speed))
+        self._spectrum_tab.read_modes.currentTextChanged.connect(self.set_spectrum_params)
 
-        self._spectrum_tab.acquire_dark.clicked.connect(partial(self.start_dark_acquisition, 2))
+        self._spectrum_tab.save.clicked.connect(partial(self.save_data, 1))
+        self._save_data_buttons.append(self._image_tab.save)
+        self._spectrum_tab.acquire_dark.clicked.connect(partial(self.start_dark_acquisition, 1))
         self._acquire_dark_buttons.append(self._spectrum_tab.acquire_dark)
         self._spectrum_tab.start_acquisition.clicked.connect(partial(self.start_acquisition, 2))
         self._start_acquisition_buttons.append(self._spectrum_tab.start_acquisition)
@@ -474,23 +520,33 @@ class Main(GUIBase):
     def set_image_params(self):
 
         self._spectrumlogic.acquisition_mode = self._image_tab.acquisition_modes.currentData()
-        self._spectrumlogic.read_modes = self._image_tab.read_modes.currentData()
+        self._spectrumlogic.read_mode = self._image_tab.read_modes.currentData()
         self._spectrumlogic.exposure_time = self.image_exposure_time_widget.value()
         self._spectrumlogic.readout_speed = self._image_tab.readout_speed.currentData()
+
+        self._spectrumlogic._update_acquisition_params()
+        self._image_params = self._spectrumlogic.acquisition_params
 
     def set_alignement_params(self):
 
         self._spectrumlogic.acquisition_mode = "LIVE_SCAN"
-        self._spectrumlogic.read_modes = self._alignement_tab.read_modes.currentData()
+        self._spectrumlogic.read_mode = self._alignement_tab.read_modes.currentData()
         self._spectrumlogic.exposure_time = self.alignement_exposure_time_widget.value()
         self._spectrumlogic.readout_speed = max(self._spectrumlogic.camera_constraints.readout_speeds)
+
+        self._manage_tracks()
+        self._change_time_window()
 
     def set_spectrum_params(self):
 
         self._spectrumlogic.acquisition_mode = self._spectrum_tab.acquisition_modes.currentData()
-        self._spectrumlogic.read_modes = self._spectrum_tab.read_modes.currentData()
+        self._spectrumlogic.read_mode = self._spectrum_tab.read_modes.currentData()
         self._spectrumlogic.exposure_time = self.spectrum_exposure_time_widget.value()
         self._spectrumlogic.readout_speed = self._spectrum_tab.readout_speed.currentData()
+
+        self._manage_tracks()
+        self._spectrumlogic._update_acquisition_params()
+        self._spectrum_params = self._spectrumlogic.acquisition_params
 
     def start_dark_acquisition(self, index):
 
@@ -498,20 +554,18 @@ class Main(GUIBase):
 
         self._spectrumlogic.acquisition_mode = "SINGLE_SCAN"
         self._spectrumlogic.shutter_state = "CLOSED"
+        self._spectrumlogic.sigUpdateData.connect(partial(self._update_dark, index))
 
         if index == 0:
             self._spectrumlogic.read_modes = self._image_tab.read_modes.currentData()
             self._spectrumlogic.exposure_time = self.image_exposure_time_widget.value()
             self._spectrumlogic.readout_speed = self._image_tab.readout_speed.currentData()
-            self._image_dark = self._spectrumlogic.take_acquisition()
         elif index == 1:
             self._spectrumlogic.read_modes = self._spectrum_tab.read_modes.currentData()
             self._spectrumlogic.exposure_time = self._spectrum_exposure_time.value()
             self._spectrumlogic.readout_speed = self._spectrum_tab.readout_speed.currentData()
-            self._spectrum_dark = self._spectrumlogic.take_acquisition()
 
-        self._manage_stop_acquisition()
-        self._spectrumlogic.shutter_state = self._settings_tab.shutter_modes.currentData()
+        self._spectrumlogic.start_acquisition()
 
     def start_acquisition(self, index):
 
@@ -573,9 +627,29 @@ class Main(GUIBase):
         self._spectrumlogic.center_wavelength = self._center_wavelength_widget.value()
         self._mw.center_wavelength_current.setText("{:.2r}m".format(ScaledFloat(self._spectrumlogic.center_wavelength)))
 
+    def _manage_tracks(self):
+
+        self._active_tracks = []
+        for i in range(4):
+            if self._track_selector[i][0].isVisible():
+                track = self._track_selector[i]
+                self._active_tracks.append(int(track[0].getXPos()))
+                self._active_tracks.append(int(track[1].getXPos()))
+        self._spectrumlogic.active_tracks = self._active_tracks
+
     def _update_temperature(self):
 
         self._mw.camera_temperature.setText(str(round(self._spectrumlogic.camera_temperature-273.15, 2))+"°C")
+
+    def _manage_track_buttons(self, index):
+
+        track_selector = self._track_selector[index]
+        if track_selector[0].isVisible():
+            for selector in track_selector:
+                selector.hide()
+        else:
+            for selector in track_selector:
+                selector.setVisible(True)
 
     def _manage_start_acquisition(self, index):
 
@@ -587,6 +661,7 @@ class Main(GUIBase):
                 self._stop_acquisition_buttons[i].setEnabled(False)
             if i < 2:
                 self._acquire_dark_buttons[i].setEnabled(False)
+                self._save_data_buttons[i].setEnabled(False)
 
     def _manage_stop_acquisition(self):
 
@@ -595,30 +670,79 @@ class Main(GUIBase):
             self._stop_acquisition_buttons[i].setEnabled(False)
             if i<2:
                 self._acquire_dark_buttons[i].setEnabled(True)
+                self._save_data_buttons[i].setEnabled(True)
+
+    def _clean_time_window(self):
+
+        self._counter_data = np.zeros((2, 1000))
+        self._change_time_window()
+
+    def _change_time_window(self):
+
+        time_window = self.time_window_widget.value()
+        exposure_time = self.alignement_exposure_time_widget.value()
+        number_points = int(time_window / exposure_time)
+        x = np.linspace(self._counter_data[0, -1] - time_window, self._counter_data[0, -1], number_points)
+        if self._counter_data.shape[1] < number_points:
+            y = np.zeros(number_points)
+            y[-self._counter_data.shape[1]:] = self._counter_data[1]
+        else:
+            y = self._counter_data[1,-number_points:]
+        self._counter_data = np.array([x, y])
+        self._alignement_tab.graph.setRange(xRange=(x[-1]-self.time_window_widget.value(), x[-1]))
 
     def _update_data(self, index):
 
-        data = self._spectrumlogic.acquired_data
+        data = [self._spectrumlogic.acquired_data]
 
         if index == 0:
-            self._image_data = data
-            self._image.setImage(data)
+            if self._image_dark.shape == data[-1].shape:
+                self._image_data = data - self._image_dark
+            else:
+                self._image_data = data
+            self._image.setImage(image=self._image_data[-1])
         elif index == 1:
-            counts = sum([track.sum() for track in data])
-            x = np.append(self._counter_data[0], self._counter_data[0][-1]+self._spectrumlogic.exposure_time)
-            y = np.append(self._counter_data[1], counts)
+            counts = sum([sum(track) for track in data])
+            x = self._counter_data[0]+self._spectrumlogic.exposure_time
+            y = np.append(self._counter_data[1][1:], counts)
             self._counter_data = np.array([x, y])
+            self._alignement_tab.graph.setRange(xRange=(x[-1]-self.time_window_widget.value(), x[-1]))
             self._counter_plot.setData(x, y)
-            #self._mw.counter_graph.setRange(xRange=(x[-1] - self._counter_time_window, x[-1]))
         elif index == 2:
             x = self._spectrumlogic.wavelength_spectrum
-            if self._spectrumlogic.acquisition_mode == "MULTI_SCAN":
-                y = np.sum(self._spectrumlogic.acquired_data, axis=0)
+            if len(self._image_dark) == len(data[-1]):
+                y = data[-1] - self._spectrum_dark
             else:
-                y = self._spectrumlogic.acquired_data
+                y = data[-1]
             self._spectrum_data = np.array([x, y])
             self._spectrum_plot.setData(x, y)
 
         if not self._spectrumlogic.module_state() == 'locked':
             self._spectrumlogic.sigUpdateData.disconnect()
             self._manage_stop_acquisition()
+
+    def _update_dark(self, index):
+
+        dark = self._spectrumlogic.acquired_data
+
+        if index == 0:
+            self._image_dark = dark
+            self._image_tab.dark_acquired_msg.setText("Dark Acquired")
+        elif index == 1:
+            self._spectrum_dark = dark
+            self._spectrum_tab.dark_acquired_msg.setText("Dark Acquired")
+
+        self._spectrumlogic.sigUpdateData.disconnect()
+        self._manage_stop_acquisition()
+        self._spectrumlogic.shutter_state = self._settings_tab.shutter_modes.currentText()
+
+    def save_data(self, index):
+
+        filepath = self.savelogic().get_path_for_module(module_name='spectrometer')
+
+        if index==0:
+            data = {'data': np.array(self._image_data).flatten()}
+            self.savelogic().save_data(data, filepath=filepath, parameters=self._image_params)
+        elif index==1:
+            data = {'data': np.array(self._spectrum_data).flatten()}
+            self.savelogic().save_data(data, filepath=filepath, parameters=self._spectrum_params)

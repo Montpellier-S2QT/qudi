@@ -53,11 +53,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="center_wavelength">
-        <property name="text">
-         <string>TextLabel</string>
-        </property>
-       </widget>
+       <layout class="QHBoxLayout" name="center_wavelength"/>
       </item>
       <item>
        <widget class="QPushButton" name="go_to_wavelength">
