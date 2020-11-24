@@ -57,7 +57,8 @@ class Main(Base, GratingSpectrometerInterface):
         self._center_wavelength = 600e-9
         self._input_port = PortType.INPUT_FRONT
         self._output_port = PortType.OUTPUT_SIDE
-        self._slit_width = {PortType.INPUT_FRONT: 100e-6, PortType.INPUT_SIDE: 100e-6, PortType.OUTPUT_FRONT: 100e-6}
+        self._slit_width = {PortType.INPUT_FRONT: 100e-6, PortType.INPUT_SIDE: 100e-6,
+                            PortType.OUTPUT_FRONT: 100e-6, PortType.OUTPUT_SIDE: 100e-6}
 
 
 
