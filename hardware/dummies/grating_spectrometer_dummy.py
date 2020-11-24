@@ -57,7 +57,8 @@ class Main(Base, GratingSpectrometerInterface):
         self._center_wavelength = 600e-9
         self._input_port = PortType.INPUT_FRONT
         self._output_port = PortType.OUTPUT_SIDE
-        self._slit_width = {PortType.INPUT_FRONT: 100e-6, PortType.INPUT_SIDE: 100e-6, PortType.OUTPUT_FRONT: 100e-6}
+        self._slit_width = {PortType.INPUT_FRONT: 100e-6, PortType.INPUT_SIDE: 100e-6,
+                            PortType.OUTPUT_FRONT: 100e-6, PortType.OUTPUT_SIDE: 100e-6}
 
 
 
@@ -121,6 +122,17 @@ class Main(Base, GratingSpectrometerInterface):
     ##############################################################################
     #                            Interface functions
     ##############################################################################
+
+    def get_spectrometer_dispersion(self, number_pixels, pixel_width):
+        """ Return the spectrometer dispersion for a given center wavelength measured by the fabricant.
+        This function has to be used only for fitting purpose since the dispersion spectrum must be measured inside the
+        logic module. The fitting of the dispersion give better accuracy of our dispersion calculations in the
+        'spectrumlogic' module.
+
+        @return (list or ndarray): wavelength spectrum related to the spectrometer dispersion
+        """
+        return np.arange(number_pixels)*pixel_width
+
     def get_constraints(self):
         """ Returns all the fixed parameters of the hardware which can be used by the logic.
 

@@ -54,7 +54,7 @@ class ProcessDummy(Base, ProcessInterface, ProcessControlInterface):
 
             @return float: process value
         """
-        return self.temperature
+        return self.temperature + 10 * np.random.random()
 
     def get_process_unit(self):
         """ Process unit, here kelvin.

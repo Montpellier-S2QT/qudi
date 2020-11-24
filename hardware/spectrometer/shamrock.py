@@ -19,6 +19,7 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 na=not applicable
 """
+import os
 import numpy as np
 import ctypes as ct
 
@@ -60,7 +61,8 @@ class Shamrock(Base, GratingSpectrometerInterface):
         module.Class: 'spectrometer.shamrock.Shamrock'
     """
 
-    _dll_location = ConfigOption('dll_location', missing='error')
+    _dll_path = ConfigOption('dll_path', r'C:\Program Files\Andor SDK\Shamrock64\C\All')
+    # for some reason, the dll in Shamrock64 doesn't work..
     _serial_number = ConfigOption('serial_number', None)  # Optional - needed if multiple Shamrock are connected
 
     SLIT_MIN_WIDTH = 10e-6  # todo: can this be get from the DLL ? Or else is it the same for ALL spectro ? If not, maybe a config option ?
@@ -79,8 +81,11 @@ class Shamrock(Base, GratingSpectrometerInterface):
     ##############################################################################
     def on_activate(self):
         """ Activate module """
+        os.environ['PATH'] = os.environ['PATH']+';' if os.environ['PATH'][-1] != ';' else os.environ['PATH']
+        os.environ['PATH'] += self._dll_path
+
         try:
-            self._dll = ct.cdll.LoadLibrary(self._dll_location)
+            self._dll = ct.windll.LoadLibrary('ShamrockCIF.dll')
         except OSError:
             self.log.error('Error during dll loading of the Shamrock spectrometer, check the dll path.')
             return
@@ -335,7 +340,7 @@ class Shamrock(Base, GratingSpectrometerInterface):
             self._dll.ShamrockSetAutoSlitWidth.argtypes = [ct.c_int32, ct.c_int32, ct.c_float]
             self._check(self._dll.ShamrockSetAutoSlitWidth(self._device_id, index, value*1e6))
         else:
-            self.log.error('Slit with ({} um) out of range.'.format(value*1e6))
+            self.log.error('Slit width ({} um) out of range.'.format(value*1e6))
 
     ##############################################################################
     #                            DLL tools functions
@@ -530,6 +535,21 @@ class Shamrock(Base, GratingSpectrometerInterface):
         offset = ct.c_int()
         self._check(self._dll.ShamrockGetDetectorOffset(self._device_id, ct.byref(offset)))
         return offset.value
+
+    def get_spectrometer_dispersion(self, number_pixels, pixel_width):
+        """ Returns the wavelength calibration of each pixel
+
+        Shamrock DLL can give a estimate of the calibration if the required parameters are given.
+        This feature is not used by Qudi but is useful to check everything is ok.
+
+        Call _set_number_of_pixels and _set_pixel_width before calling this function.
+        """
+        self._set_number_of_pixels(number_pixels)
+        self._set_pixel_width(pixel_width)
+        wl_array = np.ones((number_pixels,), dtype=np.float32)
+        self._dll.ShamrockGetCalibration.argtypes = [ct.c_int32, ct.c_void_p, ct.c_int32]
+        self._check(self._dll.ShamrockGetCalibration(self._device_id, wl_array.ctypes.data, number_pixels))
+        return wl_array*1e-9  # DLL uses nanometer
 
     ##############################################################################
     #                    DLL wrapper unused by this module
