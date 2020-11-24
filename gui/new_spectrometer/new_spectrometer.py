@@ -34,7 +34,7 @@ from gui.guibase import GUIBase
 from gui.fitsettings import FitSettingsDialog, FitSettingsComboBox
 from qtwidgets.scientific_spinbox import ScienDSpinBox, ScienSpinBox
 from interface.grating_spectrometer_interface import PortType
-from interface.science_camera_interface import ReadMode
+from interface.science_camera_interface import ReadMode, ShutterState
 from logic.spectrum_logic import AcquisitionMode
 from qtpy import QtCore
 from qtpy import QtWidgets
@@ -458,11 +458,11 @@ class Main(GUIBase):
     def _update_settings(self):
 
         self._manage_grating_buttons(self._spectrumlogic.grating_index)
-        input_port_index = np.where(self._input_ports == self._spectrumlogic.input_port)
+        input_port_index = np.where(self._input_ports == self._spectrumlogic.input_port)[0][0]
         self._manage_port_buttons(input_port_index)
         self._output_slit_width[input_port_index] = self._spectrumlogic.input_slit_width
-        output_port_index = np.where(self._output_ports == self._spectrumlogic.output_port)
-        self._manage_port_buttons(output_port_index+2)
+        output_port_index = np.where(self._output_ports == self._spectrumlogic.output_port)[0][0]
+        self._manage_port_buttons(output_port_index[0]+2)
         self._output_slit_width[output_port_index] = self._spectrumlogic.output_slit_width
         self._calibration_widget.setValue(self._spectrumlogic.wavelength_calibration)
         self._settings_tab.camera_gains.setCurrentText(str(self._spectrumlogic.camera_gain))
