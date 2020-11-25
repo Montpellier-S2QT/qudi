@@ -521,8 +521,8 @@ class SpectrumLogic(GenericLogic):
             self.log.error("Acquisition process is currently running : you can't change this parameter"
                            " until the acquisition is completely stopped ")
             return
-        self.sigUpdateSettings.emit()
         self._wavelength_calibration = wavelength_calibration
+        self.sigUpdateSettings.emit()
 
 
     ##############################################################################
