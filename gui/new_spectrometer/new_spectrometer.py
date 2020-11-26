@@ -239,14 +239,9 @@ class Main(GUIBase):
                 input_widget.editingFinished.connect(partial(self._manage_slit_width, i))
                 self._input_slit_width.append(input_widget)
 
-                if self._input_ports[i].type == PortType.INPUT_FRONT:
-                    j = 0
-                if self._input_ports[i].type == PortType.INPUT_SIDE:
-                    j = 1
-
-                self._settings_tab.input_layout.addWidget(input_widget, j, 2)
+                self._settings_tab.input_layout.addWidget(input_widget, i, 2)
                 if len(self._input_ports) > 1:
-                    self._input_port_buttons[j].clicked.connect(partial(self._manage_port_buttons, j))
+                    self._input_port_buttons[i].clicked.connect(partial(self._manage_port_buttons, i))
 
             else:
                 self._input_port_buttons[i].setEnabled(False)
@@ -263,13 +258,9 @@ class Main(GUIBase):
                 output_widget.editingFinished.connect(partial(self._manage_slit_width, i+2))
                 self._output_slit_width.append(output_widget)
 
-                if self._output_ports[i].type == PortType.OUTPUT_FRONT:
-                    j = 0
-                if self._output_ports[i].type == PortType.OUTPUT_SIDE:
-                    j = 1
-                self._settings_tab.output_layout.addWidget(output_widget, j, 2)
+                self._settings_tab.output_layout.addWidget(output_widget, i, 2)
                 if len(self._output_ports)>1:
-                    self._output_port_buttons[j].clicked.connect(partial(self._manage_port_buttons, j + 2))
+                    self._output_port_buttons[i].clicked.connect(partial(self._manage_port_buttons, i + 2))
 
             else:
                 self._output_port_buttons[i].setEnabled(False)
@@ -467,7 +458,8 @@ class Main(GUIBase):
         self._spectrum_plot = self._spectrum_tab.graph.plot(self._spectrum_data[0], self._spectrum_data[1])
 
     def _update_settings(self):
-
+        #TODO : Update settings method not working yet so ignored until next debug
+        """
         self._manage_grating_buttons(self._spectrumlogic.grating_index)
 
         if len(self._input_ports)>1:
@@ -478,7 +470,7 @@ class Main(GUIBase):
             self._input_slit_width[0].setValue(self._spectrumlogic.input_slit_width)
         if len(self._output_ports)>1:
             output_port_index = 0 if self._spectrumlogic.output_port == PortType.OUTPUT_FRONT else 1
-            self._manage_port_buttons(output_port_index[0]+2)
+            self._manage_port_buttons(output_port_index+2)
             self._output_slit_width[output_port_index] = self._spectrumlogic.output_slit_width
         else:
             self._output_slit_width[0] = self._spectrumlogic.output_slit_width
@@ -495,6 +487,8 @@ class Main(GUIBase):
         if self._spectrumlogic.camera_constraints.has_shutter:
             self._settings_tab.shutter_modes.setCurrentText(self._spectrumlogic.shutter_state)
         self._mw.center_wavelength_current.setText("{:.2r}m".format(ScaledFloat(self._spectrumlogic.center_wavelength)))
+        """
+        pass
 
     def set_settings_params(self):
 
