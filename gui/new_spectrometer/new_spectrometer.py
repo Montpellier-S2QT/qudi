@@ -622,8 +622,9 @@ class Main(GUIBase):
         self._active_tracks = []
         for i in range(4):
             if self._track_selector[i].isVisible():
-                track = self._track_selector[i]
-                self._active_tracks.append(list(track.getRegion()))
+                track = list(self._track_selector[i].getRegion())
+                self._active_tracks.append(track[0])
+                self._active_tracks.append(track[1])
         self._spectrumlogic.active_tracks = self._active_tracks
 
     def _manage_image_advanced(self):
