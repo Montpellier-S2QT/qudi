@@ -282,6 +282,7 @@ class Main(GUIBase):
             self._settings_tab.trigger_modes.currentTextChanged.connect(self.set_settings_params)
             if trigger_mode == self._spectrumlogic.trigger_mode:
                 self._settings_tab.trigger_modes.setCurrentText(trigger_mode)
+                self.log.warning("Coucou")
 
         self._temperature_widget = ScienDSpinBox()
         self._temperature_widget.setRange(-273.15, 500)
@@ -315,6 +316,7 @@ class Main(GUIBase):
 
         self._update_temperature_timer = QtCore.QTimer()
         self._update_temperature_timer.timeout.connect(self._update_temperature)
+        self._update_temperature_timer.start(1000)
 
         self._spectrumlogic.sigUpdateSettings.connect(self._update_settings)
 
@@ -622,8 +624,9 @@ class Main(GUIBase):
         self._active_tracks = []
         for i in range(4):
             if self._track_selector[i].isVisible():
-                track = self._track_selector[i]
-                self._active_tracks.append(list(track.getRegion()))
+                track = list(self._track_selector[i].getRegion())
+                self._active_tracks.append(track[0])
+                self._active_tracks.append(track[1])
         self._spectrumlogic.active_tracks = self._active_tracks
 
     def _manage_image_advanced(self):
