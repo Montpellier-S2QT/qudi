@@ -498,7 +498,8 @@ class SpectrumLogic(GenericLogic):
         pixel_width = self.camera_constraints.pixel_size_width
         pixels_vector = np.arange(-image_width // 2, image_width // 2 - image_width % 2) * pixel_width
         fitting_correction = self._fitting_correction(self.center_wavelength, pixels_vector, *self._dispersion_fitting_parameters)
-        return self._analytic_dispersion() + fitting_correction
+        #return self._analytic_dispersion() + fitting_correction
+        return self.spectrometer().get_spectrometer_dispersion(image_width, pixel_width) + self.wavelength_calibration
 
     @property
     def wavelength_calibration(self):
@@ -520,8 +521,8 @@ class SpectrumLogic(GenericLogic):
             self.log.error("Acquisition process is currently running : you can't change this parameter"
                            " until the acquisition is completely stopped ")
             return
-        self.sigUpdateSettings.emit()
         self._wavelength_calibration = wavelength_calibration
+        self.sigUpdateSettings.emit()
 
 
     ##############################################################################
@@ -814,6 +815,8 @@ class SpectrumLogic(GenericLogic):
             self.log.error("Read mode parameter do not match with any of the available read "
                            "modes of the camera ")
             return
+        if read_mode == ReadMode.MULTIPLE_TRACKS:
+            self.camera().set_active_tracks(self._active_tracks)
         self.camera().set_read_mode(read_mode)
         self._read_mode = self.camera().get_read_mode().name
 
@@ -885,7 +888,6 @@ class SpectrumLogic(GenericLogic):
         if not len(active_tracks)%2 == 0:
             active_tracks = np.append(active_tracks, image_height-1)
         active_tracks = [(active_tracks[i], active_tracks[i+1]) for i in range(0, len(active_tracks)-1, 2)]
-        self.camera().set_active_tracks(active_tracks)
         self._active_tracks = active_tracks
 
     @property

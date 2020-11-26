@@ -85,6 +85,24 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
         except visa.VisaIOError:
             self.log.warning('Crycon connexion has not been closed properly.')
 
+    def get_process_value(self, channel=None):
+        """ Return a measured value
+
+        @param (int) channel: (Optional) The number of the channel
+        @return (float): The measured process value
+        """
+        return self.get_temperature()
+
+    def get_process_unit(self, channel=None):
+        """ Return the unit that the value is measured in as a tuple of ('abbreviation', 'full unit name')
+
+        @param (int) channel: (Optional) The number of the channel
+
+        @return: The unit as a tuple of ('abbreviation', 'full unit name')
+
+         """
+        return 'K'
+
     def get_temperature(self, channel=None):
         """ Cryocon function to get one temperature """
         channel = channel if channel is not None else self._main_channel
@@ -235,7 +253,7 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
 
         @return (float): The current manual value
         """
-        pass  # Not implemented
+        return 0
 
     def set_manual_value(self, manualvalue):
         """ Set the manual value, used if the device is disabled
@@ -304,7 +322,7 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
 
         @return dict(): A dict with keys 'P', 'I', 'D' if available, an empty dict otherwise
         """
-        pass
+        return {}
 
     # Script helper methods
 

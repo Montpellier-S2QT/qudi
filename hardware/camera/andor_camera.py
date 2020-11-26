@@ -536,7 +536,7 @@ class Main(Base, ScienceCameraInterface):
         if not self.get_constraints().has_shutter:
             self.log.error('Can not get state of the shutter, camera does not have a shutter')
             return
-        return ShutterState[self._shutter_status]  # No getter in the DLL
+        return self._shutter_status.name  # No getter in the DLL
 
     def set_shutter_state(self, value):
         """ Setter method setting the shutter state.
