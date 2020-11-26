@@ -118,7 +118,6 @@ class SpectrumLogic(GenericLogic):
         self._loop_timer = None
         self._acquisition_params = None
         self._active_tracks = None
-        self._dispersion_fitting_parameters = None
 
     def on_activate(self):
         """ Initialisation performed during activation of the module. """
@@ -150,8 +149,6 @@ class SpectrumLogic(GenericLogic):
         self.readout_speed = self._readout_speed or self.camera().get_readout_speed()
         self.camera_gain = self._camera_gain or self.camera().get_gain()
         self.exposure_time = self._exposure_time or self.camera().get_exposure_time()
-
-        self.fit_spectrometer_dispersion()
 
         if self.camera_constraints.has_cooler:
             if self._temperature_setpoint:
@@ -272,27 +269,6 @@ class SpectrumLogic(GenericLogic):
                 self._loop_timer.start(self.scan_delay*1000)
                 return
 
-    def reject_cosmic(self, data):
-        """ This function is used to reject cosmic features from acquired spectrum
-
-        It is done by computing the standard deviation of an ensemble of accumulated scan.
-        The rejection is carry out with a mask rejecting values outside their standard deviation on each pixel
-        """
-        mean_data = np.nanstd(data, axis=0)
-        std_dev_data = np.nanstd((data-mean_data)**2, axis=0)
-        mask_min = mean_data - std_dev_data * self._coeff_rej_cosmic
-        mask_max = mean_data + std_dev_data * self._coeff_rej_cosmic
-        if len(data.shape) == 2:
-            clean_data = np.ma.masked_array([np.ma.masked_outside(pixel, mask_min[i], mask_max[i])
-                                             for i,pixel in enumerate(data.T)]).T
-            return clean_data
-        clean_data = np.transpose(np.empty(np.shape(data)), (1, 2, 0))
-        for i,track in enumerate(np.transpose(data, (1, 2, 0))):
-            clean_track = np.ma.masked_array([np.ma.masked_outside(pixel, mask_min[i, j], mask_max[i, j])
-                                             for j,pixel in enumerate(track)])
-            clean_data = np.append(clean_data, clean_track)
-        return np.transpose(clean_data,(2,0,1))
-
     def stop_acquisition(self):
         """ Method to abort the acquisition """
         if self.module_state() == 'locked':
@@ -392,7 +368,7 @@ class SpectrumLogic(GenericLogic):
         Tested : yes
         SI check : yes
         """
-        return self._center_wavelength + self.wavelength_calibration
+        return self._center_wavelength
 
     @center_wavelength.setter
     def center_wavelength(self, wavelength):
@@ -422,68 +398,6 @@ class SpectrumLogic(GenericLogic):
         self._center_wavelength = self.spectrometer().get_wavelength()
         self.sigUpdateSettings.emit()
 
-    def _fitting_correction(self, lam_c, pixels, a, b, c, d, e):
-        """ Function both used by the fitting function and the wavelength spectrum. This polynomial function
-        depending on both the pixels position and the center wavelength correct the analytic dispersion through
-        the error with hardware dispersion function.
-
-        @return fitting_correction: (list or ndarray) correction of the analytic dispersion
-        """
-        return (a * lam_c + b) * pixels ** 2 + (c * lam_c + d) * pixels + e
-
-    def fit_spectrometer_dispersion(self):
-        """ Method fitting the hardware wavelength dispersion with the polynomial fitting_correction function to update
-        fitting parameters.
-
-        """
-
-        def _func(M, *args):
-            x, y = M
-            arr = np.zeros(x.shape)
-            for i in range(len(args) // 5):
-                arr += self._fitting_correction(x, y, *args[i * 5:i * 5 + 5])
-            return arr
-
-        image_width = self.camera_constraints.width
-        pixel_width = self.camera_constraints.pixel_size_width
-
-        diff_surf = self.spectrometer().get_spectrometer_dispersion(image_width, pixel_width) - self._analytic_dispersion()
-
-        x = self.center_wavelength
-        y = np.arange(-image_width//2, image_width//2 - image_width%2)*pixel_width
-        X, Y = np.meshgrid(x, y)
-        xdata = np.vstack((X.ravel(), Y.ravel()))
-        ydata = diff_surf.T.ravel()
-
-        popt, pcov = optimize.curve_fit(_func, xdata, ydata, p0=[0, 0, 0, 0, 0])
-        self._dispersion_fitting_parameters = popt
-
-
-    def _analytic_dispersion(self):
-        """ Analytic dispersion calculation based on hardware constraints parameters and the actual center wavelength
-        based on geometric optics for a standard Czerny-Turner spectrometer configuration.
-
-        @return: (ndarray) analytic wavelength array
-        """
-
-        image_width = self.camera_constraints.width
-        pixel_width = self.camera_constraints.pixel_size_width
-        focal_length = self.spectro_constraints.focal_length
-        angular_dev = self.spectro_constraints.angular_deviation
-        focal_tilt = self.spectro_constraints.focal_tilt
-        grating = self.spectro_constraints.gratings[self.grating_index]
-        lam_c = self.center_wavelength
-
-        trans_eq = lambda alpha: (np.sin(angular_dev + alpha) + np.sin(alpha - angular_dev)) - lam_c * grating.ruling
-
-        alpha = optimize.newton(trans_eq, 0)
-
-        pixels_vector = np.arange(-image_width // 2, image_width // 2 - image_width % 2) * pixel_width
-        theta = np.arctan(pixels_vector * np.cos(focal_tilt) / focal_length)
-        effective_rulling = grating.ruling / np.cos(angular_dev + alpha)
-
-        return 1/effective_rulling*(np.sin(angular_dev+alpha+theta)-np.sin(angular_dev+alpha)) + lam_c
-
     @property
     def wavelength_spectrum(self):
         """Getter method returning the wavelength array of the full measured spectral range.
@@ -496,9 +410,6 @@ class SpectrumLogic(GenericLogic):
         """
         image_width = self.camera_constraints.width
         pixel_width = self.camera_constraints.pixel_size_width
-        pixels_vector = np.arange(-image_width // 2, image_width // 2 - image_width % 2) * pixel_width
-        fitting_correction = self._fitting_correction(self.center_wavelength, pixels_vector, *self._dispersion_fitting_parameters)
-        #return self._analytic_dispersion() + fitting_correction
         return self.spectrometer().get_spectrometer_dispersion(image_width, pixel_width) + self.wavelength_calibration
 
     @property
