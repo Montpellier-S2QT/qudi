@@ -382,11 +382,10 @@ class Main(Base, ScienceCameraInterface):
 
         @param (list) value: active tracks positions  as [(start_1, end_1), (start_2, end_2), ... ]
         """
-        if self.get_read_mode() != ReadMode.MULTIPLE_TRACKS:
-            self.log.warning('Active tracks are defined outside of MULTIPLE_TRACKS mode.')
 
         self._active_tracks = value
-        self._update_active_tracks()
+        if self.get_read_mode() == ReadMode.MULTIPLE_TRACKS:
+            self._update_active_tracks()
 
     def _update_active_tracks(self):
         """ Internal function that send the current active tracks to the DLL """

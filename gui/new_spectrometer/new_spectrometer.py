@@ -218,6 +218,7 @@ class Main(GUIBase):
         for i in range(3):
             self._grating_buttons[i].setText('{}rpm'.format(
                 int(self._spectrumlogic.spectro_constraints.gratings[i].ruling/1000)))
+            self._grating_buttons[i].setCheckable(True)
             self._grating_buttons[i].clicked.connect(partial(self._manage_grating_buttons, i))
             if i == self._spectrumlogic.grating_index:
                 self._grating_buttons[i].setDown(True)
@@ -229,6 +230,7 @@ class Main(GUIBase):
 
             if i<len(self._input_ports):
 
+                self._input_port_buttons[i].setCheckable(True)
                 if self._input_ports[i].type.name == self._spectrumlogic.input_port:
                     self._input_port_buttons[i].setDown(True)
 
@@ -248,6 +250,7 @@ class Main(GUIBase):
 
             if i < len(self._output_ports):
 
+                self._output_port_buttons[i].setCheckable(True)
                 if self._output_ports[i].type.name == self._spectrumlogic.output_port:
                     self._output_port_buttons[i].setDown(True)
 
@@ -282,7 +285,6 @@ class Main(GUIBase):
             self._settings_tab.trigger_modes.currentTextChanged.connect(self.set_settings_params)
             if trigger_mode == self._spectrumlogic.trigger_mode:
                 self._settings_tab.trigger_modes.setCurrentText(trigger_mode)
-                self.log.warning("Coucou")
 
         self._temperature_widget = ScienDSpinBox()
         self._temperature_widget.setRange(-273.15, 500)
@@ -343,9 +345,9 @@ class Main(GUIBase):
         self._image_tab.exposure_time_layout.addWidget(self.image_exposure_time_widget)
 
         for readout_speed in self._spectrumlogic.camera_constraints.readout_speeds:
-            self._image_tab.readout_speed.addItem(str(readout_speed), readout_speed)
+            self._image_tab.readout_speed.addItem("{:.2r}Hz".format(ScaledFloat(readout_speed)), readout_speed)
             if readout_speed == self._spectrumlogic.readout_speed:
-                self._image_tab.readout_speed.setCurrentText(str(readout_speed))
+                self._image_tab.readout_speed.setCurrentText("{:.2r}Hz".format(ScaledFloat(readout_speed)))
         self._image_tab.readout_speed.currentTextChanged.connect(self.set_image_params)
 
         self._image_tab.save.clicked.connect(partial(self.save_data, 0))
@@ -441,9 +443,9 @@ class Main(GUIBase):
         self._spectrum_tab.exposure_time_layout.addWidget(self.spectrum_exposure_time_widget)
 
         for readout_speed in self._spectrumlogic.camera_constraints.readout_speeds:
-            self._spectrum_tab.readout_speed.addItem(str(readout_speed), readout_speed)
+            self._spectrum_tab.readout_speed.addItem("{:.2r}Hz".format(ScaledFloat(readout_speed)), readout_speed)
             if readout_speed == self._spectrumlogic.readout_speed:
-                self._spectrum_tab.readout_speed.setCurrentText(str(readout_speed))
+                self._spectrum_tab.readout_speed.setCurrentText("{:.2r}Hz".format(ScaledFloat(readout_speed)))
         self._spectrum_tab.read_modes.currentTextChanged.connect(self.set_spectrum_params)
 
         self._spectrum_tab.save.clicked.connect(partial(self.save_data, 1))
@@ -577,10 +579,10 @@ class Main(GUIBase):
         for i in range(3):
             btn = self._grating_buttons[i]
             if i == index:
-                btn.setDown(True)
+                btn.setChecked(True)
                 self._spectrumlogic.grating_index = i
             else:
-                btn.setDown(False)
+                btn.setChecked(False)
         self._mw.center_wavelength_current.setText("{:.2r}m".format(ScaledFloat(self._spectrumlogic.center_wavelength)))
 
     def _manage_port_buttons(self, index):
@@ -588,17 +590,17 @@ class Main(GUIBase):
             if index < 2:
                 btn = self._input_port_buttons[i]
                 if i == index:
-                    btn.setDown(True)
+                    btn.setChecked(True)
                     self._spectrumlogic.input_port = self._spectrumlogic.spectro_constraints.ports[i].type
                 else:
-                    btn.setDown(False)
+                    btn.setChecked(False)
             elif index > 1:
                 btn = self._output_port_buttons[i]
                 if i+2 == index:
-                    btn.setDown(True)
+                    btn.setChecked(True)
                     self._spectrumlogic.output_port = self._spectrumlogic.spectro_constraints.ports[i+2].type
                 else:
-                    btn.setDown(False)
+                    btn.setChecked(False)
 
     def _manage_slit_width(self, index):
 
@@ -611,7 +613,7 @@ class Main(GUIBase):
     def _manage_cooler_button(self):
         cooler_on = not self._spectrumlogic.cooler_status
         self._spectrumlogic.cooler_status = cooler_on
-        self._settings_tab.cooler_on.setDown(cooler_on)
+        self._settings_tab.cooler_on.setChecked(cooler_on)
         self._settings_tab.cooler_on.setText("ON" if not cooler_on else "OFF")
         self._mw.cooler_on_label.setText("Cooler {}".format("ON" if cooler_on else "OFF"))
 
@@ -705,6 +707,13 @@ class Main(GUIBase):
                 self._image_data = data - self._image_dark
             else:
                 self._image_data = data
+
+            if self._spectrumlogic.read_mode == "IMAGE_ADVANCED":
+                self._image.setRect(self._image_advanced_widget.parentBounds())
+            else:
+                width = self._spectrumlogic.camera_constraints.width
+                height = self._spectrumlogic.camera_constraints.height
+                self._image.setRect(QtCore.QRect(0,0,width,height))
 
             if self._spectrumlogic.acquisition_mode == "MULTI_SCAN":
                 self._image.setImage(image=self._image_data[-1])

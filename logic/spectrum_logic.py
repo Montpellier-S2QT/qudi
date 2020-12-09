@@ -726,8 +726,6 @@ class SpectrumLogic(GenericLogic):
             self.log.error("Read mode parameter do not match with any of the available read "
                            "modes of the camera ")
             return
-        if read_mode == ReadMode.MULTIPLE_TRACKS:
-            self.camera().set_active_tracks(self._active_tracks)
         self.camera().set_read_mode(read_mode)
         self._read_mode = self.camera().get_read_mode().name
 
@@ -799,7 +797,8 @@ class SpectrumLogic(GenericLogic):
         if not len(active_tracks)%2 == 0:
             active_tracks = np.append(active_tracks, image_height-1)
         active_tracks = [(active_tracks[i], active_tracks[i+1]) for i in range(0, len(active_tracks)-1, 2)]
-        self._active_tracks = active_tracks
+        self.camera().set_active_tracks(active_tracks)
+        self._active_tracks = self.camera().get_active_tracks()
 
     @property
     def image_advanced_binning(self):
