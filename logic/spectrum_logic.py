@@ -173,7 +173,7 @@ class SpectrumLogic(GenericLogic):
         """ Deinitialisation performed during deactivation of the module. """
         if self.module_state() != 'idle':
             self.stop_acquisition()
-            self.log.warning('Stopping running acquisition du to module deactivation.')
+            self.log.warning('Stopping running acquisition due to module deactivation.')
 
         self._sigStart.disconnect()
         self._sigCheckStatus.disconnect()
@@ -260,10 +260,10 @@ class SpectrumLogic(GenericLogic):
 
         else:
             self._acquired_data.append(self.get_acquired_data())
+            self.sigUpdateData.emit()
 
             if self._loop_counter <= 0:
                 self.module_state.unlock()
-                self.sigUpdateData.emit()
                 self.log.debug("Acquisition finished : module state is 'idle' ")
             else:
                 self._loop_timer.start(self.scan_delay*1000)
@@ -271,9 +271,10 @@ class SpectrumLogic(GenericLogic):
 
     def stop_acquisition(self):
         """ Method to abort the acquisition """
+        if self.camera().get_ready_state() == 'locked':
+            self.camera().abort_acquisition()
         if self.module_state() == 'locked':
             self.module_state.unlock()
-        self.camera().abort_acquisition()
         self.log.debug("Acquisition stopped : module state is 'idle' ")
 
     @property
@@ -395,7 +396,7 @@ class SpectrumLogic(GenericLogic):
                            .format(0, wavelength_max))
             return
         self.spectrometer().set_wavelength(wavelength)
-        self._center_wavelength = self.spectrometer().get_wavelength()
+        self._center_wavelength = self.spectrometer().get_wavelength() + self.wavelength_calibration
         self.sigUpdateSettings.emit()
 
     @property
@@ -573,7 +574,11 @@ class SpectrumLogic(GenericLogic):
             port = PortType.INPUT_FRONT
         elif port == 'side':
             port = PortType.INPUT_SIDE
-        elif not isinstance(port, PortType):
+        elif isinstance(port, PortType):
+            port = port.name
+        elif isinstance(port, str) and port in PortType.__members__:
+            port = PortType[port]
+        else:
             self.log.error("Port parameter do not match with the possible values : 'current', 'front' and 'side' ")
             return
         input_types = [port.type for port in self._input_ports]
@@ -625,7 +630,11 @@ class SpectrumLogic(GenericLogic):
             port = PortType.OUTPUT_FRONT
         elif port == 'side':
             port = PortType.OUTPUT_SIDE
-        elif not isinstance(port, PortType):
+        elif isinstance(port, PortType):
+            port = port.name
+        elif isinstance(port, str) and port in PortType.__members__:
+            port = PortType[port]
+        else:
             self.log.error("Port parameter do not match with the possible values : 'current', 'front' and 'side' ")
             return
         output_types = [port.type for port in self._output_ports]
