@@ -939,7 +939,8 @@ class TimeHarp260(Base, SlowCounterInterface, FastCounterInterface):
         """
         return ['Ctr0']
 
-    def get_constraints(self):
+    @SlowCounterInterface.get_constraints.register('SlowCounterInterface')
+    def get_constraints_SlowCounterInterface(self):
         """ Get hardware limits
 
         @return SlowCounterConstraints: constraints class for slow counter
@@ -1070,6 +1071,7 @@ class TimeHarp260(Base, SlowCounterInterface, FastCounterInterface):
 
         return self._fast_bin_width_s, self._fast_record_length_s, self._fast_number_of_gates
 
+    @FastCounterInterface.get_constraints.register('FastCounterInterface')
     def get_constraints_FastCounterInterface(self):
         """ Retrieve the hardware constrains of the Fast counting device
         for the fast_counter_interface.
