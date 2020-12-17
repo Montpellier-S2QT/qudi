@@ -469,9 +469,13 @@ class SpectrumLogic(GenericLogic):
         if len(self._input_ports) < 2:
             self.log.error('Input port has no flipper mirror : this port can\'t be changed ')
             return
-        if isinstance(input_port, PortType):
+        elif input_port == 'front':
+            input_port = PortType.INPUT_FRONT
+        elif input_port == 'side':
+            input_port = PortType.INPUT_SIDE
+        elif isinstance(input_port, PortType):
             input_port = input_port.name
-        if isinstance(input_port, str) and input_port in PortType.__members__:
+        elif isinstance(input_port, str) and input_port in PortType.__members__:
             input_port = PortType[input_port]
         if not np.any([input_port==port.type for port in self._input_ports]):
             self.log.error('Function parameter must be an INPUT value from the input ports of the camera ')
@@ -510,9 +514,13 @@ class SpectrumLogic(GenericLogic):
         if len(self._output_ports) < 2:
             self.log.error('Output port has no flipper mirror : this port can\'t be changed ')
             return
-        if isinstance(output_port, PortType):
+        elif output_port == 'front':
+            output_port = PortType.OUTPUT_FRONT
+        elif output_port == 'side':
+            output_port = PortType.OUTPUT_SIDE
+        elif isinstance(output_port, PortType):
             output_port = output_port.name
-        if isinstance(output_port, str) and output_port in PortType.__members__:
+        elif isinstance(output_port, str) and output_port in PortType.__members__:
             output_port = PortType[output_port]
         if not np.any([output_port==port.type for port in self._output_ports]):
             self.log.error('Function parameter must be an OUTPUT value from the output ports of the camera ')
@@ -832,8 +840,8 @@ class SpectrumLogic(GenericLogic):
             return
         self._image_advanced.horizontal_binning = int(binning[0])
         self._image_advanced.vertical_binning = int(binning[1])
-
-        self.camera().set_image_advanced_parameters(self._image_advanced)
+        self.image_advanced_area = [self._image_advanced.horizontal_start, self._image_advanced.horizontal_end,
+                                    self._image_advanced.vertical_start, self._image_advanced.vertical_end]
 
     @property
     def image_advanced_area(self):
@@ -863,10 +871,10 @@ class SpectrumLogic(GenericLogic):
             return
         hbin = self._image_advanced.horizontal_binning
         vbin = self._image_advanced.vertical_binning
-        if not (image_advanced_area[1]-image_advanced_area[0]+1)%hbin==0:
-            image_advanced_area[1] = (image_advanced_area[1] - image_advanced_area[0] + 1) // hbin * hbin + image_advanced_area[0]
-        if not (image_advanced_area[3]-image_advanced_area[2]+1)%vbin==0:
-            image_advanced_area[3] = (image_advanced_area[3] - image_advanced_area[2] + 1) // vbin * vbin + image_advanced_area[2]
+        if not (image_advanced_area[1]-image_advanced_area[0]+1) % hbin == 0:
+            image_advanced_area[1] = (image_advanced_area[1] - image_advanced_area[0]+1) // hbin * hbin -1 + image_advanced_area[0]
+        if not (image_advanced_area[3]-image_advanced_area[2]+1) % vbin == 0:
+            image_advanced_area[3] = (image_advanced_area[3] - image_advanced_area[2]+1) // vbin * vbin -1 + image_advanced_area[2]
         self._image_advanced.horizontal_start = int(image_advanced_area[0])
         self._image_advanced.horizontal_end = int(image_advanced_area[1])
         self._image_advanced.vertical_start = int(image_advanced_area[2])

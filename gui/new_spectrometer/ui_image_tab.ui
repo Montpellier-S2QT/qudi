@@ -64,6 +64,29 @@
            </property>
           </widget>
          </item>
+         <item>
+          <widget class="QSpinBox" name="horizontal_binning">
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="maximum">
+            <number>99</number>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="vertical_binning">
+           <property name="maximumSize">
+            <size>
+             <width>100</width>
+             <height>16777215</height>
+            </size>
+           </property>
+          </widget>
+         </item>
         </layout>
        </item>
       </layout>

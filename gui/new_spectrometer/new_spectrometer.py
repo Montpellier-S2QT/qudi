@@ -179,6 +179,8 @@ class Main(GUIBase):
             self._image_exposure_time = self._spectrumlogic.exposure_time
         if not self._image_readout_speed:
             self._image_readout_speed = self._spectrumlogic.readout_speed
+        if not self._alignement_exposure_time:
+            self._alignement_exposure_time = self._spectrumlogic.exposure_time
         if not self._spectrum_exposure_time:
             self._spectrum_exposure_time = self._spectrumlogic.exposure_time
         if not self._spectrum_readout_speed:
@@ -391,6 +393,11 @@ class Main(GUIBase):
         self._image_advanced_widget.hide()
         self._image_tab.graph.addItem(self._image_advanced_widget)
 
+        self._image_tab.horizontal_binning.setRange(1, self._spectrumlogic.camera_constraints.width-1)
+        self._image_tab.vertical_binning.setRange(1, self._spectrumlogic.camera_constraints.height-1)
+        
+        self._image_tab.horizontal_binning.editingFinished.connect(self.set_image_params)
+        self._image_tab.vertical_binning.editingFinished.connect(self.set_image_params)
         self._image_tab.read_modes.currentTextChanged.connect(self.set_image_params)
         self._image_tab.acquisition_modes.currentTextChanged.connect(self.set_image_params)
         self.image_exposure_time_widget.editingFinished.connect(self.set_image_params)
@@ -433,7 +440,7 @@ class Main(GUIBase):
     def _activate_spectrum_tab(self):
 
         for read_mode in self._spectrumlogic.camera_constraints.read_modes:
-            if read_mode.name[:5] != "IMAGE":
+            if read_mode.name != "IMAGE":
                 self._spectrum_tab.read_modes.addItem(str(read_mode.name), read_mode.name)
                 if read_mode == self._spectrum_read_mode:
                     self._spectrum_tab.read_modes.setCurrentText(str(read_mode.name))
@@ -517,12 +524,11 @@ class Main(GUIBase):
 
     def set_image_params(self):
 
+        self._manage_image_advanced()
         self._spectrumlogic.acquisition_mode = self._image_tab.acquisition_modes.currentData()
         self._spectrumlogic.read_mode = self._image_tab.read_modes.currentData()
         self._spectrumlogic.exposure_time = self.image_exposure_time_widget.value()
         self._spectrumlogic.readout_speed = self._image_tab.readout_speed.currentData()
-
-        self._manage_image_advanced()
 
         self._spectrumlogic._update_acquisition_params()
         self._image_params = self._spectrumlogic.acquisition_params
@@ -652,6 +658,9 @@ class Main(GUIBase):
 
     def _manage_image_advanced(self):
 
+        hbin = self._image_tab.horizontal_binning.value()
+        vbin = self._image_tab.vertical_binning.value()
+        self._spectrumlogic.image_advanced_binning = (hbin, vbin)
         image_advanced = self._image_advanced_widget.getArraySlice(self._image_data, self._image,
                                                                          returnSlice=False)[0]
         self._image_advanced = list(image_advanced[1])+list(image_advanced[0])
