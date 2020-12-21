@@ -79,7 +79,13 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
 
         Most methods calling this might just care about the number of channels.
         """
-        return list(self.spectrometer().wavelength_spectrum)
+        channels = self.spectrometer().wavelength_spectrum
+        if self.spectrometer().read_mode == "IMAGE_ADVANCED":
+            start = self.spectrometer()._image_advanced.horizontal_start
+            end = self.spectrometer()._image_advanced.horizontal_end
+            step = self.spectrometer()._image_advanced.horizontal_binning
+            channels = np.array([bin.mean() for bin in channels[start:end:step]])
+        return channels
 
     def set_up_scanner_clock(self, clock_frequency=None, clock_channel=None):
         """ Configures the hardware clock of the NiDAQ card to give the timing.
