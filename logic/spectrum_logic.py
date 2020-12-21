@@ -473,8 +473,6 @@ class SpectrumLogic(GenericLogic):
             input_port = PortType.INPUT_FRONT
         elif input_port == 'side':
             input_port = PortType.INPUT_SIDE
-        elif isinstance(input_port, PortType):
-            input_port = input_port.name
         elif isinstance(input_port, str) and input_port in PortType.__members__:
             input_port = PortType[input_port]
         if not np.any([input_port==port.type for port in self._input_ports]):
@@ -518,8 +516,6 @@ class SpectrumLogic(GenericLogic):
             output_port = PortType.OUTPUT_FRONT
         elif output_port == 'side':
             output_port = PortType.OUTPUT_SIDE
-        elif isinstance(output_port, PortType):
-            output_port = output_port.name
         elif isinstance(output_port, str) and output_port in PortType.__members__:
             output_port = PortType[output_port]
         if not np.any([output_port==port.type for port in self._output_ports]):

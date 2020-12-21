@@ -768,19 +768,23 @@ class Main(GUIBase):
             if self._spectrumlogic.acquisition_mode == "MULTI_SCAN":
                 if self._spectrumlogic.read_mode == "MULTIPLE_TRACKS":
                     self._spectrum_data = np.array([[x, track] for track in y])
+                    self._spectrum_tab.graph.clear()
                     for track in y[:-1]:
                         self._spectrum_tab.graph.plot(x, track)
                 else:
                     self._spectrum_data = np.array([x, y])
-                    self._spectrum_plot.setData(x, y[:-1])
+                    self._spectrum_tab.graph.clear()
+                    self._spectrum_tab.graph.plot(x, y[:-1])
             else:
                 if self._spectrumlogic.read_mode == "MULTIPLE_TRACKS":
                     self._spectrum_data = np.array([[x, track] for track in y])
+                    self._spectrum_tab.graph.clear()
                     for track in y:
                         self._spectrum_tab.graph.plot(x, track)
                 else:
                     self._spectrum_data = np.array([x, y])
-                    self._spectrum_plot.setData(x, y)
+                    self._spectrum_tab.graph.clear()
+                    self._spectrum_tab.graph.plot(x, y)
 
         if not self._spectrumlogic.module_state() == 'locked':
             self._spectrumlogic.sigUpdateData.disconnect()
