@@ -177,7 +177,6 @@ class SpectrumLogic(GenericLogic):
 
         self._sigStart.disconnect()
         self._sigCheckStatus.disconnect()
-        self.sigUpdateData.disconnect()
         self.sigUpdateSettings.disconnect()
 
     ##############################################################################
@@ -467,7 +466,7 @@ class SpectrumLogic(GenericLogic):
                            " until the acquisition is completely stopped ")
             return
         if len(self._input_ports) < 2:
-            self.log.error('Input port has no flipper mirror : this port can\'t be changed ')
+            self.log.warning('Input port has no flipper mirror : this port can\'t be changed ')
             return
         elif input_port == 'front':
             input_port = PortType.INPUT_FRONT
@@ -510,7 +509,7 @@ class SpectrumLogic(GenericLogic):
                            " until the acquisition is completely stopped ")
             return
         if len(self._output_ports) < 2:
-            self.log.error('Output port has no flipper mirror : this port can\'t be changed ')
+            self.log.warning('Output port has no flipper mirror : this port can\'t be changed ')
             return
         elif output_port == 'front':
             output_port = PortType.OUTPUT_FRONT
@@ -855,22 +854,29 @@ class SpectrumLogic(GenericLogic):
             self.log.error("Image area parameter must be a tuple or list of 4 elements like this [horizontal start, "
                            "horizontal end, vertical start, vertical end] ")
             return
+
         width = self.camera_constraints.width
         height = self.camera_constraints.height
-        if not (0 <= image_advanced_area[0] < image_advanced_area[1] < width):
-            self.log.error("Image area horizontal parameter are out of range : "
-                           "the limits are outside the camera dimensions in pixel or not sorted ")
-            return
-        if not (0 <= image_advanced_area[2] < image_advanced_area[3] < height):
-            self.log.error("Image area vertical parameter are out of range : "
-                           "the limits are outside the camera dimensions in pixel or not sorted")
-            return
+        if image_advanced_area[0] > image_advanced_area[1]:
+            image_advanced_area[0], image_advanced_area[1] = image_advanced_area[1], image_advanced_area[0]
+        if 0 > image_advanced_area[0]:
+            image_advanced_area[0] = 0
+        if image_advanced_area[1] < width:
+            image_advanced_area[1] = width
+        if image_advanced_area[2] > image_advanced_area[3]:
+            image_advanced_area[2], image_advanced_area[3] = image_advanced_area[3], image_advanced_area[2]
+        if 0 > image_advanced_area[2]:
+            image_advanced_area[2] = 0
+        if image_advanced_area[3] < height:
+            image_advanced_area[3] = height
+
         hbin = self._image_advanced.horizontal_binning
         vbin = self._image_advanced.vertical_binning
         if not (image_advanced_area[1]-image_advanced_area[0]+1) % hbin == 0:
             image_advanced_area[1] = (image_advanced_area[1] - image_advanced_area[0]+1) // hbin * hbin -1 + image_advanced_area[0]
         if not (image_advanced_area[3]-image_advanced_area[2]+1) % vbin == 0:
             image_advanced_area[3] = (image_advanced_area[3] - image_advanced_area[2]+1) // vbin * vbin -1 + image_advanced_area[2]
+
         self._image_advanced.horizontal_start = int(image_advanced_area[0])
         self._image_advanced.horizontal_end = int(image_advanced_area[1])
         self._image_advanced.vertical_start = int(image_advanced_area[2])
