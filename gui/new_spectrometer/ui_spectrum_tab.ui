@@ -22,17 +22,10 @@
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
     <layout class="QGridLayout" name="gridLayout_9">
-     <item row="0" column="0">
-      <layout class="QVBoxLayout" name="verticalLayout_9">
-       <item>
-        <widget class="PlotWidget" name="graph"/>
-       </item>
-      </layout>
-     </item>
      <item row="0" column="1">
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
-        <widget class="QGroupBox" name="settings">
+        <widget class="QGroupBox" name="spectrum_settings">
          <property name="maximumSize">
           <size>
            <width>300</width>
@@ -244,6 +237,13 @@
           </size>
          </property>
         </spacer>
+       </item>
+      </layout>
+     </item>
+     <item row="0" column="0">
+      <layout class="QVBoxLayout" name="verticalLayout_9">
+       <item>
+        <widget class="PlotWidget" name="graph"/>
        </item>
       </layout>
      </item>

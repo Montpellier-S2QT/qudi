@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>796</width>
+    <width>789</width>
     <height>459</height>
    </rect>
   </property>
@@ -21,90 +21,18 @@
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
-    <layout class="QGridLayout" name="gridLayout_8">
+    <layout class="QGridLayout" name="gridLayout_9">
      <item row="0" column="0">
-      <layout class="QVBoxLayout" name="verticalLayout_4">
+      <layout class="QVBoxLayout" name="verticalLayout_9">
        <item>
         <widget class="PlotWidget" name="graph"/>
-       </item>
-       <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_3">
-         <item>
-          <widget class="QPushButton" name="track1">
-           <property name="text">
-            <string>Track 1</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="track2">
-           <property name="text">
-            <string>Track 2</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="track3">
-           <property name="text">
-            <string>Track 3</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="track4">
-           <property name="text">
-            <string>Track 4</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="image_advanced">
-           <property name="text">
-            <string>Crop Image</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QSpinBox" name="horizontal_binning">
-           <property name="maximumSize">
-            <size>
-             <width>100</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="maximum">
-            <number>99</number>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QSpinBox" name="vertical_binning">
-           <property name="maximumSize">
-            <size>
-             <width>100</width>
-             <height>16777215</height>
-            </size>
-           </property>
-          </widget>
-         </item>
-        </layout>
        </item>
       </layout>
      </item>
      <item row="0" column="1">
-      <widget class="PlotWidget" name="colorbar">
-       <property name="maximumSize">
-        <size>
-         <width>100</width>
-         <height>16777215</height>
-        </size>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="2">
-      <layout class="QVBoxLayout" name="verticalLayout_6">
+      <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
-        <widget class="QGroupBox" name="image_settings">
+        <widget class="QGroupBox" name="spectrum_settings">
          <property name="maximumSize">
           <size>
            <width>300</width>
@@ -115,14 +43,14 @@
           <string notr="true"/>
          </property>
          <property name="title">
-          <string>Image Settings</string>
+          <string>Spectrum Settings</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignBottom|Qt::AlignHCenter</set>
          </property>
-         <layout class="QVBoxLayout" name="verticalLayout_5">
+         <layout class="QVBoxLayout" name="verticalLayout_15">
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_4">
+           <layout class="QHBoxLayout" name="read_modes_layout">
             <item>
              <widget class="QLabel" name="read_modes_label">
               <property name="text">
@@ -143,14 +71,14 @@
            </layout>
           </item>
           <item>
-           <widget class="Line" name="separator8">
+           <widget class="Line" name="separator11">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
             </property>
            </widget>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_5">
+           <layout class="QHBoxLayout" name="acquisition_mode_layout">
             <item>
              <widget class="QLabel" name="acquisition_modes_label">
               <property name="text">
@@ -171,7 +99,7 @@
            </layout>
           </item>
           <item>
-           <widget class="Line" name="separator9">
+           <widget class="Line" name="separator12">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
             </property>
@@ -189,7 +117,7 @@
            </layout>
           </item>
           <item>
-           <widget class="Line" name="separator10">
+           <widget class="Line" name="separator13">
             <property name="orientation">
              <enum>Qt::Horizontal</enum>
             </property>
@@ -217,7 +145,7 @@
            </layout>
           </item>
           <item>
-           <widget class="QLabel" name="dark_acquired_msg">
+           <widget class="QLabel" name="acquired_dark_msg">
             <property name="text">
              <string>No dark acquired</string>
             </property>
@@ -227,7 +155,7 @@
         </widget>
        </item>
        <item>
-        <spacer name="verticalSpacer_6">
+        <spacer name="verticalSpacer_10">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
          </property>
@@ -266,7 +194,7 @@
         </widget>
        </item>
        <item>
-        <spacer name="verticalSpacer_2">
+        <spacer name="verticalSpacer_3">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
          </property>
@@ -305,7 +233,7 @@
         </widget>
        </item>
        <item>
-        <spacer name="verticalSpacer_7">
+        <spacer name="verticalSpacer_9">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
          </property>

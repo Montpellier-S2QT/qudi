@@ -71,7 +71,7 @@
        <item>
         <layout class="QVBoxLayout" name="verticalLayout_13">
          <item>
-          <widget class="QGroupBox" name="counter_settings_2">
+          <widget class="QGroupBox" name="counter_settings">
            <property name="maximumSize">
             <size>
              <width>300</width>

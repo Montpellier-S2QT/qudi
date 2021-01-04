@@ -40,6 +40,7 @@ from qtpy import QtCore
 from qtpy import QtWidgets
 from qtpy import uic
 from gui.guiutils import ColorBar
+from gui.colordefs import ColorScaleInferno
 
 class MainWindow(QtWidgets.QMainWindow):
 
@@ -190,6 +191,8 @@ class Main(GUIBase):
         self._activate_image_tab()
         self._activate_alignement_tab()
         self._activate_spectrum_tab()
+        self._settings_window = [self._image_tab.image_settings, self._alignement_tab.counter_settings,
+                    self._spectrum_tab.spectrum_settings]
 
         self._manage_stop_acquisition()
 
@@ -240,6 +243,7 @@ class Main(GUIBase):
 
             if i<len(self._input_ports):
 
+                self._input_port_buttons[i].setText(self._input_ports[i].type.name[6:].lower())
                 self._input_port_buttons[i].setCheckable(True)
                 if self._input_ports[i].type.name == self._spectrumlogic.input_port:
                     self._input_port_buttons[i].setDown(True)
@@ -260,6 +264,7 @@ class Main(GUIBase):
 
             if i < len(self._output_ports):
 
+                self._output_port_buttons[i].setText(self._output_ports[i].type.name[7:].lower())
                 self._output_port_buttons[i].setCheckable(True)
                 if self._output_ports[i].type.name == self._spectrumlogic.output_port:
                     self._output_port_buttons[i].setDown(True)
@@ -324,6 +329,7 @@ class Main(GUIBase):
         if not self._spectrumlogic.camera_constraints.has_shutter:
             self._settings_tab.shutter_modes.setEnabled(False)
         else:
+            self._settings_tab.shutter_modes.setCurrentText(self._spectrumlogic.shutter_state)
             self._settings_tab.shutter_modes.currentTextChanged.connect(self.set_settings_params)
 
         self._update_temperature_timer = QtCore.QTimer()
@@ -335,7 +341,7 @@ class Main(GUIBase):
     def _activate_image_tab(self):
 
         for read_mode in self._spectrumlogic.camera_constraints.read_modes:
-            if read_mode.name[:5] == "IMAGE":
+            if read_mode.name[:6] == "IMAGE":
                 self._image_tab.read_modes.addItem(read_mode.name, read_mode.name)
                 if read_mode == self._image_read_mode:
                     self._image_tab.read_modes.setCurrentText(read_mode.name)
@@ -365,9 +371,12 @@ class Main(GUIBase):
         self._image_tab.stop_acquisition.clicked.connect(self.stop_acquisition)
         self._stop_acquisition_buttons.append(self._image_tab.stop_acquisition)
 
+        self.my_colors = ColorScaleInferno()
         self._image = pg.ImageItem(image=self._image_data, axisOrder='row-major')
         self._color_map = ColorScaleMagma()
+        self._xy_cb = ColorBar(self.my_colors.cmap_normed, width=100, cb_min=0, cb_max=100)
         self._image.setLookupTable(self._color_map.lut)
+        self._image_tab.colorbar.addItem(self._xy_cb)
         self._image_tab.graph.addItem(self._image)
 
         self.track_colors = ["#fc03032f", "#fcba032f", "#03fc392f", "#cc34eb2f"]
@@ -395,7 +404,8 @@ class Main(GUIBase):
 
         self._image_tab.horizontal_binning.setRange(1, self._spectrumlogic.camera_constraints.width-1)
         self._image_tab.vertical_binning.setRange(1, self._spectrumlogic.camera_constraints.height-1)
-        
+
+
         self._image_tab.horizontal_binning.editingFinished.connect(self.set_image_params)
         self._image_tab.vertical_binning.editingFinished.connect(self.set_image_params)
         self._image_tab.read_modes.currentTextChanged.connect(self.set_image_params)
@@ -440,7 +450,7 @@ class Main(GUIBase):
     def _activate_spectrum_tab(self):
 
         for read_mode in self._spectrumlogic.camera_constraints.read_modes:
-            if read_mode.name != "IMAGE":
+            if read_mode.name[:4] != "IMAGE":
                 self._spectrum_tab.read_modes.addItem(str(read_mode.name), read_mode.name)
                 if read_mode == self._spectrum_read_mode:
                     self._spectrum_tab.read_modes.setCurrentText(str(read_mode.name))
@@ -472,7 +482,6 @@ class Main(GUIBase):
 
         self._spectrum_tab.graph.setLabel('left', 'Photoluminescence', units='counts/s')
         self._spectrum_tab.graph.setLabel('bottom', 'wavelength', units='m')
-        self._spectrum_plot = self._spectrum_tab.graph.plot(self._spectrum_data[0], self._spectrum_data[1])
 
         self._spectrum_tab.read_modes.currentTextChanged.connect(self.set_spectrum_params)
         self._spectrum_tab.acquisition_modes.currentTextChanged.connect(self.set_spectrum_params)
@@ -580,10 +589,13 @@ class Main(GUIBase):
 
         if index==0:
             self.set_image_params()
+            self._image_tab.image_settings.setEnabled(False)
         elif index==1:
             self.set_alignement_params()
+            self._alignement_tab.counter_settings.setEnabled(False)
         elif index==2:
             self.set_spectrum_params()
+            self._spectrum_tab.spectrum_settings.setEnabled(False)
 
         self._spectrumlogic.start_acquisition()
 
@@ -632,7 +644,7 @@ class Main(GUIBase):
         if index<2:
             self._spectrumlogic.set_input_slit_width(self._input_slit_width[index].value(), self._input_ports[index].type)
         elif index>1:
-            self._spectrumlogic.set_output_slit_width(self._output_slit_width[index].value(), self._output_ports[index].type)
+            self._spectrumlogic.set_output_slit_width(self._output_slit_width[index-2].value(), self._output_ports[index-2].type)
 
     def _manage_cooler_button(self):
         cooler_on = not self._spectrumlogic.cooler_status
@@ -661,8 +673,7 @@ class Main(GUIBase):
         hbin = self._image_tab.horizontal_binning.value()
         vbin = self._image_tab.vertical_binning.value()
         self._spectrumlogic.image_advanced_binning = (hbin, vbin)
-        image_advanced = self._image_advanced_widget.getArraySlice(self._image_data, self._image,
-                                                                         returnSlice=False)[0]
+        image_advanced = self._image_advanced_widget.getArraySlice(self._image_data, self._image, returnSlice=False)[0]
         self._image_advanced = list(image_advanced[1])+list(image_advanced[0])
         self._spectrumlogic.image_advanced_area = self._image_advanced
 
@@ -688,6 +699,7 @@ class Main(GUIBase):
     def _manage_start_acquisition(self, index):
 
         for i in range(3):
+            self._settings_window[i].setEnabled(False)
             self._start_acquisition_buttons[i].setEnabled(False)
             if i == index:
                 self._stop_acquisition_buttons[i].setEnabled(True)
@@ -700,6 +712,7 @@ class Main(GUIBase):
     def _manage_stop_acquisition(self):
 
         for i in range(3):
+            self._settings_window[i].setEnabled(True)
             self._start_acquisition_buttons[i].setEnabled(True)
             self._stop_acquisition_buttons[i].setEnabled(False)
             if i<2:
