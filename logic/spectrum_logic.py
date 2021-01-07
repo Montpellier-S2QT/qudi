@@ -65,8 +65,8 @@ class SpectrumLogic(GenericLogic):
     _reverse_data_with_side_output = ConfigOption('reverse_data_with_side_output', False)
 
     # declare status variables (logic attribute) :
-    _acquired_data = StatusVar('wavelength_calibration', np.empty((2, 0)))
-    _wavelength_calibration = StatusVar('wavelength_calibration', 0)
+    _acquired_data = StatusVar('acquired_data', np.empty((2, 0)))
+    _wavelength_calibration = StatusVar('wavelength_calibration', np.zeros(3))
 
     # declare status variables (camera attribute) :
     _camera_gain = StatusVar('camera_gain', None)
@@ -419,7 +419,7 @@ class SpectrumLogic(GenericLogic):
 
         @return: (float) wavelength_calibration used for spectrum calibration
         """
-        return self._wavelength_calibration
+        return self._wavelength_calibration[self.grating_index]
 
     @wavelength_calibration.setter
     def wavelength_calibration(self, wavelength_calibration):
@@ -432,7 +432,7 @@ class SpectrumLogic(GenericLogic):
             self.log.error("Acquisition process is currently running : you can't change this parameter"
                            " until the acquisition is completely stopped ")
             return
-        self._wavelength_calibration = wavelength_calibration
+        self._wavelength_calibration[self.grating_index] = wavelength_calibration
         self.sigUpdateSettings.emit()
 
 

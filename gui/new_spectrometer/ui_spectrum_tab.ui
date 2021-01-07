@@ -22,6 +22,13 @@
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
     <layout class="QGridLayout" name="gridLayout_9">
+     <item row="0" column="0">
+      <layout class="QVBoxLayout" name="verticalLayout_9">
+       <item>
+        <widget class="PlotWidget" name="graph"/>
+       </item>
+      </layout>
+     </item>
      <item row="0" column="1">
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
@@ -46,6 +53,11 @@
            <layout class="QHBoxLayout" name="read_modes_layout">
             <item>
              <widget class="QLabel" name="read_modes_label">
+              <property name="font">
+               <font>
+                <pointsize>8</pointsize>
+               </font>
+              </property>
               <property name="text">
                <string>Read mode :</string>
               </property>
@@ -138,11 +150,73 @@
            </layout>
           </item>
           <item>
-           <widget class="QLabel" name="acquired_dark_msg">
+           <widget class="QLabel" name="dark_acquired_msg">
             <property name="text">
              <string>No dark acquired</string>
             </property>
            </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="multiple_scan_settings">
+         <property name="maximumSize">
+          <size>
+           <width>300</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="title">
+          <string>Multiple Scans Settings</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout">
+          <property name="topMargin">
+           <number>9</number>
+          </property>
+          <item>
+           <layout class="QHBoxLayout" name="scan_number">
+            <item>
+             <widget class="QLabel" name="scan_number_label">
+              <property name="text">
+               <string>Scans number</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSpinBox" name="scan_number_spin">
+              <property name="maximumSize">
+               <size>
+                <width>100</width>
+                <height>16777215</height>
+               </size>
+              </property>
+              <property name="suffix">
+               <string> scans</string>
+              </property>
+              <property name="minimum">
+               <number>1</number>
+              </property>
+              <property name="maximum">
+               <number>50</number>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <layout class="QHBoxLayout" name="scan_delay">
+            <item>
+             <widget class="QLabel" name="scan_delay_label">
+              <property name="text">
+               <string>Scans delay</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </item>
          </layout>
         </widget>
@@ -237,13 +311,6 @@
           </size>
          </property>
         </spacer>
-       </item>
-      </layout>
-     </item>
-     <item row="0" column="0">
-      <layout class="QVBoxLayout" name="verticalLayout_9">
-       <item>
-        <widget class="PlotWidget" name="graph"/>
        </item>
       </layout>
      </item>
