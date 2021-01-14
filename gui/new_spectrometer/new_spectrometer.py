@@ -377,6 +377,7 @@ class Main(GUIBase):
         self._image_tab.colorbar.addWidget(self._colorbar)
 
         self.track_colors = ["#fc03032f", "#fcba032f", "#03fc392f", "#cc34eb2f"]
+        self.plot_colors = [palette.c1, palette.c2, palette.c3, palette.c4]
         for i in range(4):
             self._track_buttons[i].setCheckable(True)
             self._track_buttons[i].clicked.connect(partial(self._manage_track_buttons, i))
@@ -764,6 +765,7 @@ class Main(GUIBase):
                 width = self._spectrumlogic.camera_constraints.width
                 height = self._spectrumlogic.camera_constraints.height
                 self._image.setRect(QtCore.QRect(0,0,width,height))
+            self._image.setImage(self._image_data)
 
         elif index == 1:
 
@@ -788,20 +790,20 @@ class Main(GUIBase):
                 if self._spectrumlogic.read_mode == "MULTIPLE_TRACKS":
                     i = 0
                     for track in y[-1]:
-                        self._spectrum_tab.graph.plot(x, track, pen=self.track_colors[i])
+                        self._spectrum_tab.graph.plot(x, track, pen=self.plot_colors[i])
                         i += 1
                 else:
-                    self._spectrum_tab.graph.plot(x, y[-1], pen=self.track_colors[0])
+                    self._spectrum_tab.graph.plot(x, y[-1], pen=self.plot_colors[0])
             else:
                 self._spectrum_data = np.array([x, y])
                 self._spectrum_tab.graph.clear()
                 if self._spectrumlogic.read_mode == "MULTIPLE_TRACKS":
                     i = 0
                     for track in y:
-                        self._spectrum_tab.graph.plot(x, track, pen=self.track_colors[i])
+                        self._spectrum_tab.graph.plot(x, track, pen=self.plot_colors[i])
                         i += 1
                 else:
-                    self._spectrum_tab.graph.plot(x, y, pen=self.track_colors[0])
+                    self._spectrum_tab.graph.plot(x, y, pen=self.plot_colors[0])
 
         if not self._spectrumlogic.module_state() == 'locked':
             self._spectrumlogic.sigUpdateData.disconnect()

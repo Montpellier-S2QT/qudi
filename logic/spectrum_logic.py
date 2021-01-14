@@ -309,7 +309,7 @@ class SpectrumLogic(GenericLogic):
         filepath = self.savelogic().get_path_for_module(module_name='spectrum_logic')
 
         if self.acquisition_params['read_mode'] == 'IMAGE_ADVANCED':
-            data = {'data' : self._acquired_data.flatten()}
+            data = {'data' : np.array(self._acquired_data).flatten()}
         else:
             data = {'wavelength (m)' : self.wavelength_spectrum, 'data' : self._acquired_data.flatten()}
 
