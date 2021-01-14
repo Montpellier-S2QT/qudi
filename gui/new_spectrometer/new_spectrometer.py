@@ -764,6 +764,7 @@ class Main(GUIBase):
                 width = self._spectrumlogic.camera_constraints.width
                 height = self._spectrumlogic.camera_constraints.height
                 self._image.setRect(QtCore.QRect(0,0,width,height))
+            self._image.setImage(self._image_data)
 
         elif index == 1:
 
