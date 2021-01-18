@@ -192,8 +192,9 @@ class SpectrumLogic(GenericLogic):
         if self.module_state() == 'locked':
             self.log.error("Module acquisition is still running, module state is currently locked.")
         self.start_acquisition()
+        time.sleep(self._exposure_time)
         while self.module_state() != 'idle':
-            time.sleep(self._exposure_time)
+            time.sleep(0.1)
         return self.acquired_data
 
     def start_acquisition(self):
