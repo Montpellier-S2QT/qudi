@@ -299,6 +299,7 @@ class ConfocalLogic(GenericLogic):
         self.depth_scan_dir_is_xz = True
         self.depth_img_is_xz = True
         self.permanent_scan = False
+        self.autosave = False
 
     def on_activate(self):
         """ Initialisation performed during activation of the module.
@@ -851,6 +852,12 @@ class ConfocalLogic(GenericLogic):
             self.log.exception('The scan went wrong, killing the scanner.')
             self.stop_scanning()
             self.signal_scan_lines_next.emit()
+
+        if self.autosave:
+            histindex = 0
+            for state in reversed(self.history):
+                self._statusVariables['history_{0}'.format(histindex)] = state.serialize()
+                histindex += 1
 
     def save_xy_data(self, colorscale_range=None, percentile_range=None, block=True):
         """ Save the current confocal xy data to file.
