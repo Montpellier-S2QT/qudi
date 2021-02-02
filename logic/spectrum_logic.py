@@ -308,11 +308,13 @@ class SpectrumLogic(GenericLogic):
     def save_acquired_data(self):
 
         filepath = self.savelogic().get_path_for_module(module_name='spectrum_logic')
+        data = self._acquired_data.flatten()/self._acquisition_params['exposure_time (s)']
 
         if self.acquisition_params['read_mode'] == 'IMAGE_ADVANCED':
-            data = {'data' : np.array(self._acquired_data).flatten()}
+            data = {'data' : np.array(self._acquired_data).flatten()/self._acquisition_params['exposure_time (s)']}
         else:
-            data = {'wavelength (m)' : self.wavelength_spectrum, 'data' : self._acquired_data.flatten()}
+            data = {'wavelength (m)' : self.wavelength_spectrum,
+                    'data' : self._acquired_data.flatten()/self._acquisition_params['exposure_time (s)']}
 
         self.savelogic().save_data(data, filepath=filepath, parameters=self.acquisition_params)
 
