@@ -77,6 +77,8 @@ class SpectrumLogic(GenericLogic):
     _acquisition_mode = StatusVar('acquisition_mode', 'SINGLE_SCAN')
     _temperature_setpoint = StatusVar('temperature_setpoint', None)
     _shutter_state = StatusVar('shutter_state', "AUTO")
+    _active_tracks = StatusVar('active_tracks', [])
+    _image_advanced = StatusVar('image_advanced', None)
 
     # cosmic rejection coeff :
     _coeff_rej_cosmic = StatusVar('coeff_cosmic_rejection', 2.2)
@@ -113,11 +115,9 @@ class SpectrumLogic(GenericLogic):
         self._output_slit_width = None
         self._read_mode = None
         self._trigger_mode = None
-        self._image_advanced = None
         self._loop_counter = None
         self._loop_timer = None
         self._acquisition_params = None
-        self._active_tracks = None
 
     def on_activate(self):
         """ Initialisation performed during activation of the module. """
@@ -156,7 +156,13 @@ class SpectrumLogic(GenericLogic):
             else:
                 self.temperature_setpoint = self.camera().get_temperature_setpoint()
 
-        self._image_advanced = self.camera().get_image_advanced_parameters()
+        if self._image_advanced:
+            self.camera().set_image_advanced_parameters(self._image_advanced)
+        else:
+            self._image_advanced = self.camera().get_image_advanced_parameters()
+
+        if self._active_tracks != []:
+            self.camera().set_active_tracks(self.active_tracks)
 
         # QTimer for asynchronous execution :
         self._loop_counter = 0
@@ -398,7 +404,10 @@ class SpectrumLogic(GenericLogic):
                            .format(0, wavelength_max))
             return
         self.spectrometer().set_wavelength(wavelength)
-        self._center_wavelength = self.spectrometer().get_wavelength() + self.wavelength_calibration
+        if wavelength == 0:
+            self._center_wavelength = self.spectrometer().get_wavelength()
+        else:
+            self._center_wavelength = self.spectrometer().get_wavelength() + self.wavelength_calibration
         self.sigUpdateSettings.emit()
 
     @property
@@ -412,8 +421,11 @@ class SpectrumLogic(GenericLogic):
         SI check : yes
         """
         image_width = self.camera_constraints.width
-        pixel_width = self.camera_constraints.pixel_size_width
-        return self.spectrometer().get_spectrometer_dispersion(image_width, pixel_width) + self.wavelength_calibration
+        if self._center_wavelength == 0:
+            return np.arange(0, image_width)
+        else:
+            pixel_width = self.camera_constraints.pixel_size_width
+            return self.spectrometer().get_spectrometer_dispersion(image_width, pixel_width) + self.wavelength_calibration
 
     @property
     def wavelength_calibration(self):
@@ -811,7 +823,7 @@ class SpectrumLogic(GenericLogic):
             return
         if not len(active_tracks)%2 == 0:
             active_tracks = np.append(active_tracks, image_height-1)
-        active_tracks = [(active_tracks[i], active_tracks[i+1]) for i in range(0, len(active_tracks)-1, 2)]
+        active_tracks = [(active_tracks[i], active_tracks[i+1]) for i in range(0, len(active_tracks), 2)]
         self.camera().set_active_tracks(active_tracks)
         self._active_tracks = self.camera().get_active_tracks()
 
@@ -864,14 +876,14 @@ class SpectrumLogic(GenericLogic):
             image_advanced_area[0], image_advanced_area[1] = image_advanced_area[1], image_advanced_area[0]
         if 0 > image_advanced_area[0]:
             image_advanced_area[0] = 0
-        if image_advanced_area[1] < width:
-            image_advanced_area[1] = width
+        if image_advanced_area[1] > width:
+            image_advanced_area[1] = width-1
         if image_advanced_area[2] > image_advanced_area[3]:
             image_advanced_area[2], image_advanced_area[3] = image_advanced_area[3], image_advanced_area[2]
         if 0 > image_advanced_area[2]:
             image_advanced_area[2] = 0
-        if image_advanced_area[3] < height:
-            image_advanced_area[3] = height
+        if image_advanced_area[3] > height:
+            image_advanced_area[3] = height-1
 
         hbin = self._image_advanced.horizontal_binning
         vbin = self._image_advanced.vertical_binning
