@@ -728,7 +728,7 @@ class Main(GUIBase):
         vbin = self._image_tab.vertical_binning.value()
         image_binning = list((hbin, vbin))
         if list(self._spectrumlogic.image_advanced_binning.values()) != image_binning:
-            self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
+            self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
             self._spectrumlogic.image_advanced_binning = image_binning
 
         image_advanced = self._image_advanced_widget.getArraySlice(self._image_data, self._image, returnSlice=False)[0]
@@ -741,7 +741,7 @@ class Main(GUIBase):
         else:
             image_advanced = list(image_advanced[1]) + list(image_advanced[0])
         if list(self._spectrumlogic.image_advanced_area.values()) != image_advanced:
-            self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
+            self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
             self._spectrumlogic.image_advanced_area = image_advanced
 
     def _manage_track_buttons(self, index):
@@ -809,7 +809,7 @@ class Main(GUIBase):
 
     def _update_data(self, index):
 
-        data = np.array(self._spectrumlogic.acquired_data)
+        data = self._spectrumlogic.acquired_data
 
         if index == 0:
             if self._image_dark.shape == data.shape:
@@ -839,7 +839,7 @@ class Main(GUIBase):
         elif index == 2:
 
             x = self._spectrumlogic.wavelength_spectrum
-            if self._spectrum_dark.shape == data.shape:
+            if self._spectrum_dark.shape[-1] == data.shape[-1]:
                 y = data - self._spectrum_dark
             else:
                 y = data
@@ -848,13 +848,26 @@ class Main(GUIBase):
             if self._spectrumlogic.acquisition_mode == "MULTI_SCAN":
                 self._spectrum_data = np.array([[x, scan] for scan in y])
                 self._spectrum_tab.graph.clear()
+
                 if self._spectrumlogic.read_mode == "MULTIPLE_TRACKS":
+                    tracks = y[-1]
+                    if self._spectrumlogic.number_of_scan == y.shape[0]:
+                        if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Average":
+                            tracks = np.mean(y.transpose(0,2,1), axis=0).T
+                        if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Median":
+                            tracks = np.median(y.transpose(0,2,1), axis=0).T
                     i = 0
-                    for track in y[-1]:
+                    for track in tracks:
                         self._spectrum_tab.graph.plot(x, track, pen=self.track_colors[i])
                         i += 1
                 else:
-                    self._spectrum_tab.graph.plot(x, y[-1], pen=self.track_colors[0])
+                    tracks = y[-1]
+                    if self._spectrumlogic.number_of_scan == y.shape[0]:
+                        if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Average":
+                            tracks = np.mean(y, axis=0)
+                        if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Median":
+                            tracks = np.median(y, axis=0)
+                    self._spectrum_tab.graph.plot(x, tracks, pen=self.track_colors[0])
             else:
                 self._spectrum_data = np.array([x, y])
                 self._spectrum_tab.graph.clear()
@@ -872,7 +885,7 @@ class Main(GUIBase):
 
     def _update_dark(self, index):
 
-        dark = np.array(self._spectrumlogic.acquired_data)
+        dark = self._spectrumlogic.acquired_data
 
         if index == 0:
             self._image_dark = dark

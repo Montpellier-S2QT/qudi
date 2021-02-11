@@ -286,7 +286,7 @@ class SpectrumLogic(GenericLogic):
     @property
     def acquired_data(self):
         """ Getter method returning the last acquired data. """
-        return self._acquired_data
+        return np.array(self._acquired_data)
 
     @property
     def acquisition_params(self):
