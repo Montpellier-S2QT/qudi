@@ -155,7 +155,7 @@
           <item>
            <widget class="QLabel" name="dark_acquired_msg">
             <property name="text">
-             <string>Scans number</string>
+             <string>No dark acquired</string>
             </property>
            </widget>
           </item>
@@ -189,10 +189,6 @@
             <string>Multiple Scans</string>
            </property>
           </item>
-         </layout>
-        </item>
-        <item>
-         <layout class="QHBoxLayout" name="scan_delay">
           <item>
            <property name="text">
             <string>Scan Median</string>
