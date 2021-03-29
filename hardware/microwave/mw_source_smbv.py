@@ -108,7 +108,7 @@ class MicrowaveSmbv(Base, MicrowaveInterface):
         limits.max_power = 30
 
         limits.min_frequency = 9e3
-        limits.max_frequency = 6e9
+        limits.max_frequency = 30e9
 
         if self.model == 'SMB100A':
             limits.max_frequency = 3.2e9
