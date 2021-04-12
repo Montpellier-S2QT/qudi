@@ -40,6 +40,8 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
         self._count_data = None
         self._pointer = None
 
+        self.automation = None
+
     def on_activate(self):
         """ Initialisation performed during activation of the module. """
         self._count_data = None
@@ -124,6 +126,16 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
         """
         return self.scanner().get_scanner_position()
 
+    def set_automation(self, automation):
+        """ Set an automation function
+
+        @param func automation : function taking in argument the scanning index and position and returning
+        a ndarray of data.
+
+        """
+
+        self.automation = automation
+
     def scan_line(self, line_path=None, pixel_clock=False):
         """ Scans a line and returns the counts on that line.
 
@@ -137,12 +149,12 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
         for i, position in enumerate(line_path):
             self._pointer = i
             self.scanner().scanner_set_position(*position)
-            data = self.spectrometer().take_acquisition()
-            if len(data) == 1:
-                data = data[0]
-            if data is not None:
-                self._count_data[i] = data
+            if self.automation:
+                data = self.automation(i, position)
             else:
+                data = self.spectrometer().take_acquisition()
+            self._count_data[i] = data.flatten()
+            if not data:
                 self.error('Error while taking spectrum. Stopping line')
                 break
         return self._count_data
