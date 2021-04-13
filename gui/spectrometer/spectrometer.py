@@ -516,7 +516,8 @@ class Main(GUIBase):
             self._mw.cooler_on_label.setText("Cooler {}".format("ON" if cooler_on else "OFF"))
 
         if self.spectrumlogic().camera_constraints.has_shutter:
-            self._settings_tab.shutter_modes.setCurrentText(self.spectrumlogic()._shutter_state)
+            pass
+            #self._settings_tab.shutter_modes.setCurrentText(self.spectrumlogic()._shutter_state)
 
         self._mw.center_wavelength_current.setText("{:.2r}m".format(ScaledFloat(self.spectrumlogic()._center_wavelength)))
 

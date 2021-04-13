@@ -82,6 +82,11 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
         Most methods calling this might just care about the number of channels.
         """
         channels = self.spectrometer().wavelength_spectrum
+        if self.spectrometer().read_mode == "MULTIPLE_TRACKS":
+            channels = []
+            for i in range(int(self.spectrometer().active_tracks.size/2)):
+                for wl in self.spectrometer().wavelength_spectrum:
+                    channels.append("{}nm - {}".format(wl*1e9, i))
         if self.spectrometer().read_mode == "IMAGE_ADVANCED":
             start = self.spectrometer()._image_advanced.horizontal_start
             end = self.spectrometer()._image_advanced.horizontal_end
