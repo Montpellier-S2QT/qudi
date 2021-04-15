@@ -32,7 +32,7 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
     """ This interfuse merge scanner and spectrometer logics to do SPIM via usual confocal logic """
 
     scanner = Connector(interface='ConfocalScannerInterface')
-    spectrometer = Connector(interface='SpectrumLogic')
+    counter = Connector(interface='SlowCounterInterface')
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -40,7 +40,8 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
         self._count_data = None
         self._pointer = None
 
-        self.automation = None
+        self.scan_point_function = None
+        self.scan_point_channels = None
 
     def on_activate(self):
         """ Initialisation performed during activation of the module. """
@@ -81,18 +82,10 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
 
         Most methods calling this might just care about the number of channels.
         """
-        channels = self.spectrometer().wavelength_spectrum
-        if self.spectrometer().read_mode == "MULTIPLE_TRACKS":
-            channels = []
-            for i in range(int(self.spectrometer().active_tracks.size/2)):
-                for wl in self.spectrometer().wavelength_spectrum:
-                    channels.append("{}nm - {}".format(wl*1e9, i))
-        if self.spectrometer().read_mode == "IMAGE_ADVANCED":
-            start = self.spectrometer()._image_advanced.horizontal_start
-            end = self.spectrometer()._image_advanced.horizontal_end
-            step = self.spectrometer()._image_advanced.horizontal_binning
-            channels = np.array([bin.mean() for bin in channels[start:end:step]])
-        return channels
+        if self.scan_point_channels:
+            return self.scan_point_channels()
+        else:
+            return self.scanner().get_scanner_count_channels()
 
     def set_up_scanner_clock(self, clock_frequency=None, clock_channel=None):
         """ Configures the hardware clock of the NiDAQ card to give the timing.
@@ -131,15 +124,18 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
         """
         return self.scanner().get_scanner_position()
 
-    def set_automation(self, automation):
-        """ Set an automation function
+    def set_scan_point_function(self, scan_point_function=None, scan_point_channels=None):
+        """ Set the function to use at each point of the scan and the function giving the related channels name.
 
-        @param func automation : function taking in argument the scanning index and position and returning
-        a ndarray of data.
+        @param (function) scan_point_function : function taking in argument the scanning index and position and returning
+         a ndarray of acquired data.
+        @param (function) scan_point_channels : function returning a list of channels with the same length than the array
+        returned by scan_point_function.
 
         """
 
-        self.automation = automation
+        self.scan_point_function = scan_point_function
+        self.scan_point_channels = scan_point_channels
 
     def scan_line(self, line_path=None, pixel_clock=False):
         """ Scans a line and returns the counts on that line.
@@ -154,10 +150,10 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
         for i, position in enumerate(line_path):
             self._pointer = i
             self.scanner().scanner_set_position(*position)
-            if self.automation:
-                data = self.automation(i, position)
+            if self.scan_point_function:
+                data = self.scan_point_function(point_index=i, point_position=position)
             else:
-                data = self.spectrometer().take_acquisition()
+                data = self.counter().get_counter()
             self._count_data[i] = data.flatten()
             if not data:
                 self.error('Error while taking spectrum. Stopping line')
