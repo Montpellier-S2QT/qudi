@@ -155,9 +155,6 @@ class SpectrometerScannerInterfuse(Base, ConfocalScannerInterface):
             else:
                 data = self.counter().get_counter()
             self._count_data[i] = data.flatten()
-            if not data:
-                self.error('Error while taking spectrum. Stopping line')
-                break
         return self._count_data
 
     def close_scanner(self):
