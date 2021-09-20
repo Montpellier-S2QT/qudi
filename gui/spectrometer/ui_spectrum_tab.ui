@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>789</width>
-    <height>567</height>
+    <height>617</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -237,6 +237,17 @@
            <widget class="QLabel" name="scan_delay_label">
             <property name="text">
              <string>Scans delay</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="scan_wavelength_step">
+          <item>
+           <widget class="QLabel" name="scan_wavelength_step_label">
+            <property name="text">
+             <string>Scans step</string>
             </property>
            </widget>
           </item>

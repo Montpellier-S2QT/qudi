@@ -71,6 +71,7 @@ class SpectrumLogic(GenericLogic):
     _readout_speed = StatusVar('readout_speed', None)
     _exposure_time = StatusVar('exposure_time', None)
     _scan_delay = StatusVar('scan_delay', 0)
+    _scan_wavelength_step = StatusVar('scan_wavelength_step', 0)
     _number_of_scan = StatusVar('number_of_scan', 1)
     _acquisition_mode = StatusVar('acquisition_mode', 'SINGLE_SCAN')
     _temperature_setpoint = StatusVar('temperature_setpoint', None)
@@ -270,6 +271,7 @@ class SpectrumLogic(GenericLogic):
                 self.module_state.unlock()
                 self.log.debug("Acquisition finished : module state is 'idle' ")
             else:
+                self._center_wavelength = self._center_wavelength + self.scan_wavelength_step
                 self._loop_timer.start(self.scan_delay*1000)
                 return
 
@@ -310,8 +312,8 @@ class SpectrumLogic(GenericLogic):
         self._acquisition_params['slit_width (m)'] = self._input_slit_width, self._output_slit_width
         self._acquisition_params['wavelength_calibration (m)'] = self.wavelength_calibration
 
-        """ Getter method returning the last acquisition parameters. """
     def save_acquired_data(self):
+        """ Getter method returning the last acquisition parameters. """
 
         filepath = self.savelogic().get_path_for_module(module_name='spectrum')
         data = self._acquired_data.flatten()/self._acquisition_params['exposure_time (s)']
@@ -990,6 +992,39 @@ class SpectrumLogic(GenericLogic):
         if scan_delay == self._scan_delay:
             return
         self._scan_delay = scan_delay
+
+    @property
+    def scan_wavelength_step(self):
+        """Getter method returning the scan wavelength step between consecutive scan during multiple acquisition mode.
+
+        @return: (float) scan wavelength step in meter
+
+        """
+        return self._scan_wavelength_step
+
+    @scan_delay.setter
+    def scan_wavelength_step(self, scan_wavelength_step):
+        """Setter method setting the scan wavelength step between consecutive scan during multiple acquisition mode.
+
+        @param scan_delay: (float) scan wavelength step in meter
+
+        """
+        if self.module_state() == 'locked':
+            self.log.error("Acquisition process is currently running : you can't change this parameter"
+                           " until the acquisition is completely stopped ")
+            return
+        scan_wavelength_step = float(scan_wavelength_step)
+        if not scan_wavelength_step >= 0:
+            self.log.error("Scan delay parameter must be a positive number ")
+            return
+        wavelength_max = self.spectro_constraints.gratings[self.grating].wavelength_max
+        if not scan_wavelength_step < wavelength_max:
+            self.log.error('Scan wavelength step parameter is not correct : it must be in range {} to {} '
+                           .format(0, wavelength_max))
+            return
+        if scan_wavelength_step == self._scan_wavelength_step:
+            return
+        self._scan_wavelength_step = scan_wavelength_step
 
     @property
     def number_of_scan(self):

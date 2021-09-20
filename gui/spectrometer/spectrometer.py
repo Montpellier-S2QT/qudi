@@ -464,6 +464,12 @@ class Main(GUIBase):
         self._spectrum_scan_delay_widget.setSuffix('s')
         self._spectrum_tab.scan_delay.addWidget(self._spectrum_scan_delay_widget)
 
+        self._spectrum_scan_wavelength_step_widget = ScienDSpinBox()
+        self._spectrum_scan_wavelength_step_widget.setMinimum(0)
+        self._spectrum_scan_wavelength_step_widget.setValue(self.spectrumlogic().scan_wavelength_step)
+        self._spectrum_scan_wavelength_step_widget.setSuffix('m')
+        self._spectrum_tab.scan_wavelength_step.addWidget(self._spectrum_scan_wavelength_step_widget)
+
         self._spectrum_tab.scan_number_spin.setValue(self.spectrumlogic().number_of_scan)
 
         self._spectrum_tab.save.clicked.connect(partial(self.save_data, 1))
