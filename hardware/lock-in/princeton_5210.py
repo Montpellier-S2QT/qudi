@@ -22,41 +22,67 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 """
 from enum import Enum
 import numpy as np
-import ctypes as ct
+import pyvisa
 
 from core.module import Base
 from core.configoption import ConfigOption
 
-from interface.lockin_interface import ScienceCameraInterface
+from interface.lockin_interface import ScienceCameraInterface, ReadMode
 
 class Princeton(Base, ScienceCameraInterface):
 
+    _port = ConfigOption("port", "ASRL4::INSTR")
+
     def on_activate(self):
-        pass
+        rm = pyvisa.ResourceManager()
+        self._device = rm.open_resource(self._port)
+        self._device.baudrate = 19200
+        self._device.data_bits = 7
+        self._device.parity = 0
 
     def on_deactivate(self):
         pass
-    
+
+    ##############################################################################
+    #                                     Constraints functions
+    ##############################################################################
+    def _build_constraints(self):
+        """ Internal method that build the constraints once at initialisation
+
+         This makes multiple call to the DLL, so it will be called only once by on_activate
+         """
+        constraints = Constraints()
+        constraints.name = self._get_name()
+        constraints.width, constraints.height = self._get_image_size()
+        constraints.pixel_size_width, constraints.pixel_size_height = self._get_pixel_size()
+        constraints.internal_gains = 1
+        constraints.readout_speeds = 1
+        constraints.trigger_modes = 'INTERNAL'
+        constraints.has_shutter = False
+        constraints.read_modes = ReadMode.FVB
+        constraints.has_cooler = False  # All Andor camera have one
+        constraints.temperature.min, constraints.temperature.max = [298.15, 298.15]
+        constraints.temperature.step = 1  # Andor cameras use integer for control
+
+        return constraints
+
     def get_constraints(self):
         """ Returns all the fixed parameters of the hardware which can be used by the logic.
 
         @return (Constraints): An object of class Constraints containing all fixed parameters of the hardware
         """
-        pass
+        return self._constraints
 
     ##############################################################################
-    #                           Basic functions
+    #                                     Basic functions
     ##############################################################################
-
     def start_acquisition(self):
-        """ Starts an acquisition of the current mode and returns immediately """
+        """ Starts the acquisition """
         pass
-
 
     def abort_acquisition(self):
-        """ Abort acquisition """
+        """ Aborts the acquisition """
         pass
-
 
     def get_ready_state(self):
         """ Get the status of the camera, to know if the acquisition is finished or still ongoing.
@@ -65,192 +91,144 @@ class Princeton(Base, ScienceCameraInterface):
 
         As there is no synchronous acquisition in the interface, the logic needs a way to check the acquisition state.
         """
-        pass
-
+        return True
 
     def get_acquired_data(self):
         """ Return an array of last acquired data.
 
-        @return: Data in the format depending on the read mode.
+               @return: Data in the format depending on the read mode.
 
-        Depending on the read mode, the format is :
-        'FVB' : 1d array
-        'MULTIPLE_TRACKS' : list of 1d arrays
-        'IMAGE' 2d array of shape (width, height)
-        'IMAGE_ADVANCED' 2d array of shape (width, height)
+               Depending on the read mode, the format is :
+               'FVB' : 1d array
+               'MULTIPLE_TRACKS' : list of 1d arrays
+               'IMAGE' 2d array of shape (width, height)
+               'IMAGE_ADVANCED' 2d array of shape (width, height)
 
-        Each value might be a float or an integer.
-        """
-        pass
+               Each value might be a float or an integer.
+               """
+        return self._device.query('M')
 
     ##############################################################################
     #                           Read mode functions
     ##############################################################################
-
     def get_read_mode(self):
         """ Getter method returning the current read mode used by the camera.
 
         @return (ReadMode): Current read mode
         """
-        pass
-
+        return ReadMode.FVB
 
     def set_read_mode(self, value):
         """ Setter method setting the read mode used by the camera.
 
-        @param (ReadMode) value: read mode to set
-        """
+         @param (ReadMode) value: read mode to set
+         """
         pass
-
-    ##############################################################################
-    #                           Readout speed functions
-    ##############################################################################
 
     def get_readout_speed(self):
-        """ Get the current readout speed of the camera
+        """  Get the current readout speed (in Hz)
 
-        This value is one of the possible values given by constraints
+        @return (float): the readout_speed (Horizontal shift) in Hz
         """
-        pass
-
+        return 1
 
     def set_readout_speed(self, value):
-        """ Set the readout speed of the camera
+        """ Set the readout speed (in Hz)
 
-        @param (float) value: Readout speed to set, must be a value from the constraints readout_speeds list
+        @param (float) value: horizontal readout speed in Hz
         """
         pass
-
-    ##############################################################################
-    #                           Active tracks functions
-    #
-    # Method used only for read mode MULTIPLE_TRACKS
-    ##############################################################################
 
     def get_active_tracks(self):
         """ Getter method returning the read mode tracks parameters of the camera.
 
         @return (list):  active tracks positions [(start_1, end_1), (start_2, end_2), ... ]
-
-        Should only be used while in MULTIPLE_TRACKS mode
         """
-        pass
-
+        return []
 
     def set_active_tracks(self, value):
         """ Setter method for the active tracks of the camera.
 
-        @param (list) value: active tracks positions  as [(start_1, end_1), (start_2, end_2), ... ]
-
-        Some camera can sum the signal over tracks of pixels (all width times a height given by start and stop pixels)
-        This sum is done internally before the analog to digital converter to reduce the signal noise.
-
-        Should only be used while in MULTIPLE_TRACKS mode
+        @param (ndarray) value: active tracks positions  as [start_1, end_1, start_2, end_2, ... ]
         """
         pass
-
-    ##############################################################################
-    #                           Image advanced functions
-    #
-    # Method used only for read mode IMAGE_ADVANCED
-    ##############################################################################
 
     def get_image_advanced_parameters(self):
         """ Getter method returning the image parameters of the camera.
 
         @return (ImageAdvancedParameters): Current image advanced parameters
 
-        Should only be used while in IMAGE_ADVANCED mode
+        Can be used in any mode
         """
-        pass
-
+        return 
 
     def set_image_advanced_parameters(self, value):
         """ Setter method setting the read mode image parameters of the camera.
 
         @param (ImageAdvancedParameters) value: Parameters to set
 
-        Should only be used while in IMAGE_ADVANCED mode
+        Can be used in any mode
         """
         pass
 
     ##############################################################################
-    #                           Gain mode functions
+    #                           Acquisition mode functions
     ##############################################################################
+
+    def get_exposure_time(self):
+        """ Get the exposure time in seconds
+
+        @return (float) : exposure time in s
+        """
+        return 1
+
+    def set_exposure_time(self, value):
+        """ Set the exposure time in seconds
+
+        @param (float) value: desired new exposure time
+        """
+        pass
 
     def get_gain(self):
-        """ Get the current gain.
+        """ Get the gain
 
-        @return (float): Current gain
-
-        Gain value should be one in the constraints internal_gains list.
+        @return (float): exposure gain
         """
-        pass
-
+        return 1
 
     def set_gain(self, value):
-        """ Set the gain.
+        """ Set the gain
 
         @param (float) value: New gain, value should be one in the constraints internal_gains list.
         """
         pass
 
     ##############################################################################
-    #                           Exposure functions
-    ##############################################################################
-
-    def get_exposure_time(self):
-        """ Get the exposure time in seconds
-
-        @return: (float) exposure time
-        """
-        pass
-
-
-    def set_exposure_time(self, value):
-        """ Set the exposure time in seconds.
-
-        @param value: (float) desired new exposure time
-
-        @return: nothing
-        """
-        pass
-
-    ##############################################################################
     #                           Trigger mode functions
     ##############################################################################
-
-
     def get_trigger_mode(self):
         """ Getter method returning the current trigger mode used by the camera.
 
-        @return (str): Trigger mode
-
-        This string should match one in the constraints trigger_modes list.
+        @return (str): current trigger mode
         """
-        pass
-
+        return 'Internal'
 
     def set_trigger_mode(self, value):
         """ Setter method for the trigger mode used by the camera.
 
-        @param (str) value: trigger mode, should match one in the constraints trigger_modes list.
+        @param (str) value: trigger mode (must be compared to a dict)
         """
         pass
-
+    
     ##############################################################################
-    #                        Shutter mode function
-    #
-    # Method used only if constraints.has_shutter
+    #                           Shutter mode functions
     ##############################################################################
-
     def get_shutter_state(self):
         """ Getter method returning the shutter state.
 
         @return (ShutterState): The current shutter state
         """
-        pass
-
+        return 'OPEN'
 
     def set_shutter_state(self, value):
         """ Setter method setting the shutter state.
@@ -261,17 +239,13 @@ class Princeton(Base, ScienceCameraInterface):
 
     ##############################################################################
     #                           Temperature functions
-    #
-    # Method used only if constraints.has_cooler
     ##############################################################################
-
     def get_cooler_on(self):
         """ Getter method returning the cooler status
 
         @return (bool): True if the cooler is on
         """
-        pass
-
+        return False  # No getter in the DLL
 
     def set_cooler_on(self, value):
         """ Setter method for the the cooler status
@@ -281,23 +255,22 @@ class Princeton(Base, ScienceCameraInterface):
         pass
 
     def get_temperature(self):
-        """ Getter method returning the temperature of the camera in Kelvin.
+        """ Getter method returning the temperature of the camera.
 
-        @return (float) : Measured temperature in kelvin
+        @return (float): temperature (in Kelvin)
         """
-        pass
+        return 298.15
 
     def get_temperature_setpoint(self):
         """ Getter method for the temperature setpoint of the camera.
 
         @return (float): Current setpoint in Kelvin
         """
-        self.log.info("The p")
-        return 273.15
+        return 298.15
 
     def set_temperature_setpoint(self, value):
-        """ Setter method for the temperature setpoint of the camera.
+        """ Setter method for the the temperature setpoint of the camera.
 
         @param (float) value: New setpoint in Kelvin
         """
-        return
+        pass
