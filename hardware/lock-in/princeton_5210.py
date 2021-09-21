@@ -23,11 +23,12 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 from enum import Enum
 import numpy as np
 import pyvisa
+import time
 
 from core.module import Base
 from core.configoption import ConfigOption
 
-from interface.lockin_interface import ScienceCameraInterface, ReadMode
+from interface.science_camera_interface import ScienceCameraInterface, ReadMode, Constraints
 
 class Princeton(Base, ScienceCameraInterface):
 
@@ -36,9 +37,13 @@ class Princeton(Base, ScienceCameraInterface):
     def on_activate(self):
         rm = pyvisa.ResourceManager()
         self._device = rm.open_resource(self._port)
-        self._device.baudrate = 19200
+        self._device.baud_rate = 19200
         self._device.data_bits = 7
-        self._device.parity = 0
+        self._device.parity = pyvisa.constants.Parity.even
+        self._device.stop_bits = pyvisa.constants.StopBits.one
+        self._device.read_termination = '\r\n'
+
+        self._constraints = self._build_constraints()
 
     def on_deactivate(self):
         pass
@@ -52,11 +57,11 @@ class Princeton(Base, ScienceCameraInterface):
          This makes multiple call to the DLL, so it will be called only once by on_activate
          """
         constraints = Constraints()
-        constraints.name = self._get_name()
-        constraints.width, constraints.height = self._get_image_size()
-        constraints.pixel_size_width, constraints.pixel_size_height = self._get_pixel_size()
-        constraints.internal_gains = 1
-        constraints.readout_speeds = 1
+        constraints.name = 'Lock-in 5210'
+        constraints.width, constraints.height = 1, 1
+        constraints.pixel_size_width, constraints.pixel_size_height = 1e-6, 1e-6
+        constraints.internal_gains = [1]
+        constraints.readout_speeds = [1]
         constraints.trigger_modes = 'INTERNAL'
         constraints.has_shutter = False
         constraints.read_modes = ReadMode.FVB
@@ -106,7 +111,7 @@ class Princeton(Base, ScienceCameraInterface):
 
                Each value might be a float or an integer.
                """
-        return self._device.query('M')
+        return self._device.query('X\r\n')
 
     ##############################################################################
     #                           Read mode functions

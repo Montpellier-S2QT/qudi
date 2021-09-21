@@ -41,7 +41,7 @@ class Cornerstone(Base, GratingSpectrometerInterface):
 
     cornerstone:
         module.Class: 'spectrometer.cornerstone.Cornerstone'
-        dll_path : r'C:\Program Files\Newport\Mono Utility 5.0.4\Cornerstone DLL'
+        dll_path : 'path to your dll file'
         shutter_auto : True
         grating_ruling : [1200e3, 2400e3]
         grating_blaze : [300e-9, 275e-9]
@@ -74,6 +74,8 @@ class Cornerstone(Base, GratingSpectrometerInterface):
             raise IOError('Monochromator not found')
         if self._shutter_auto:
             self._device.setShutter(True)
+
+        self._constraints = self._build_constraints()
 
     def on_deactivate(self):
         """ De-initialisation performed during deactivation of the module. """
@@ -115,7 +117,7 @@ class Cornerstone(Base, GratingSpectrometerInterface):
 
         @return (Constraints): An object of class Constraints containing all fixed parameters of the hardware
         """
-        return self._build_constraints()
+        return self._constraints
 
     ##############################################################################
     #                            Gratings functions
