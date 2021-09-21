@@ -1139,7 +1139,7 @@ class SpectrumLogic(GenericLogic):
 
         """
         if not self.camera_constraints.has_cooler:
-            self.log.error("No cooler is available in your hardware ")
+            self.log.info("No cooler is available in your hardware ")
             return
         return self.camera().get_cooler_on()
 
