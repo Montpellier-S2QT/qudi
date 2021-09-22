@@ -823,7 +823,7 @@ class Main(GUIBase):
                 y = data
                 self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
 
-            if self.spectrumlogic().acquisition_mode == "MULTI_SCAN":
+            if self.spectrumlogic().acquisition_mode == 'MULTI_SCAN':
                 self._spectrum_data = np.array([[x, scan] for scan in y])
                 self._spectrum_tab.graph.clear()
 
@@ -831,9 +831,11 @@ class Main(GUIBase):
                     tracks = y[-1]
                     if self.spectrumlogic().number_of_scan == y.shape[0]:
                         if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Average":
-                            tracks = np.mean(y.transpose(0,2,1), axis=0).T
+                            tracks = np.mean(y, axis=0)
                         if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Median":
-                            tracks = np.median(y.transpose(0,2,1), axis=0).T
+                            tracks = np.median(y, axis=0)
+                        if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Accumulation":
+                            tracks = np.ones(10)
                     i = 0
                     for track in tracks:
                         self._spectrum_tab.graph.plot(x, track, pen=self.plot_colors[i])

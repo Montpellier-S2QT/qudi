@@ -191,6 +191,11 @@
           </item>
           <item>
            <property name="text">
+            <string>Scan Accumulation</string>
+           </property>
+          </item>
+          <item>
+           <property name="text">
             <string>Scan Median</string>
            </property>
           </item>

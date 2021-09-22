@@ -111,7 +111,7 @@ class Princeton(Base, ScienceCameraInterface):
 
                Each value might be a float or an integer.
                """
-        return self._device.query('X\r\n')
+        return int(self._device.query('X\r\n')[1:])
 
     ##############################################################################
     #                           Read mode functions
