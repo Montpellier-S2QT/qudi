@@ -787,13 +787,15 @@ class Main(GUIBase):
         data = self.spectrumlogic().acquired_data
 
         if index == 0:
-            if self._image_dark.shape == data.shape:
-                self._image_data = data - self._image_dark
-            else:
-                self._image_data = data
-                self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
 
-            self._image.setImage(self._image_data)
+            if self._image_dark.shape == data[1].shape:
+                data[1] = data[1] - self._image_dark
+            else:
+                self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
+            self._image_data = data
+            image = data[1]
+
+            self._image.setImage(image)
             self._colorbar.refresh_image()
 
             if self.spectrumlogic().read_mode == "IMAGE_ADVANCED":
@@ -806,7 +808,7 @@ class Main(GUIBase):
 
         elif index == 1:
 
-            counts = data.mean()
+            counts = data[1].mean()
             x = self._counter_data[0]+self.spectrumlogic().exposure_time
             y = np.append(self._counter_data[1][1:], counts)
             self._counter_data = np.array([x, y])
@@ -815,40 +817,44 @@ class Main(GUIBase):
 
         elif index == 2:
 
-            spectrum = data[0]
-            scan = data[1]
-            self._spectrum_data = data
-            if self._spectrum_dark.shape[-1] == scan.shape[-1]:
+            if self._spectrum_dark.shape[-1] == data[1].shape[-1]:
                 # TODO : fix bug with dark in multiple tracks and data in FVB : broadcasting error
-                scan = scan - self._spectrum_dark
+                data[1] = data[1] - self._spectrum_dark
             else:
                 self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
+
+            self._spectrum_data = data
+            spectrum = data[0]
+            scan = data[1]
 
             self._spectrum_tab.graph.clear()
 
             if self.spectrumlogic().acquisition_mode == 'MULTI_SCAN':
 
                 if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Average":
-                    scan = np.mean(scan, axis=0)
-                if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Median":
-                    scan = np.median(scan, axis=0)
-                if self._spectrum_tab.multipe_scan_mode.currentText() == "Multiple Scan":
-                    scan = scan[-1]
-                if self._spectrum_tab.multipe_scan_mode.currentText() == "Accumulated Scan":
-                    scan = scan.transpose((1,0,2))
+                    y = np.mean(scan, axis=0)
+                    x = spectrum[-1]
+                elif self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Median":
+                    y = np.median(scan, axis=0)
+                    x = spectrum[-1]
+                elif self._spectrum_tab.multipe_scan_mode.currentText() == "Multiple Scan":
+                    y = scan[-1]
+                    x = spectrum[-1]
+                elif self._spectrum_tab.multipe_scan_mode.currentText() == "Accumulated Scan":
+                    s = y.shape()
+                    y = np.reshape(scan, (s[0]*s[1], s[2]))
+                    x = np.reshape(spectrum, (s[0]*s[1], s[2]))
 
-                if self.spectrumlogic().read_mode == "MULTIPLE_TRACKS":
-                    for i in range(len(scan)):
-                        self._spectrum_tab.graph.plot(spectrum[i], scan[i], pen=self.plot_colors[i])
-                else:
-                    self._spectrum_tab.graph.plot(spectrum, scan, pen=self.plot_colors[0])
             else:
 
-                if self.spectrumlogic().read_mode == "MULTIPLE_TRACKS":
-                    for i in range(len(scan)):
-                        self._spectrum_tab.graph.plot(spectrum[i], scan[i], pen=self.plot_colors[i])
-                else:
-                    self._spectrum_tab.graph.plot(spectrum, scan, pen=self.plot_colors[0])
+                y = scan
+                x = spectrum
+
+            if self.spectrumlogic().read_mode == "MULTIPLE_TRACKS":
+                for i in range(len(scan)):
+                    self._spectrum_tab.graph.plot(spectrum[i], scan[i], pen=self.plot_colors[i])
+            else:
+                self._spectrum_tab.graph.plot(spectrum, scan, pen=self.plot_colors[0])
 
         if not self.spectrumlogic().module_state() == 'locked':
             self.spectrumlogic().sigUpdateData.disconnect()
