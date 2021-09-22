@@ -251,6 +251,7 @@ class SpectrumLogic(GenericLogic):
         # Acquisition is finished
         if self.acquisition_mode == 'SINGLE_SCAN':
             self._acquired_data = self.get_acquired_data()
+            self._acquired_spectrum = self.wavelength_spectrum
             self.module_state.unlock()
             self.sigUpdateData.emit()
             self.log.debug("Acquisition finished : module state is 'idle' ")
@@ -259,12 +260,14 @@ class SpectrumLogic(GenericLogic):
         elif self.acquisition_mode == 'LIVE_SCAN':
             self._loop_counter += 1
             self._acquired_data = self.get_acquired_data()
+            self._acquired_spectrum = self.wavelength_spectrum
             self.sigUpdateData.emit()
             self._acquisition_loop()
             return
 
         else:
             self._acquired_data.append(self.get_acquired_data())
+            self._acquired_spectrum.append(self.wavelength_spectrum)
             self.sigUpdateData.emit()
 
             if self._loop_counter <= 0:
@@ -286,7 +289,7 @@ class SpectrumLogic(GenericLogic):
     @property
     def acquired_data(self):
         """ Getter method returning the last acquired data. """
-        return np.array(self._acquired_data)
+        return np.array([self._acquired_data, self._acquired_spectrum])
 
     @property
     def acquisition_params(self):

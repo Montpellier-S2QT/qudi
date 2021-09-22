@@ -815,49 +815,40 @@ class Main(GUIBase):
 
         elif index == 2:
 
-            x = self.spectrumlogic().wavelength_spectrum
-            if self._spectrum_dark.shape[-1] == data.shape[-1]:
+            spectrum = data[0]
+            scan = data[1]
+            self._spectrum_data = data
+            if self._spectrum_dark.shape[-1] == scan.shape[-1]:
                 # TODO : fix bug with dark in multiple tracks and data in FVB : broadcasting error
-                y = data - self._spectrum_dark
+                scan = scan - self._spectrum_dark
             else:
-                y = data
                 self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
 
+            self._spectrum_tab.graph.clear()
+
             if self.spectrumlogic().acquisition_mode == 'MULTI_SCAN':
-                self._spectrum_data = np.array([[x, scan] for scan in y])
-                self._spectrum_tab.graph.clear()
+
+                if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Average":
+                    scan = np.mean(scan, axis=0)
+                if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Median":
+                    scan = np.median(scan, axis=0)
+                if self._spectrum_tab.multipe_scan_mode.currentText() == "Multiple Scan":
+                    scan = scan[-1]
+                if self._spectrum_tab.multipe_scan_mode.currentText() == "Accumulated Scan":
+                    scan = scan.transpose((1,0,2))
 
                 if self.spectrumlogic().read_mode == "MULTIPLE_TRACKS":
-                    tracks = y[-1]
-                    if self.spectrumlogic().number_of_scan == y.shape[0]:
-                        if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Average":
-                            tracks = np.mean(y, axis=0)
-                        if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Median":
-                            tracks = np.median(y, axis=0)
-                        if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Accumulation":
-                            tracks = np.ones(10)
-                    i = 0
-                    for track in tracks:
-                        self._spectrum_tab.graph.plot(x, track, pen=self.plot_colors[i])
-                        i += 1
+                    for i in range(len(scan)):
+                        self._spectrum_tab.graph.plot(spectrum[i], scan[i], pen=self.plot_colors[i])
                 else:
-                    tracks = y[-1]
-                    if self.spectrumlogic().number_of_scan == y.shape[0]:
-                        if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Average":
-                            tracks = np.mean(y, axis=0)
-                        if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Median":
-                            tracks = np.median(y, axis=0)
-                    self._spectrum_tab.graph.plot(x, tracks, pen=self.plot_colors[0])
+                    self._spectrum_tab.graph.plot(spectrum, scan, pen=self.plot_colors[0])
             else:
-                self._spectrum_data = np.array([x, y])
-                self._spectrum_tab.graph.clear()
+
                 if self.spectrumlogic().read_mode == "MULTIPLE_TRACKS":
-                    i = 0
-                    for track in y:
-                        self._spectrum_tab.graph.plot(x, track, pen=self.plot_colors[i])
-                        i += 1
+                    for i in range(len(scan)):
+                        self._spectrum_tab.graph.plot(spectrum[i], scan[i], pen=self.plot_colors[i])
                 else:
-                    self._spectrum_tab.graph.plot(x, y, pen=self.plot_colors[0])
+                    self._spectrum_tab.graph.plot(spectrum, scan, pen=self.plot_colors[0])
 
         if not self.spectrumlogic().module_state() == 'locked':
             self.spectrumlogic().sigUpdateData.disconnect()
