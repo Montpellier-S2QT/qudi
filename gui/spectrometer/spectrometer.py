@@ -202,7 +202,7 @@ class Main(GUIBase):
         self._output_port_buttons = [self._settings_tab.output_front, self._settings_tab.output_side]
         self._output_slit_width = []
 
-        for i in range(3):
+        for i in range(len(self.spectrumlogic().spectro_constraints.gratings)):
             self._grating_buttons[i].setText('{}rpm'.format(
                 round(self.spectrumlogic().spectro_constraints.gratings[i].ruling/1000)))
             self._grating_buttons[i].setCheckable(True)
