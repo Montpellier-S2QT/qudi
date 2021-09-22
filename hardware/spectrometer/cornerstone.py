@@ -161,7 +161,7 @@ class Cornerstone(Base, GratingSpectrometerInterface):
 
         @return (list or ndarray): wavelength spectrum related to the spectrometer dispersion
         """
-        return np.array(self.get_wavelength())
+        return np.array([self.get_wavelength()])
 
     ##############################################################################
     #                        Ports and Slits functions

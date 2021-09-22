@@ -64,7 +64,7 @@ class Princeton(Base, ScienceCameraInterface):
         constraints.readout_speeds = [1]
         constraints.trigger_modes = 'INTERNAL'
         constraints.has_shutter = False
-        constraints.read_modes = ReadMode.FVB
+        constraints.read_modes = [ReadMode.FVB]
         constraints.has_cooler = False  # All Andor camera have one
         constraints.temperature.min, constraints.temperature.max = [298.15, 298.15]
         constraints.temperature.step = 1  # Andor cameras use integer for control
@@ -111,7 +111,7 @@ class Princeton(Base, ScienceCameraInterface):
 
                Each value might be a float or an integer.
                """
-        return int(self._device.query('X\r\n')[1:])
+        return np.array([int(self._device.query('X\r\n')[1:])])
 
     ##############################################################################
     #                           Read mode functions

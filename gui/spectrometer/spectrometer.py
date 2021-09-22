@@ -272,22 +272,6 @@ class Main(GUIBase):
             if trigger_mode == self.spectrumlogic().trigger_mode:
                 self._settings_tab.trigger_modes.setCurrentText(trigger_mode)
 
-        self._temperature_widget = ScienDSpinBox()
-        self._temperature_widget.setRange(-273.15, 500)
-        self._temperature_widget.setValue(self.spectrumlogic().temperature_setpoint-273.15)
-        self._temperature_widget.setSuffix('°C')
-        self._settings_tab.camera_cooler_layout.addWidget(self._temperature_widget)
-
-        self._settings_tab.cooler_on.clicked.connect(self._manage_cooler_button)
-        if self.spectrumlogic().cooler_status:
-            self._settings_tab.cooler_on.setDown(True)
-            self._settings_tab.cooler_on.setText("OFF")
-            self._mw.cooler_on_label.setText("Cooler ON")
-        else:
-            self._settings_tab.cooler_on.setText("ON")
-            self._mw.cooler_on_label.setText("Cooler OFF")
-        self._mw.camera_temperature.setText("{}°C".format(round(self.spectrumlogic().camera_temperature-273.15, 2)))
-
         self._center_wavelength_widget = ScienDSpinBox()
         self._center_wavelength_widget.setMinimum(0)
         self._center_wavelength_widget.setValue(self.spectrumlogic().center_wavelength)
@@ -299,16 +283,36 @@ class Main(GUIBase):
         self._calibration_widget.editingFinished.connect(self.set_settings_params)
         self._settings_tab.camera_gains.currentTextChanged.connect(self.set_settings_params)
         self._settings_tab.trigger_modes.currentTextChanged.connect(self.set_settings_params)
-        self._temperature_widget.editingFinished.connect(self.set_settings_params)
+
         if not self.spectrumlogic().camera_constraints.has_shutter:
             self._settings_tab.shutter_modes.setEnabled(False)
         else:
             self._settings_tab.shutter_modes.setCurrentText(self.spectrumlogic().shutter_state)
             self._settings_tab.shutter_modes.currentTextChanged.connect(self.set_settings_params)
 
-        self._update_temperature_timer = QtCore.QTimer()
-        self._update_temperature_timer.timeout.connect(self._update_temperature)
-        self._update_temperature_timer.start(1000)
+        if self.spectrumlogic().camera_constraints.has_cooler:
+
+            self._settings_tab.cooler_on.clicked.connect(self._manage_cooler_button)
+            if self.spectrumlogic().cooler_status:
+                self._settings_tab.cooler_on.setDown(True)
+                self._settings_tab.cooler_on.setText("OFF")
+                self._mw.cooler_on_label.setText("Cooler ON")
+            else:
+                self._settings_tab.cooler_on.setText("ON")
+                self._mw.cooler_on_label.setText("Cooler OFF")
+
+            self._temperature_widget = ScienDSpinBox()
+            self._temperature_widget.setRange(-273.15, 500)
+            self._temperature_widget.setValue(self.spectrumlogic().temperature_setpoint - 273.15)
+            self._temperature_widget.setSuffix('°C')
+            self._settings_tab.camera_cooler_layout.addWidget(self._temperature_widget)
+            self._temperature_widget.editingFinished.connect(self.set_settings_params)
+
+            self._mw.camera_temperature.setText(
+                "{}°C".format(round(self.spectrumlogic().camera_temperature - 273.15, 2)))
+            self._update_temperature_timer = QtCore.QTimer()
+            self._update_temperature_timer.timeout.connect(self._update_temperature)
+            self._update_temperature_timer.start(1000)
 
         self.spectrumlogic().sigUpdateSettings.connect(self._update_settings)
 
