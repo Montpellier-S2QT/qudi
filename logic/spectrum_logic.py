@@ -209,13 +209,14 @@ class SpectrumLogic(GenericLogic):
         if self.module_state() == 'locked':
             self.log.error("Module acquisition is still running, module state is currently locked.")
             return
-        self._update_acquisition_params()
         self.module_state.lock()
+        self._update_acquisition_params()
         self._sigStart.emit()
 
     def _start_acquisition(self):
         """ Start acquisition method initializing the acquisitions constants and calling the acquisition method """
         self._acquired_data = []
+        self._acquired_spectrum = []
         if self.acquisition_mode == 'MULTI_SCAN':
             self._loop_counter = self.number_of_scan
         self._acquisition_loop()
@@ -238,9 +239,8 @@ class SpectrumLogic(GenericLogic):
         """ Method / Slot used by the acquisition call by Qtimer signal to check if the acquisition is complete """
         # If module unlocked by stop_acquisition
         if self.module_state() != 'locked':
-            #self._acquired_data = self.get_acquired_data()
             self.sigUpdateData.emit()
-            self.log.debug("Acquisition stopped. Status loop stopped.")
+            self.log.info("Acquisition stopped. Status loop stopped.")
             return
 
         # If hardware still running
@@ -248,13 +248,13 @@ class SpectrumLogic(GenericLogic):
             self._sigCheckStatus.emit()
             return
 
-        # Acquisition is finished
+
         if self.acquisition_mode == 'SINGLE_SCAN':
             self._acquired_data = self.get_acquired_data()
             self._acquired_spectrum = self.wavelength_spectrum
-            self.module_state.unlock()
             self.sigUpdateData.emit()
-            self.log.debug("Acquisition finished : module state is 'idle' ")
+            self.module_state.unlock()
+            self.log.info("Acquisition finished : module state is 'idle' ")
             return
 
         elif self.acquisition_mode == 'LIVE_SCAN':
@@ -272,9 +272,9 @@ class SpectrumLogic(GenericLogic):
 
             if self._loop_counter <= 0:
                 self.module_state.unlock()
-                self.log.debug("Acquisition finished : module state is 'idle' ")
+                self.log.info("Acquisition finished : module state is 'idle' ")
             else:
-                self._center_wavelength = self._center_wavelength + self.scan_wavelength_step
+                self._do_scan_step()
                 self._loop_timer.start(self.scan_delay*1000)
                 return
 
@@ -289,7 +289,7 @@ class SpectrumLogic(GenericLogic):
     @property
     def acquired_data(self):
         """ Getter method returning the last acquired data. """
-        return np.array([self._acquired_data, self._acquired_spectrum])
+        return np.array([self._acquired_spectrum, self._acquired_data])
 
     @property
     def acquisition_params(self):
@@ -306,6 +306,7 @@ class SpectrumLogic(GenericLogic):
         if self.acquisition_mode == 'MULTI_SCAN':
             self._acquisition_params['scan_delay (s)'] = self.scan_delay
             self._acquisition_params['number_of_scan'] = self.number_of_scan
+            self._acquisition_params['scan_wavelength_step'] = self.scan_wavelength_step
         self._acquisition_params['camera_gain'] = self.camera_gain
         self._acquisition_params['readout_speed (Hz)'] = self.readout_speed
         self._acquisition_params['exposure_time (s)'] = self.exposure_time
@@ -319,14 +320,15 @@ class SpectrumLogic(GenericLogic):
         """ Getter method returning the last acquisition parameters. """
 
         filepath = self.savelogic().get_path_for_module(module_name='spectrum')
-        data = self._acquired_data.flatten()/self._acquisition_params['exposure_time (s)']
+        data = np.array(self._acquired_data)
 
         if self.acquisition_params['read_mode'] == 'IMAGE_ADVANCED':
-            data = {'data': data}
+            acquisition = {'data': data.flatten()}
         else:
-            data = {'wavelength (m)' : self.wavelength_spectrum, 'data': data}
+            spectrum = np.array(self._acquired_spectrum)
+            acquisition = {'wavelength (m)' : spectrum.flatten(), 'data': data.flatten()}
 
-        self.savelogic().save_data(data, filepath=filepath, parameters=self.acquisition_params)
+        self.savelogic().save_data(acquisition, filepath=filepath, parameters=self.acquisition_params)
 
     ##############################################################################
     #                            Spectrometer functions
@@ -410,6 +412,25 @@ class SpectrumLogic(GenericLogic):
         self.spectrometer().set_wavelength(wavelength)
         self._center_wavelength = self.spectrometer().get_wavelength()
         self.sigUpdateSettings.emit()
+
+    def _do_scan_step(self):
+        """Setter method setting the center wavelength of the measured spectral range.
+
+        @param wavelength: (float) center wavelength
+
+
+        """
+        if self._scan_wavelength_step == 0:
+            self.log.info('The wavelength step of the scan is 0, no change of the center wavelength.')
+            return
+        wavelength = self._center_wavelength + self._scan_wavelength_step
+        wavelength_max = self.spectro_constraints.gratings[self.grating].wavelength_max
+        if not 0 <= wavelength < wavelength_max:
+            self.log.error('Wavelength parameter is not correct : it must be in range {} to {} '
+                           .format(0, wavelength_max))
+            return
+        self.spectrometer().set_wavelength(wavelength)
+        self._center_wavelength = self.spectrometer().get_wavelength()
 
     @property
     def wavelength_spectrum(self):
@@ -699,9 +720,10 @@ class SpectrumLogic(GenericLogic):
 
            Each value might be a float or an integer.
            """
+        data = self.camera().get_acquired_data()/self._exposure_time
         if self._reverse_data_with_side_output and self.output_port == "OUTPUT_SIDE":
-            return netobtain(self.camera().get_acquired_data()[:, ::-1])
-        return netobtain(self.camera().get_acquired_data())
+            return netobtain(data[:, ::-1])
+        return netobtain(data)
 
     ##############################################################################
     #                           Read mode functions
@@ -1005,7 +1027,7 @@ class SpectrumLogic(GenericLogic):
         """
         return self._scan_wavelength_step
 
-    @scan_delay.setter
+    @scan_wavelength_step.setter
     def scan_wavelength_step(self, scan_wavelength_step):
         """Setter method setting the scan wavelength step between consecutive scan during multiple acquisition mode.
 

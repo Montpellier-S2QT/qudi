@@ -345,7 +345,7 @@ class Main(GUIBase):
             if readout_speed == self._image_readout_speed:
                 self._image_tab.readout_speed.setCurrentText("{:.2r}Hz".format(ScaledFloat(readout_speed)))
 
-        self._image_tab.save.clicked.connect(partial(self.save_data, 0))
+        self._image_tab.save.clicked.connect(self.spectrumlogic().save_acquired_data)
         self._save_data_buttons.append(self._image_tab.save)
         self._image_tab.acquire_dark.clicked.connect(partial(self.start_dark_acquisition, 0))
         self._acquire_dark_buttons.append(self._image_tab.acquire_dark)
@@ -469,14 +469,13 @@ class Main(GUIBase):
         self._spectrum_tab.scan_delay.addWidget(self._spectrum_scan_delay_widget)
 
         self._spectrum_scan_wavelength_step_widget = ScienDSpinBox()
-        self._spectrum_scan_wavelength_step_widget.setMinimum(0)
         self._spectrum_scan_wavelength_step_widget.setValue(self.spectrumlogic().scan_wavelength_step)
         self._spectrum_scan_wavelength_step_widget.setSuffix('m')
         self._spectrum_tab.scan_wavelength_step.addWidget(self._spectrum_scan_wavelength_step_widget)
 
         self._spectrum_tab.scan_number_spin.setValue(self.spectrumlogic().number_of_scan)
 
-        self._spectrum_tab.save.clicked.connect(partial(self.save_data, 1))
+        self._spectrum_tab.save.clicked.connect(self.spectrumlogic().save_acquired_data)
         self._save_data_buttons.append(self._spectrum_tab.save)
         self._spectrum_tab.acquire_dark.clicked.connect(partial(self.start_dark_acquisition, 1))
         self._acquire_dark_buttons.append(self._spectrum_tab.acquire_dark)
@@ -495,6 +494,7 @@ class Main(GUIBase):
         self._spectrum_tab.read_modes.currentTextChanged.connect(self.set_spectrum_params)
         self._spectrum_scan_delay_widget.editingFinished.connect(self.set_spectrum_params)
         self._spectrum_tab.scan_number_spin.editingFinished.connect(self.set_spectrum_params)
+        self._spectrum_scan_wavelength_step_widget.editingFinished.connect(self.set_spectrum_params)
 
     def _update_settings(self):
 
@@ -516,14 +516,15 @@ class Main(GUIBase):
         self._calibration_widget.setValue(self.spectrumlogic()._wavelength_calibration[self.spectrumlogic()._grating])
         self._settings_tab.camera_gains.setCurrentText(str(int(self.spectrumlogic()._camera_gain)))
         self._settings_tab.trigger_modes.setCurrentText(self.spectrumlogic()._trigger_mode)
-        self._temperature_widget.setValue(self.spectrumlogic()._temperature_setpoint-273.15)
+        if self.spectrumlogic().camera_constraints.has_cooler:
+            self._temperature_widget.setValue(self.spectrumlogic()._temperature_setpoint-273.15)
 
-        cooler_on = self.spectrumlogic()._cooler_status
-        if self._settings_tab.cooler_on.isDown() != cooler_on:
-            self._settings_tab.cooler_on.setChecked(cooler_on)
-            self._settings_tab.cooler_on.setDown(cooler_on)
-            self._settings_tab.cooler_on.setText("ON" if not cooler_on else "OFF")
-            self._mw.cooler_on_label.setText("Cooler {}".format("ON" if cooler_on else "OFF"))
+            cooler_on = self.spectrumlogic()._cooler_status
+            if self._settings_tab.cooler_on.isDown() != cooler_on:
+                self._settings_tab.cooler_on.setChecked(cooler_on)
+                self._settings_tab.cooler_on.setDown(cooler_on)
+                self._settings_tab.cooler_on.setText("ON" if not cooler_on else "OFF")
+                self._mw.cooler_on_label.setText("Cooler {}".format("ON" if cooler_on else "OFF"))
 
         if self.spectrumlogic().camera_constraints.has_shutter:
             pass
@@ -539,7 +540,8 @@ class Main(GUIBase):
         self.spectrumlogic().wavelength_calibration = self._calibration_widget.value()
         self.spectrumlogic().camera_gain = self._settings_tab.camera_gains.currentData()
         self.spectrumlogic().trigger_mode = self._settings_tab.trigger_modes.currentData()
-        self.spectrumlogic().temperature_setpoint = self._temperature_widget.value()+273.15
+        if self.spectrumlogic().camera_constraints.has_cooler:
+            self.spectrumlogic().temperature_setpoint = self._temperature_widget.value()+273.15
         self.spectrumlogic().shutter_state = self._settings_tab.shutter_modes.currentText()
 
         self._mw.center_wavelength_current.setText("{:.2r}m".format(ScaledFloat(self.spectrumlogic().center_wavelength)))
@@ -585,6 +587,7 @@ class Main(GUIBase):
         self.spectrumlogic().readout_speed = self._spectrum_tab.readout_speed.currentData()
         self.spectrumlogic().scan_delay = self._spectrum_scan_delay_widget.value()
         self.spectrumlogic().number_of_scan = self._spectrum_tab.scan_number_spin.value()
+        self.spectrumlogic().scan_wavelength_step = self._spectrum_scan_wavelength_step_widget.value()
 
         self.spectrumlogic()._update_acquisition_params()
         if self._spectrum_params != self.spectrumlogic().acquisition_params:
@@ -841,13 +844,13 @@ class Main(GUIBase):
                 elif self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Median":
                     y = np.median(scan, axis=0)
                     x = spectrum[-1]
-                elif self._spectrum_tab.multipe_scan_mode.currentText() == "Multiple Scan":
+                elif self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Accumulation":
+                    s = scan.shape
+                    y = np.reshape(scan, (s[0]*s[1]))
+                    x = np.reshape(spectrum, (s[0]*s[1]))
+                else:
                     y = scan[-1]
                     x = spectrum[-1]
-                elif self._spectrum_tab.multipe_scan_mode.currentText() == "Accumulated Scan":
-                    s = y.shape()
-                    y = np.reshape(scan, (s[0]*s[1], s[2]))
-                    x = np.reshape(spectrum, (s[0]*s[1], s[2]))
 
             else:
 
@@ -855,10 +858,10 @@ class Main(GUIBase):
                 x = spectrum
 
             if self.spectrumlogic().read_mode == "MULTIPLE_TRACKS":
-                for i in range(len(scan)):
-                    self._spectrum_tab.graph.plot(spectrum[i], scan[i], pen=self.plot_colors[i])
+                for i in range(len(y)):
+                    self._spectrum_tab.graph.plot(x[i].T, y[i].T, pen=self.plot_colors[i])
             else:
-                self._spectrum_tab.graph.plot(spectrum, scan, pen=self.plot_colors[0])
+                self._spectrum_tab.graph.plot(x.T, y.T, pen=self.plot_colors[0])
 
         if not self.spectrumlogic().module_state() == 'locked':
             self.spectrumlogic().sigUpdateData.disconnect()
@@ -887,14 +890,3 @@ class Main(GUIBase):
         if index == 1:
             self._spectrum_dark = np.zeros(1000)
             self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
-
-    def save_data(self, index):
-
-        filepath = self.savelogic().get_path_for_module(module_name='spectrometer')
-
-        if index==0:
-            data = {'data': np.array(self._image_data/self._image_params['exposure_time (s)']).flatten()}
-            self.savelogic().save_data(data, filepath=filepath, parameters=self._image_params)
-        elif index==1:
-            data = {'data': np.array(self._spectrum_data/self._spectrum_params['exposure_time (s)']).flatten()}
-            self.savelogic().save_data(data, filepath=filepath, parameters=self._spectrum_params)

@@ -45,14 +45,14 @@ class Cornerstone(Base, GratingSpectrometerInterface):
         shutter_auto : True
         grating_ruling : [1200e3, 2400e3]
         grating_blaze : [300e-9, 275e-9]
-        grating_max_wavelength : [2000e-9, 2000e-9]
+        grating_max_wavelength : [20e-6, 20e-6]
     """
 
     _dll_path = ConfigOption('dll_path', r'C:\Program Files\Newport\Mono Utility 5.0.4\Cornerstone DLL')
     _shutter_auto = ConfigOption('shutter_auto', True)
     _grating_ruling = ConfigOption('grating_ruling', [1200e3, 2400e3])
     _grating_blaze = ConfigOption('grating_blaze', [300e-9, 275e-9])
-    _grating_max_wavelength = ConfigOption('grating_max_wavelength', [2000e-9, 2000e-9])
+    _grating_max_wavelength = ConfigOption('grating_max_wavelength', [20e-6, 20e-6])
 
 
     # Declarations of attributes to make Pycharm happy
@@ -144,14 +144,14 @@ class Cornerstone(Base, GratingSpectrometerInterface):
 
         @return (float): current central wavelength (meter)
         """
-        return int(self._device.getWavelength())*1e-9
+        return float(self._device.getWavelength())*1.0e-9
 
     def set_wavelength(self, value):
         """ Sets the new central wavelength in meter
 
         @params (float) value: The new central wavelength (meter)
         """
-        self._device.setWavelength(value*1e9)
+        self._device.setWavelength(value*1.0e9)
 
     def get_spectrometer_dispersion(self, number_pixels, pixel_width):
         """ Return the spectrometer dispersion for a given center wavelength measured by the fabricant.
