@@ -202,13 +202,16 @@ class Main(GUIBase):
         self._output_port_buttons = [self._settings_tab.output_front, self._settings_tab.output_side]
         self._output_slit_width = []
 
-        for i in range(len(self.spectrumlogic().spectro_constraints.gratings)):
-            self._grating_buttons[i].setText('{}rpm'.format(
-                round(self.spectrumlogic().spectro_constraints.gratings[i].ruling/1000)))
-            self._grating_buttons[i].setCheckable(True)
-            self._grating_buttons[i].clicked.connect(partial(self._manage_grating_buttons, i))
-            if i == self.spectrumlogic().grating:
-                self._grating_buttons[i].setDown(True)
+        for i in range(3):
+            if i<len(self.spectrumlogic().spectro_constraints.gratings):
+                self._grating_buttons[i].setText('{}rpm'.format(
+                    round(self.spectrumlogic().spectro_constraints.gratings[i].ruling/1000)))
+                self._grating_buttons[i].setCheckable(True)
+                self._grating_buttons[i].clicked.connect(partial(self._manage_grating_buttons, i))
+                if i == self.spectrumlogic().grating:
+                    self._grating_buttons[i].setDown(True)
+            else:
+                self._grating_buttons[i].setVisible(False)
 
         self._input_ports = [port for port in spectro_constraints.ports if port.type in [PortType.INPUT_FRONT, PortType.INPUT_SIDE]]
         self._output_ports = [port for port in spectro_constraints.ports if port.type in [PortType.OUTPUT_FRONT, PortType.OUTPUT_SIDE]]
@@ -313,6 +316,12 @@ class Main(GUIBase):
             self._update_temperature_timer = QtCore.QTimer()
             self._update_temperature_timer.timeout.connect(self._update_temperature)
             self._update_temperature_timer.start(1000)
+
+        else:
+
+            self._settings_tab.cooler_on.setVisible(False)
+            self._mw.camera_temperature.setVisible(False)
+            self._mw.cooler_on_label.setVisible(False)
 
         self.spectrumlogic().sigUpdateSettings.connect(self._update_settings)
 
