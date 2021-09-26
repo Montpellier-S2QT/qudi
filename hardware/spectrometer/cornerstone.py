@@ -23,6 +23,7 @@ import os
 import numpy as np
 import sys
 import clr
+import time
 
 from core.module import Base
 from core.configoption import ConfigOption
@@ -52,7 +53,7 @@ class Cornerstone(Base, GratingSpectrometerInterface):
     _shutter_auto = ConfigOption('shutter_auto', True)
     _grating_ruling = ConfigOption('grating_ruling', [1200e3, 2400e3])
     _grating_blaze = ConfigOption('grating_blaze', [300e-9, 275e-9])
-    _grating_max_wavelength = ConfigOption('grating_max_wavelength', [20e-6, 20e-6])
+    _grating_max_wavelength = ConfigOption('grating_max_wavelength', [700e-9, 700e-9])
 
 
     # Declarations of attributes to make Pycharm happy
@@ -74,6 +75,11 @@ class Cornerstone(Base, GratingSpectrometerInterface):
             raise IOError('Monochromator not found')
         if self._shutter_auto:
             self._device.setShutter(True)
+
+        self._device.setVendorID(1180)
+        self._device.setProductID(12)
+        self._device.setWaitTime(100)
+        self._device.setDeviceTimeout(500)
 
         self._constraints = self._build_constraints()
 
@@ -119,6 +125,15 @@ class Cornerstone(Base, GratingSpectrometerInterface):
         """
         return self._constraints
 
+    def get_ready_state(self):
+        """ Get the status of the camera, to know if the acquisition is finished or still ongoing.
+
+        @return (bool): True if the camera is ready, False if an acquisition is ongoing
+
+        As there is no synchronous acquisition in the interface, the logic needs a way to check the acquisition state.
+        """
+        return self.module_state() == "idle"
+
     ##############################################################################
     #                            Gratings functions
     ##############################################################################
@@ -134,7 +149,12 @@ class Cornerstone(Base, GratingSpectrometerInterface):
 
         @param (int) value: grating index
         """
-        self._device.setGrating(value+1)
+        if self.get_ready_state():
+            self.module_state.lock()
+            self._device.setGrating(value+1)
+            self.module_state.unlock()
+        else:
+            self.log.warning("The device is busy, you can't change the grating. Try later !")
 
     ##############################################################################
     #                            Wavelength functions
@@ -151,7 +171,13 @@ class Cornerstone(Base, GratingSpectrometerInterface):
 
         @params (float) value: The new central wavelength (meter)
         """
-        self._device.setWavelength(value*1.0e9)
+        if self.get_ready_state():
+            self.module_state.lock()
+            self._device.setWavelength(float(value) * 1.0e9)
+            time.sleep(0.1)
+            self.module_state.unlock()
+        else:
+            self.log.warning("The device is busy, you can't change the grating. Try later !")
 
     def get_spectrometer_dispersion(self, number_pixels, pixel_width):
         """ Return the spectrometer dispersion for a given center wavelength measured by the fabricant.

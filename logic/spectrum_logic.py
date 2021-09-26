@@ -226,7 +226,7 @@ class SpectrumLogic(GenericLogic):
 
         @return: (bool) camera hardware idle ?
         """
-        return self.camera().get_ready_state()
+        return self.camera().get_ready_state() and self.spectrometer().get_ready_state()
 
     def _acquisition_loop(self):
         """ Acquisition method starting hardware acquisition and emitting Qtimer signal connected to check status method
@@ -252,8 +252,8 @@ class SpectrumLogic(GenericLogic):
         if self.acquisition_mode == 'SINGLE_SCAN':
             self._acquired_data = self.get_acquired_data()
             self._acquired_spectrum = self.wavelength_spectrum
-            self.sigUpdateData.emit()
             self.module_state.unlock()
+            self.sigUpdateData.emit()
             self.log.info("Acquisition finished : module state is 'idle' ")
             return
 
@@ -267,13 +267,13 @@ class SpectrumLogic(GenericLogic):
 
         else:
             self._acquired_spectrum.append(self.wavelength_spectrum)
-            self._acquired_data.append(self.get_acquired_data())
-            self.sigUpdateData.emit()
 
             if self._loop_counter <= 0:
                 self.module_state.unlock()
+                self.sigUpdateData.emit()
                 self.log.info("Acquisition finished : module state is 'idle' ")
             else:
+                self.sigUpdateData.emit()
                 self._do_scan_step()
                 self._loop_timer.start(self.scan_delay*1000)
                 return
