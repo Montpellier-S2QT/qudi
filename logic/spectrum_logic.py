@@ -266,8 +266,8 @@ class SpectrumLogic(GenericLogic):
             return
 
         else:
-            self._acquired_data.append(self.get_acquired_data())
             self._acquired_spectrum.append(self.wavelength_spectrum)
+            self._acquired_data.append(self.get_acquired_data())
             self.sigUpdateData.emit()
 
             if self._loop_counter <= 0:

@@ -132,13 +132,18 @@ class Main(GUIBase):
         # setting up the window
         self._mw = MainWindow()
         self._settings_tab = SettingsTab()
-        self._image_tab = ImageTab()
-        self._alignment_tab = AlignmentTab()
-        self._spectrum_tab = SpectrumTab()
-
         self._mw.tab.addTab(self._settings_tab, "Settings")
-        self._mw.tab.addTab(self._image_tab, "Image")
+
+        height = self.spectrumlogic().camera_constraints.height
+        width = self.spectrumlogic().camera_constraints.width
+        if height*width != 1:
+            self._image_tab = ImageTab()
+            self._mw.tab.addTab(self._image_tab, "Image")
+
+        self._alignment_tab = AlignmentTab()
         self._mw.tab.addTab(self._alignment_tab, "Alignment")
+
+        self._spectrum_tab = SpectrumTab()
         self._mw.tab.addTab(self._spectrum_tab, "Spectrum")
 
         self._acquire_dark_buttons = []
@@ -203,7 +208,7 @@ class Main(GUIBase):
         self._output_slit_width = []
 
         for i in range(3):
-            if i<len(self.spectrumlogic().spectro_constraints.gratings):
+            if i < len(self.spectrumlogic().spectro_constraints.gratings):
                 self._grating_buttons[i].setText('{}rpm'.format(
                     round(self.spectrumlogic().spectro_constraints.gratings[i].ruling/1000)))
                 self._grating_buttons[i].setCheckable(True)
@@ -536,8 +541,7 @@ class Main(GUIBase):
                 self._mw.cooler_on_label.setText("Cooler {}".format("ON" if cooler_on else "OFF"))
 
         if self.spectrumlogic().camera_constraints.has_shutter:
-            pass
-            #self._settings_tab.shutter_modes.setCurrentText(self.spectrumlogic()._shutter_state)
+            self._settings_tab.shutter_modes.setCurrentText(self.spectrumlogic()._shutter_state)
 
         self._mw.center_wavelength_current.setText("{:.2r}m".format(ScaledFloat(self.spectrumlogic()._center_wavelength)))
 
@@ -603,35 +607,35 @@ class Main(GUIBase):
             self._spectrum_tab.dark_acquired_msg.setText("Dark Outdated")
         self._spectrum_params = self.spectrumlogic().acquisition_params
 
-    def start_dark_acquisition(self, index):
+    def start_dark_acquisition(self, tab_index):
 
-        self._manage_start_acquisition(index)
+        self._manage_start_acquisition(tab_index)
 
         self.spectrumlogic().acquisition_mode = "SINGLE_SCAN"
         self.spectrumlogic().shutter_state = "CLOSED"
-        self.spectrumlogic().sigUpdateData.connect(partial(self._update_dark, index))
+        self.spectrumlogic().sigUpdateData.connect(partial(self._update_dark, tab_index))
 
-        if index == 0:
+        if tab_index == 0:
             self.spectrumlogic().read_modes = self._image_tab.read_modes.currentData()
             self.spectrumlogic().exposure_time = self.image_exposure_time_widget.value()
             self.spectrumlogic().readout_speed = self._image_tab.readout_speed.currentData()
-        elif index == 1:
+        elif tab_index == 1:
             self.spectrumlogic().read_modes = self._spectrum_tab.read_modes.currentData()
             self.spectrumlogic().exposure_time = self.spectrum_exposure_time_widget.value()
             self.spectrumlogic().readout_speed = self._spectrum_tab.readout_speed.currentData()
 
         self.spectrumlogic().start_acquisition()
 
-    def start_acquisition(self, index):
+    def start_acquisition(self, tab_index):
 
-        self._manage_start_acquisition(index)
-        self.spectrumlogic().sigUpdateData.connect(partial(self._update_data, index))
+        self._manage_start_acquisition(tab_index)
+        self.spectrumlogic().sigUpdateData.connect(partial(self._update_data, tab_index))
 
-        if index==0:
+        if tab_index==0:
             self.set_image_params()
-        elif index==1:
+        elif tab_index==1:
             self.set_alignment_params()
-        elif index==2:
+        elif tab_index==2:
             self.set_spectrum_params()
 
         self.spectrumlogic().start_acquisition()
@@ -642,11 +646,11 @@ class Main(GUIBase):
         self.spectrumlogic().sigUpdateData.disconnect()
         self._manage_stop_acquisition()
 
-    def _manage_grating_buttons(self, index):
+    def _manage_grating_buttons(self, tab_index):
 
         for i in range(3):
             btn = self._grating_buttons[i]
-            if i == index:
+            if i == tab_index:
                 btn.setChecked(True)
                 btn.setDown(True)
                 self.spectrumlogic().grating = i
@@ -656,20 +660,20 @@ class Main(GUIBase):
         self._mw.center_wavelength_current.setText("{:.2r}m".format(ScaledFloat(self.spectrumlogic().center_wavelength)))
         self._calibration_widget.setValue(self.spectrumlogic().wavelength_calibration)
 
-    def _manage_port_buttons(self, index):
+    def _manage_port_buttons(self, tab_index):
         for i in range(2):
-            if index < 2:
+            if tab_index < 2:
                 btn = self._input_port_buttons[i]
-                if i == index:
+                if i == tab_index:
                     self.spectrumlogic().input_port = self.spectrumlogic().spectro_constraints.ports[i].type
                     btn.setChecked(True)
                     btn.setDown(True)
                 else:
                     btn.setChecked(False)
                     btn.setDown(False)
-            elif index > 1:
+            elif tab_index > 1:
                 btn = self._output_port_buttons[i]
-                if i+2 == index:
+                if i+2 == tab_index:
                     self.spectrumlogic().output_port = self.spectrumlogic().spectro_constraints.ports[i+2].type
                     btn.setChecked(True)
                     btn.setDown(True)
@@ -677,12 +681,12 @@ class Main(GUIBase):
                     btn.setChecked(False)
                     btn.setDown(False)
 
-    def _manage_slit_width(self, index):
+    def _manage_slit_width(self, tab_index):
 
-        if index<2:
-            self.spectrumlogic().set_input_slit_width(self._input_slit_width[index].value(), self._input_ports[index].type)
-        elif index>1:
-            self.spectrumlogic().set_output_slit_width(self._output_slit_width[index-2].value(), self._output_ports[index-2].type)
+        if tab_index < 2:
+            self.spectrumlogic().set_input_slit_width(self._input_slit_width[tab_index].value(), self._input_ports[tab_index].type)
+        elif tab_index > 1:
+            self.spectrumlogic().set_output_slit_width(self._output_slit_width[tab_index-2].value(), self._output_ports[tab_index-2].type)
 
     def _manage_cooler_button(self):
         cooler_on = not self.spectrumlogic().cooler_status
@@ -731,9 +735,9 @@ class Main(GUIBase):
             self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
             self.spectrumlogic().image_advanced_area = image_advanced
 
-    def _manage_track_buttons(self, index):
+    def _manage_track_buttons(self, tab_index):
 
-        track_selector = self._track_selector[index]
+        track_selector = self._track_selector[tab_index]
         if track_selector.isVisible():
             track_selector.hide()
         else:
@@ -750,12 +754,12 @@ class Main(GUIBase):
 
         self._mw.camera_temperature.setText(str(round(self.spectrumlogic().camera_temperature-273.15, 2))+"°C")
 
-    def _manage_start_acquisition(self, index):
+    def _manage_start_acquisition(self, tab_index):
 
         for i in range(3):
             self._settings_window[i].setEnabled(False)
             self._start_acquisition_buttons[i].setEnabled(False)
-            if i == index:
+            if i == tab_index:
                 self._stop_acquisition_buttons[i].setEnabled(True)
             else:
                 self._stop_acquisition_buttons[i].setEnabled(False)
@@ -770,7 +774,7 @@ class Main(GUIBase):
             self._settings_window[i].setEnabled(True)
             self._start_acquisition_buttons[i].setEnabled(True)
             self._stop_acquisition_buttons[i].setEnabled(False)
-            if i<2:
+            if i < 2:
                 self._acquire_dark_buttons[i].setEnabled(True)
                 self._save_data_buttons[i].setEnabled(True)
         self._spectrum_tab.multiple_scan_settings.setEnabled(True)
@@ -798,11 +802,11 @@ class Main(GUIBase):
         self._counter_data = np.array([x, y])
         self._alignment_tab.graph.setRange(xRange=(x[-1]-self.time_window_widget.value(), x[-1]))
 
-    def _update_data(self, index):
+    def _update_data(self, tab_index):
 
         data = self.spectrumlogic().acquired_data
 
-        if index == 0:
+        if tab_index == 0:
 
             if self._image_dark.shape == data[1].shape:
                 data[1] = data[1] - self._image_dark
@@ -822,7 +826,7 @@ class Main(GUIBase):
                 height = self.spectrumlogic().camera_constraints.height
                 self._image.setRect(QtCore.QRect(0,0,width,height))
 
-        elif index == 1:
+        elif tab_index == 1:
 
             counts = data[1].mean()
             x = self._counter_data[0]+self.spectrumlogic().exposure_time
@@ -831,7 +835,7 @@ class Main(GUIBase):
             self._alignment_tab.graph.setRange(xRange=(x[-1]-self.time_window_widget.value(), x[-1]))
             self._counter_plot.setData(x, y)
 
-        elif index == 2:
+        elif tab_index == 2:
 
             if self._spectrum_dark.shape[-1] == data[1].shape[-1]:
                 # TODO : fix bug with dark in multiple tracks and data in FVB : broadcasting error
@@ -876,14 +880,14 @@ class Main(GUIBase):
             self.spectrumlogic().sigUpdateData.disconnect()
             self._manage_stop_acquisition()
 
-    def _update_dark(self, index):
+    def _update_dark(self, tab_index):
 
         dark = self.spectrumlogic().acquired_data
 
-        if index == 0:
+        if tab_index == 0:
             self._image_dark = dark
             self._image_tab.dark_acquired_msg.setText("Dark Acquired")
-        elif index == 1:
+        elif tab_index == 1:
             self._spectrum_dark = dark
             self._spectrum_tab.dark_acquired_msg.setText("Dark Acquired")
 
@@ -891,11 +895,11 @@ class Main(GUIBase):
         self._manage_stop_acquisition()
         self.spectrumlogic().shutter_state = self._settings_tab.shutter_modes.currentText()
 
-    def remove_dark(self, index):
+    def remove_dark(self, tab_index):
 
-        if index == 0:
+        if tab_index == 0:
             self._image_dark = np.zeros((1000, 1000))
             self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
-        if index == 1:
+        if tab_index == 1:
             self._spectrum_dark = np.zeros(1000)
             self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
