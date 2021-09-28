@@ -134,11 +134,8 @@ class Main(GUIBase):
         self._settings_tab = SettingsTab()
         self._mw.tab.addTab(self._settings_tab, "Settings")
 
-        height = self.spectrumlogic().camera_constraints.height
-        width = self.spectrumlogic().camera_constraints.width
-        if height*width != 1:
-            self._image_tab = ImageTab()
-            self._mw.tab.addTab(self._image_tab, "Image")
+        self._image_tab = ImageTab()
+        self._mw.tab.addTab(self._image_tab, "Image")
 
         self._alignment_tab = AlignmentTab()
         self._mw.tab.addTab(self._alignment_tab, "Alignment")
