@@ -164,6 +164,7 @@ class Cornerstone(Base, GratingSpectrometerInterface):
 
         @return (float): current central wavelength (meter)
         """
+        self._device.getGrating()
         return float(self._device.getWavelength())*1.0e-9
 
     def set_wavelength(self, value):
