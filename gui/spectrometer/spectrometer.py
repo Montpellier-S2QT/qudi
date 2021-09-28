@@ -115,12 +115,12 @@ class Main(GUIBase):
     _spectrum_exposure_time = StatusVar('spectrum_exposure_time', None)
     _spectrum_readout_speed = StatusVar('spectrum_readout_speed', None)
 
-    _image_data = StatusVar('image_data', np.zeros((1000, 1000)))
-    _image_dark = StatusVar('image_dark', np.zeros((1000, 1000)))
+    _image_data = StatusVar('image_data', [np.zeros(1000), np.zeros((1000, 1000))])
+    _image_dark = StatusVar('image_dark', [np.zeros(1000), np.zeros((1000, 1000))])
     _image_params = StatusVar('image_params', dict())
     _counter_data = StatusVar('counter_data', np.zeros((2, 1000)))
     _spectrum_data = StatusVar('spectrum_data', np.zeros((2, 1000)))
-    _spectrum_dark = StatusVar('spectrum_dark', np.zeros(1000))
+    _spectrum_dark = StatusVar('spectrum_dark', np.zeros((2, 1000)))
     _spectrum_params = StatusVar('spectrum_params', dict())
 
     def __init__(self, config, **kwargs):
@@ -370,7 +370,7 @@ class Main(GUIBase):
         self._image_tab.remove_dark.clicked.connect(partial(self.remove_dark, 0))
 
         self.my_colors = ColorScaleInferno()
-        self._image = pg.ImageItem(image=self._image_data, axisOrder='row-major')
+        self._image = pg.ImageItem(image=self._image_data[1], axisOrder='row-major')
         self._image.setLookupTable(self.my_colors.lut)
         self._image_tab.graph.addItem(self._image)
         self._colorbar = ColorbarWidget(self._image)
@@ -726,7 +726,7 @@ class Main(GUIBase):
             self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
             self.spectrumlogic().image_advanced_binning = image_binning
 
-        roi_size = self._image_advanced_widget.getArrayRegion(self._image_data, self._image).shape
+        roi_size = self._image_advanced_widget.getArrayRegion(self._image_data[1], self._image).shape
         roi_origin = self._image_advanced_widget.pos()
         vertical_range = [int(roi_origin[0]), int(roi_origin[0])+roi_size[0]]
         horizontal_range = [int(roi_origin[1]), int(roi_origin[1])+roi_size[1]]
@@ -808,8 +808,8 @@ class Main(GUIBase):
 
         if tab_index == 0:
 
-            if self._image_dark.shape == data[1].shape:
-                data[1] = data[1] - self._image_dark
+            if self._image_dark[1].shape == data[1].shape:
+                data[1] = data[1] - self._image_dark[1]
             else:
                 self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
             self._image_data = data
@@ -837,9 +837,9 @@ class Main(GUIBase):
 
         elif tab_index == 2:
 
-            if self._spectrum_dark.shape[-1] == data[1].shape[-1]:
+            if self._spectrum_dark[1].shape[-1] == data[1].shape[-1]:
                 # TODO : fix bug with dark in multiple tracks and data in FVB : broadcasting error
-                data[1] = data[1] - self._spectrum_dark
+                data[1] = data[1] - self._spectrum_dark[1]
             else:
                 self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
 
@@ -872,7 +872,7 @@ class Main(GUIBase):
 
             if self.spectrumlogic().read_mode == "MULTIPLE_TRACKS":
                 for i in range(len(y)):
-                    self._spectrum_tab.graph.plot(x[i].T, y[i].T, pen=self.plot_colors[i])
+                    self._spectrum_tab.graph.plot(x.T, y[i].T, pen=self.plot_colors[i])
             else:
                 self._spectrum_tab.graph.plot(x.T, y.T, pen=self.plot_colors[0])
 
@@ -898,8 +898,8 @@ class Main(GUIBase):
     def remove_dark(self, tab_index):
 
         if tab_index == 0:
-            self._image_dark = np.zeros((1000, 1000))
+            self._image_dark = [np.zeros(1000), np.zeros((1000, 1000))]
             self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
         if tab_index == 1:
-            self._spectrum_dark = np.zeros(1000)
+            self._spectrum_dark = np.zeros((2,1000))
             self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")

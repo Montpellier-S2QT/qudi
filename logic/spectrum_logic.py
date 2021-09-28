@@ -266,9 +266,12 @@ class SpectrumLogic(GenericLogic):
             return
 
         else:
+            self._acquired_data.append(self.get_acquired_data())
             self._acquired_spectrum.append(self.wavelength_spectrum)
 
             if self._loop_counter <= 0:
+                self._acquired_data = np.array(self._acquired_data)
+                self._acquired_spectrum = np.array(self._acquired_spectrum)
                 self.module_state.unlock()
                 self.sigUpdateData.emit()
                 self.log.info("Acquisition finished : module state is 'idle' ")
@@ -722,7 +725,7 @@ class SpectrumLogic(GenericLogic):
            """
         data = self.camera().get_acquired_data()/self._exposure_time
         if self._reverse_data_with_side_output and self.output_port == "OUTPUT_SIDE":
-            return netobtain(data[:, ::-1])
+            return netobtain(data.T[::-1].T)
         return netobtain(data)
 
     ##############################################################################
