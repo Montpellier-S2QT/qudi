@@ -41,7 +41,7 @@ class KinesisMotor(Base):
 
     """
     dll_folder = ConfigOption('dll_folder', default=r'C:\Program Files\Thorlabs\Kinesis')
-    dll_file = ConfigOption('dll_ffile', default='Thorlabs.MotionControl.TCube.DCServo.dll')
+    dll_file = ConfigOption('dll_file', default='Thorlabs.MotionControl.TCube.DCServo.dll')
     serial_numbers = ConfigOption('serial_numbers', missing='error')
     names = ConfigOption('names', missing='error')
     polling_rate_ms = ConfigOption('polling_rate_ms', default=200)
