@@ -115,12 +115,16 @@ class Main(GUIBase):
     _spectrum_exposure_time = StatusVar('spectrum_exposure_time', None)
     _spectrum_readout_speed = StatusVar('spectrum_readout_speed', None)
 
-    _image_data = StatusVar('image_data', [np.zeros(1000), np.zeros((1000, 1000))])
-    _image_dark = StatusVar('image_dark', [np.zeros(1000), np.zeros((1000, 1000))])
+    _image_data = StatusVar('image_data', np.zeros((1000, 1000)))
+    _image_wavelength = StatusVar('image_wavelength', np.zeros(1000))
+    _image_dark_data = StatusVar('image_dark_data', np.zeros((1000, 1000)))
+    _image_dark_wavelength = StatusVar('image_dark_wavelength', np.zeros(1000))
     _image_params = StatusVar('image_params', dict())
     _counter_data = StatusVar('counter_data', np.zeros((2, 1000)))
-    _spectrum_data = StatusVar('spectrum_data', np.zeros((2, 1000)))
-    _spectrum_dark = StatusVar('spectrum_dark', np.zeros((2, 1000)))
+    _spectrum_data = StatusVar('spectrum_data', np.zeros(1000))
+    _spectrum_wavelength = StatusVar('spectrum_wavelength', np.zeros(1000))
+    _spectrum_dark_data = StatusVar('spectrum_dark_data', np.zeros(1000))
+    _spectrum_dark_wavelength = StatusVar('spectrum_dark_wavelength', np.zeros(1000))
     _spectrum_params = StatusVar('spectrum_params', dict())
 
     def __init__(self, config, **kwargs):
@@ -367,7 +371,7 @@ class Main(GUIBase):
         self._image_tab.remove_dark.clicked.connect(partial(self.remove_dark, 0))
 
         self.my_colors = ColorScaleInferno()
-        self._image = pg.ImageItem(image=self._image_data[1], axisOrder='row-major')
+        self._image = pg.ImageItem(image=self._image_data, axisOrder='row-major')
         self._image.setLookupTable(self.my_colors.lut)
         self._image_tab.graph.addItem(self._image)
         self._colorbar = ColorbarWidget(self._image)
@@ -560,7 +564,7 @@ class Main(GUIBase):
 
         if self.spectrumlogic().module_state() == 'locked':
             return
-        
+
         self._manage_image_advanced()
         self.spectrumlogic().acquisition_mode = self._image_tab.acquisition_modes.currentData()
         self.spectrumlogic().read_mode = self._image_tab.read_modes.currentData()
@@ -713,9 +717,6 @@ class Main(GUIBase):
 
     def _manage_image_advanced(self):
 
-        height = self.spectrumlogic().camera_constraints.height
-        width = self.spectrumlogic().camera_constraints.width
-
         hbin = self._image_tab.horizontal_binning.value()
         vbin = self._image_tab.vertical_binning.value()
         image_binning = list((hbin, vbin))
@@ -723,7 +724,7 @@ class Main(GUIBase):
             self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
             self.spectrumlogic().image_advanced_binning = image_binning
 
-        roi_size = self._image_advanced_widget.getArrayRegion(self._image_data[1], self._image).shape
+        roi_size = self._image_advanced_widget.getArrayRegion(self._image_data, self._image).shape
         roi_origin = self._image_advanced_widget.pos()
         vertical_range = [int(roi_origin[0]), int(roi_origin[0])+roi_size[0]]
         horizontal_range = [int(roi_origin[1]), int(roi_origin[1])+roi_size[1]]
@@ -802,17 +803,19 @@ class Main(GUIBase):
     def _update_data(self, tab_index):
 
         data = self.spectrumlogic().acquired_data
+        wavelength = self.spectrumlogic().acquired_wavelength
 
         if tab_index == 0:
 
-            if self._image_dark[1].shape == data[1].shape:
-                data[1] = data[1] - self._image_dark[1]
+            if self._image_dark_data.shape == data.shape:
+                data = data - self._image_dark_data
             else:
                 self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
-            self._image_data = data
-            image = data[1]
 
-            self._image.setImage(image)
+            self._image_data = data
+            self._image_wavelength = wavelength
+
+            self._image.setImage(data)
             self._colorbar.refresh_image()
 
             if self.spectrumlogic().read_mode == "IMAGE_ADVANCED":
@@ -821,11 +824,11 @@ class Main(GUIBase):
             else:
                 width = self.spectrumlogic().camera_constraints.width
                 height = self.spectrumlogic().camera_constraints.height
-                self._image.setRect(QtCore.QRect(0,0,width,height))
+                self._image.setRect(QtCore.QRect(0, 0, width, height))
 
         elif tab_index == 1:
 
-            counts = data[1].mean()
+            counts = data.mean()
             x = self._counter_data[0]+self.spectrumlogic().exposure_time
             y = np.append(self._counter_data[1][1:], counts)
             self._counter_data = np.array([x, y])
@@ -834,38 +837,37 @@ class Main(GUIBase):
 
         elif tab_index == 2:
 
-            if self._spectrum_dark[1].shape[-1] == data[1].shape[-1]:
+            if self._spectrum_dark_data.shape[-1] == data.shape[-1]:
                 # TODO : fix bug with dark in multiple tracks and data in FVB : broadcasting error
-                data[1] = data[1] - self._spectrum_dark[1]
+                data = data - self._spectrum_dark_data
             else:
                 self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
 
             self._spectrum_data = data
-            spectrum = data[0]
-            scan = data[1]
+            self._spectrum_wavelength = wavelength
 
             self._spectrum_tab.graph.clear()
 
             if self.spectrumlogic().acquisition_mode == 'MULTI_SCAN':
 
                 if self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Average":
-                    y = np.mean(scan, axis=0)
-                    x = spectrum[-1]
+                    y = np.mean(data, axis=0)
+                    x = wavelength[-1]
                 elif self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Median":
-                    y = np.median(scan, axis=0)
-                    x = spectrum[-1]
+                    y = np.median(data, axis=0)
+                    x = wavelength[-1]
                 elif self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Accumulation":
-                    s = scan.shape
-                    y = np.reshape(scan, (s[0]*s[1]))
-                    x = np.reshape(spectrum, (s[0]*s[1]))
+                    s = data.shape
+                    y = np.reshape(data, (s[0]*s[1]))
+                    x = np.reshape(wavelength, (s[0]*s[1]))
                 else:
-                    y = scan[-1]
-                    x = spectrum[-1]
+                    y = data[-1]
+                    x = wavelength[-1]
 
             else:
 
-                y = scan
-                x = spectrum
+                y = data
+                x = wavelength
 
             if self.spectrumlogic().read_mode == "MULTIPLE_TRACKS":
                 for i in range(len(y)):
@@ -879,13 +881,16 @@ class Main(GUIBase):
 
     def _update_dark(self, tab_index):
 
-        dark = self.spectrumlogic().acquired_data
+        data = self.spectrumlogic().acquired_data
+        wavelength = self.spectrumlogic().acquired_wavelength
 
         if tab_index == 0:
-            self._image_dark = dark
+            self._image_dark_data = data
+            self._image_dark_wavelength = wavelength
             self._image_tab.dark_acquired_msg.setText("Dark Acquired")
         elif tab_index == 1:
-            self._spectrum_dark = dark
+            self._spectrum_dark_data = data
+            self._spectrum_dark_wavelength = wavelength
             self._spectrum_tab.dark_acquired_msg.setText("Dark Acquired")
 
         self.spectrumlogic().sigUpdateData.disconnect()

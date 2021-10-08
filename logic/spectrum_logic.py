@@ -216,7 +216,7 @@ class SpectrumLogic(GenericLogic):
     def _start_acquisition(self):
         """ Start acquisition method initializing the acquisitions constants and calling the acquisition method """
         self._acquired_data = []
-        self._acquired_spectrum = []
+        self._acquired_wavelength = []
         if self.acquisition_mode == 'MULTI_SCAN':
             self._loop_counter = self.number_of_scan
         self._acquisition_loop()
@@ -251,7 +251,7 @@ class SpectrumLogic(GenericLogic):
 
         if self.acquisition_mode == 'SINGLE_SCAN':
             self._acquired_data = self.get_acquired_data()
-            self._acquired_spectrum = self.wavelength_spectrum
+            self._acquired_wavelength = self.wavelength_spectrum
             self.module_state.unlock()
             self.sigUpdateData.emit()
             self.log.info("Acquisition finished : module state is 'idle' ")
@@ -260,18 +260,19 @@ class SpectrumLogic(GenericLogic):
         elif self.acquisition_mode == 'LIVE_SCAN':
             self._loop_counter += 1
             self._acquired_data = self.get_acquired_data()
-            self._acquired_spectrum = self.wavelength_spectrum
+            self._acquired_wavelength = self.wavelength_spectrum
             self.sigUpdateData.emit()
             self._acquisition_loop()
             return
 
         else:
+
             self._acquired_data.append(self.get_acquired_data())
-            self._acquired_spectrum.append(self.wavelength_spectrum)
+            self._acquired_wavelength.append(self.wavelength_spectrum)
 
             if self._loop_counter <= 0:
                 self._acquired_data = np.array(self._acquired_data)
-                self._acquired_spectrum = np.array(self._acquired_spectrum)
+                self._acquired_wavelength = np.array(self._acquired_wavelength)
                 self.module_state.unlock()
                 self.sigUpdateData.emit()
                 self.log.info("Acquisition finished : module state is 'idle' ")
@@ -292,7 +293,12 @@ class SpectrumLogic(GenericLogic):
     @property
     def acquired_data(self):
         """ Getter method returning the last acquired data. """
-        return np.array([self._acquired_spectrum, self._acquired_data])
+        return np.array(self._acquired_data)
+
+    @property
+    def acquired_wavelength(self):
+        """ Getter method returning the last acquired data. """
+        return np.array(self._acquired_wavelength)
 
     @property
     def acquisition_params(self):
@@ -328,7 +334,7 @@ class SpectrumLogic(GenericLogic):
         if self.acquisition_params['read_mode'] == 'IMAGE_ADVANCED':
             acquisition = {'data': data.flatten()}
         else:
-            spectrum = np.array(self._acquired_spectrum)
+            spectrum = np.array(self._acquired_wavelength)
             acquisition = {'wavelength (m)' : spectrum.flatten(), 'data': data.flatten()}
 
         self.savelogic().save_data(acquisition, filepath=filepath, parameters=self.acquisition_params)
