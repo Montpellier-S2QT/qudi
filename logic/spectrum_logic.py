@@ -240,6 +240,7 @@ class SpectrumLogic(GenericLogic):
         # If module unlocked by stop_acquisition
         if self.module_state() != 'locked':
             self.sigUpdateData.emit()
+            self.center_wavelength = self._center_wavelength
             self.log.info("Acquisition stopped. Status loop stopped.")
             return
 
@@ -275,6 +276,7 @@ class SpectrumLogic(GenericLogic):
                 self._acquired_wavelength = np.array(self._acquired_wavelength)
                 self.module_state.unlock()
                 self.sigUpdateData.emit()
+                self.center_wavelength = self._center_wavelength
                 self.log.info("Acquisition finished : module state is 'idle' ")
             else:
                 self.sigUpdateData.emit()
@@ -288,6 +290,7 @@ class SpectrumLogic(GenericLogic):
             self.camera().abort_acquisition()
         if self.module_state() == 'locked':
             self.module_state.unlock()
+        self.center_wavelength = self._center_wavelength
         self.log.debug("Acquisition stopped : module state is 'idle' ")
 
     @property
@@ -439,7 +442,6 @@ class SpectrumLogic(GenericLogic):
                            .format(0, wavelength_max))
             return
         self.spectrometer().set_wavelength(wavelength)
-        self._center_wavelength = self.spectrometer().get_wavelength()
 
     @property
     def wavelength_spectrum(self):

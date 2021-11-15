@@ -492,13 +492,13 @@ class Main(GUIBase):
 
         self._spectrum_tab.save.clicked.connect(self.spectrumlogic().save_acquired_data)
         self._save_data_buttons.append(self._spectrum_tab.save)
-        self._spectrum_tab.acquire_dark.clicked.connect(partial(self.start_dark_acquisition, 1))
+        self._spectrum_tab.acquire_dark.clicked.connect(partial(self.start_dark_acquisition, 2))
         self._acquire_dark_buttons.append(self._spectrum_tab.acquire_dark)
         self._spectrum_tab.start_acquisition.clicked.connect(partial(self.start_acquisition, 2))
         self._start_acquisition_buttons.append(self._spectrum_tab.start_acquisition)
         self._spectrum_tab.stop_acquisition.clicked.connect(self.stop_acquisition)
         self._stop_acquisition_buttons.append(self._spectrum_tab.stop_acquisition)
-        self._spectrum_tab.remove_dark.clicked.connect(partial(self.remove_dark, 1))
+        self._spectrum_tab.remove_dark.clicked.connect(partial(self.remove_dark, 2))
 
         self._spectrum_tab.graph.setLabel('left', 'Photoluminescence', units='counts/s')
         self._spectrum_tab.graph.setLabel('bottom', 'wavelength', units='m')
@@ -620,7 +620,7 @@ class Main(GUIBase):
             self.spectrumlogic().read_modes = self._image_tab.read_modes.currentData()
             self.spectrumlogic().exposure_time = self.image_exposure_time_widget.value()
             self.spectrumlogic().readout_speed = self._image_tab.readout_speed.currentData()
-        elif tab_index == 1:
+        elif tab_index == 2:
             self.spectrumlogic().read_modes = self._spectrum_tab.read_modes.currentData()
             self.spectrumlogic().exposure_time = self.spectrum_exposure_time_widget.value()
             self.spectrumlogic().readout_speed = self._spectrum_tab.readout_speed.currentData()
@@ -841,7 +841,7 @@ class Main(GUIBase):
                 # TODO : fix bug with dark in multiple tracks and data in FVB : broadcasting error
                 data = data - self._spectrum_dark_data
             else:
-                self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
+                acquired_data = acquired_data - self._spectrum_dark[1]
 
             self._spectrum_data = data
             self._spectrum_wavelength = wavelength
@@ -900,8 +900,8 @@ class Main(GUIBase):
     def remove_dark(self, tab_index):
 
         if tab_index == 0:
-            self._image_dark = [np.zeros(1000), np.zeros((1000, 1000))]
+            self._image_dark = (np.zeros(1000), np.zeros((1000, 1000)))
             self._image_tab.dark_acquired_msg.setText("No Dark Acquired")
-        if tab_index == 1:
-            self._spectrum_dark = np.zeros((2,1000))
+        if tab_index == 2:
+            self._spectrum_dark = np.zeros((2, 1000))
             self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
