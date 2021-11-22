@@ -435,7 +435,7 @@ class SpectrumLogic(GenericLogic):
         if self._scan_wavelength_step == 0:
             self.log.info('The wavelength step of the scan is 0, no change of the center wavelength.')
             return
-        wavelength = self._center_wavelength + self._scan_wavelength_step
+        wavelength = self.spectrometer().get_wavelength() + self._scan_wavelength_step
         wavelength_max = self.spectro_constraints.gratings[self.grating].wavelength_max
         if not 0 <= wavelength < wavelength_max:
             self.log.error('Wavelength parameter is not correct : it must be in range {} to {} '

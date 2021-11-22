@@ -838,10 +838,9 @@ class Main(GUIBase):
         elif tab_index == 2:
 
             if self._spectrum_dark_data.shape[-1] == data.shape[-1]:
-                # TODO : fix bug with dark in multiple tracks and data in FVB : broadcasting error
                 data = data - self._spectrum_dark_data
             else:
-                acquired_data = acquired_data - self._spectrum_dark[1]
+                self._spectrum_tab.dark_acquired_msg.setText("No Dark Acquired")
 
             self._spectrum_data = data
             self._spectrum_wavelength = wavelength
@@ -858,8 +857,11 @@ class Main(GUIBase):
                     x = wavelength[-1]
                 elif self._spectrum_tab.multipe_scan_mode.currentText() == "Scan Accumulation":
                     s = data.shape
-                    y = np.reshape(data, (s[0]*s[1]))
-                    x = np.reshape(wavelength, (s[0]*s[1]))
+                    if len(s)>2:
+                        y = np.reshape(data, (s[1], s[0]*s[2]))
+                    else:
+                        y = np.reshape(data, (s[0] * s[1]))
+                    x = np.reshape(wavelength, (s[0]*s[-1]))
                 else:
                     y = data[-1]
                     x = wavelength[-1]
