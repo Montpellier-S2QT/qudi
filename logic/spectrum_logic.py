@@ -290,7 +290,7 @@ class SpectrumLogic(GenericLogic):
             self.camera().abort_acquisition()
         if self.module_state() == 'locked':
             self.module_state.unlock()
-        self.center_wavelength = self._center_wavelength
+        #self.center_wavelength = self._center_wavelength
         self.log.debug("Acquisition stopped : module state is 'idle' ")
 
     @property
