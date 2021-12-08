@@ -67,6 +67,16 @@ class GratingSpectrometerInterface(metaclass=InterfaceMetaclass):
     """
 
     @abstract_interface_method
+    def get_ready_state(self):
+        """ Get the status of the spectrometer, to know if the acquisition is finished or still ongoing.
+
+        @return (bool): True if the spectrometer is ready, False if an acquisition is ongoing
+
+        As there is no synchronous acquisition in the interface, the logic needs a way to check the acquisition state.
+        """
+        pass
+
+    @abstract_interface_method
     def get_constraints(self):
         """ Returns all the fixed parameters of the hardware which can be used by the logic.
 
