@@ -615,7 +615,7 @@ class Main(GUIBase):
         try:
             data = np.loadtxt(r"{}".format(filename)).T
             self._image_background = {"wavelength":data[0],
-                                      "data":data[1]}
+                                      "data":data[1].reshape()}
             self._image_tab.background_msg.setText("Background Loaded")
         except:
             pass
@@ -725,6 +725,7 @@ class Main(GUIBase):
         self._mw.center_wavelength_current.setText("{:.2r}m".format(ScaledFloat(self.spectrumlogic().center_wavelength)))
 
     def _manage_tracks(self):
+
         active_tracks = []
         for i in range(4):
             if self._track_selector[i].isVisible():
@@ -740,20 +741,12 @@ class Main(GUIBase):
 
         hbin = self._image_tab.horizontal_binning.value()
         vbin = self._image_tab.vertical_binning.value()
-        image_binning = list((hbin, vbin))
-        if list(self.spectrumlogic().image_advanced_binning.values()) != image_binning:
-            self.spectrumlogic().image_advanced_binning = image_binning
+        self.spectrumlogic().image_advanced_binning = [hbin, vbin]
 
-        if self._image_data:
-            roi_size = self._image_advanced_widget.getArrayRegion(self._image_data['data'], self._image).shape
-        else:
-            roi_size = self._image_advanced_widget.getArrayRegion(np.zeros((10,10)), self._image).shape
-        roi_origin = self._image_advanced_widget.pos()
-        vertical_range = [int(roi_origin[0]), int(roi_origin[0])+roi_size[0]]
-        horizontal_range = [int(roi_origin[1]), int(roi_origin[1])+roi_size[1]]
-        image_advanced = horizontal_range + vertical_range
-        if list(self.spectrumlogic().image_advanced_area.values()) != image_advanced:
-            self.spectrumlogic().image_advanced_area = image_advanced
+        roi_size = list(self._image_advanced_widget.size())
+        roi_origin = list(self._image_advanced_widget.pos())
+        image_advanced = [int(roi_origin[0]), int(roi_origin[0]+roi_size[0]), int(roi_origin[1]), int(roi_origin[1]+roi_size[1])]
+        self.spectrumlogic().image_advanced_area = image_advanced
 
     def _manage_track_buttons(self, tab_index):
 
