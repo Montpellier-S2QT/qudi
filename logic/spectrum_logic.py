@@ -842,10 +842,10 @@ class SpectrumLogic(GenericLogic):
             self.log.error("Binning parameter must be a tuple or list of 2 elements respectively the horizontal and "
                            "vertical binning ")
             return
-        width = self.camera_constraints.width
-        height = self.camera_constraints.height
+        width = abs(self.image_advanced_area['horizontal_range'][1]-self.image_advanced_area['horizontal_range'][0])
+        height = abs(self.image_advanced_area['vertical_range'][1]-self.image_advanced_area['vertical_range'][0])
         if not 0<binning[0]<width or not 0<binning[1]<height:
-            self.log.error("Binning parameter is out of range : the binning is outside the camera dimensions in pixel ")
+            self.log.error("Binning parameter is out of range : the binning is outside the image dimensions in pixel ")
             return
         self._image_advanced.horizontal_binning = int(binning[0])
         self._image_advanced.vertical_binning = int(binning[1])
