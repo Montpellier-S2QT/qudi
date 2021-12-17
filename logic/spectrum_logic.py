@@ -219,14 +219,14 @@ class SpectrumLogic(GenericLogic):
         """ Start acquisition method initializing the acquisitions constants and calling the acquisition method """
         if self.acquisition_mode == 'MULTI_SCAN':
             self._loop_counter = self.number_of_scan
+            self._acquired_wavelength = np.array([])
+            self._acquired_data = np.array([])
         self._acquisition_loop()
 
     def _acquisition_loop(self):
         """ Acquisition method starting hardware acquisition and emitting Qtimer signal connected to check status method
         """
         self._loop_counter -= 1
-        self._acquired_wavelength = np.array([])
-        self._acquired_data = np.array([])
         self.camera().start_acquisition()
         self._sigCheckStatus.emit()
 
@@ -242,7 +242,6 @@ class SpectrumLogic(GenericLogic):
         if not self.camera().get_ready_state():
             self._sigCheckStatus.emit()
             return
-
 
         if self.acquisition_mode == 'SINGLE_SCAN':
             self._acquired_wavelength = self.wavelength_spectrum
@@ -261,7 +260,6 @@ class SpectrumLogic(GenericLogic):
             return
 
         else:
-
             self._acquired_wavelength = np.append(self._acquired_wavelength, self.wavelength_spectrum, axis=0)
             self._acquired_data = np.append(self._acquired_data, self.get_acquired_data(), axis=0)
 

@@ -833,7 +833,8 @@ class Main(GUIBase):
                 else:
                     self._image_tab.background_msg.setText("Wrong Background Size")
 
-            data /= self._image_params['exposure_time']
+            print(data)
+            data = data/self._image_params['exposure_time']
 
             self._image_data = {"wavelength":wavelength,
                                 "data":data}
@@ -866,7 +867,7 @@ class Main(GUIBase):
                 else:
                     self._spectrum_tab.background_msg.setText("Wrong Background Size")
 
-            data /= self._spectrum_params['exposure_time']
+            data = data/self._spectrum_params['exposure_time']
 
             self._spectrum_data = {"wavelength":wavelength,
                                    "data":data}
