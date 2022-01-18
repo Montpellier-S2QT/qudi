@@ -224,6 +224,8 @@ class Mapper:
             widget_property_notifier = getattr(
                 widget,
                 meta_property.notifySignal().name().data().decode('utf8'))
+        elif isinstance(widget_property_notifier, str):
+            widget_property_notifier = getattr(widget, widget_property_notifier)
 
         # check that widget property is readable
         if not meta_property.isReadable():
