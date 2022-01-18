@@ -131,19 +131,20 @@ class Main(GUIBase):
         widget.checkBox.setEnabled(logic.power_switch.is_connected)
 
         self.mapper.add_mapping(widget=widget.checkBox, model=logic,
-                                model_getter=logic.get_switch_state,
-                                model_property_notifier=logic.sigNewSwitchState,
-                                model_setter=logic.set_switch_state,
-                                widget_property_notifier=widget.checkBox.stateChanged)
+                                model_getter='get_switch_state',
+                                model_property_notifier='sigNewSwitchState',
+                                model_setter='set_switch_state',
+                                widget_property_notifier='stateChanged')
 
         self.mapper.add_mapping(widget=widget.powerSpinBox, model=logic,
-                                model_getter=logic.get_power_setpoint,
-                                model_property_notifier=logic.sigNewPower,
-                                model_setter=logic.set_power,
-                                widget_property_notifier=widget.powerSpinBox.editingFinished)
+                                model_getter='get_power_setpoint',
+                                model_property_notifier='sigNewPower',
+                                model_setter='set_power',
+                                widget_property_notifier='editingFinished')
 
         class SliderConverter(Converter):
             def widget_to_model(self, data):
+                print(widget.slider_powers[data])
                 return widget.slider_powers[data]
 
             def model_to_widget(self, data):
