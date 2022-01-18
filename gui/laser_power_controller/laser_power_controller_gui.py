@@ -144,7 +144,6 @@ class Main(GUIBase):
 
         class SliderConverter(Converter):
             def widget_to_model(self, data):
-                print(widget.slider_powers[data])
                 return widget.slider_powers[data]
 
             def model_to_widget(self, data):
