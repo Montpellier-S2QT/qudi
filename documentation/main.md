@@ -19,6 +19,7 @@
    * [Extensions](@ref extensions)
    * [How to use the logger](@ref logger_usage)
    * [Graphical User Interface Design Concept](@ref uiguidelines)
+   * [Graphical User Interface Mapper](@ref mapper)
    * [State machines in various components](@ref statemachines)
 
 * Configuration
