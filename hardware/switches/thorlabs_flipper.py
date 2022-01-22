@@ -44,6 +44,7 @@ class Main(Base, SwitchInterface):
     serial_numbers = ConfigOption('serial_numbers', missing='error')
     polling_rate_ms = ConfigOption('polling_rate_ms', default=200)
     invert_axis = ConfigOption('invert_axis', default=[False])
+    switch_states = ConfigOption(name='switch_states', default=None)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -56,6 +57,9 @@ class Main(Base, SwitchInterface):
         os.environ['PATH'] = str(self.dll_folder) + os.pathsep + os.environ['PATH']  # needed otherwise dll don't load
         self._dll = ct.cdll.LoadLibrary(self.dll_file)
         self._dll.TLI_BuildDeviceList()
+
+        if len(self.serial_numbers)!=len(self.states):
+            self.log.error("The number of switches configured in the switch states are not equal to length of the serial number list.")
 
         self._serial_numbers = []
         for serial_number in self.serial_numbers:
@@ -71,12 +75,56 @@ class Main(Base, SwitchInterface):
             self._dll.FF_StopPolling(serial_number)
             self._dll.FF_Close(serial_number)
 
-    def getNumberOfSwitches(self):
-        """ Gives the number of switches connected to this hardware.
+    @property
+    def name(self):
+        """ Name of the hardware as string.
 
-          @return int: number of swiches on this hardware
+        @return str: The name of the hardware
         """
-        return len(self._serial_numbers)
+        return self._name
+
+    @property
+    def number_of_switches(self):
+        """ Number of switches provided by the hardware.
+
+        @return int: number of switches
+        """
+        return len(self.switch_states)
+
+    @property
+    def available_states(self):
+        """ Names of the states as a dict of tuples.
+
+        The keys contain the names for each of the switches. The values are tuples of strings
+        representing the ordered names of available states for each switch.
+
+        @return dict: Available states per switch in the form {"switch": ("state1", "state2")}
+        """
+        return self.switch_states.copy()
+
+    def get_state(self, switch):
+        """ Query state of single switch by name
+
+        @param str switch: name of the switch to query the state for
+        @return str: The current switch state
+        """
+        assert switch in self.available_states, f'Invalid switch name: "{switch}"'
+        return self._states[switch]
+
+    def set_state(self, switch, state):
+        """ Query state of single switch by name
+
+        @param str switch: name of the switch to change
+        @param str state: name of the state to set
+        """
+        avail_states = self.available_states
+        assert switch in avail_states, f'Invalid switch name: "{switch}"'
+        assert state in avail_states[switch], f'Invalid state name "{state}" for switch "{switch}"'
+        self._states[switch] = state
+
+        setpoint = 2 if not self._is_inverted() else 1
+        self._dll.FF_MoveToPosition(self._serial_numbers[switchNumber], setpoint)
+        return True
 
     def _is_inverted(self, axis=0):
         """ Helper function to get if axis is inverted in config """
@@ -106,16 +154,6 @@ class Main(Base, SwitchInterface):
         """
         return True
 
-    def switchOn(self, switchNumber):
-        """ Set the state to on (channel 1)
-
-          @param (int) switchNumber: number of switch to be switched
-
-          @return (bool): True if succeeds, False otherwise
-        """
-        setpoint = 2 if not self._is_inverted() else 1
-        self._dll.FF_MoveToPosition(self._serial_numbers[switchNumber], setpoint)
-        return True
 
     def switchOff(self, switchNumber):
         """ Set the state to off (channel 2)
