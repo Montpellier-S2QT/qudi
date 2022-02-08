@@ -22,8 +22,10 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 import pyvisa
 import time
 import numpy as np
+from qtpy import QtCore
 
-from core.module import Base, ConfigOption
+from core.module import Base
+from core.configoption import ConfigOption
 from interface.sc_magnet_interface import SuperConductingMagnetInterface
 from interface.sc_magnet_interface import SCMagnetConstraints
 
@@ -46,9 +48,11 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
     _modtype = 'hardware'
 
     # visa address of the hardware
-    _current_ratio_x = ConfigOption('current_ratio_x', missing='error')
-    _current_ratio_y = ConfigOption('current_ratio_y', missing='error')
-    _current_ratio_z = ConfigOption('current_ratio_z', missing='error')
+    current_ratio_x = ConfigOption('current_ratio_x', missing='error')
+    current_ratio_y = ConfigOption('current_ratio_y', missing='error')
+    current_ratio_z = ConfigOption('current_ratio_z', missing='error')
+
+    sigValuesUpdated = QtCore.Signal(str)
     
     def on_activate(self):
         """ Initialisation performed during activation of the module. """
@@ -58,7 +62,7 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
         self.imag = {"x":0, "y":0, "z":0}
         self.pshtr = {"x":"OFF", "y":"OFF", "z":"OFF"}
         self.sweep_mode = {"x":"pause", "y":"pause", "z":"pause"}
-        self.ratio = {"x":self._current_ratio_x, "y":self._current_ratio_y, "z":self._current_ratio_z}
+        self.ratio = {"x":self.current_ratio_x, "y":self.current_ratio_y, "z":self.current_ratio_z}
 
         return
     
@@ -164,13 +168,16 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
         """ Checks every 2s if the sweep is over. When it is the case, pause.
         """
         cur_stat = self.get_powersupply_current(coil)
-        self.iout[coil] += self.ratio[axis]
         while np.abs(target-float(cur_stat)) > 1e-3:
             self.log.info(target)
             self.log.info(float(cur_stat))
-            # check every 2s if the value is reached
-            time.sleep(2)
+            # check every 0.2s if the value is reached
+            time.sleep(0.2)
+            self.iout[coil] += np.sign(target - self.iout[coil]) * 1 / self.ratio[axis]
+            if self.pshtr[axis] == "ON":
+                self.imag[coil] = self.iout[coil]
             cur_stat = self.get_powersupply_current(coil)
+            self.sigValuesUpdated.emit(coil)
         time.sleep(5)
         self.set_sweep_mode(axis, "pause")
         return
@@ -185,7 +192,7 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
             axis = self.get_axis(test_coil) 
             mode = self.read_sweep_mode(axis)
             
-            if mode not in ["Pause", "Standby"]:
+            if mode not in ["pause", "standby"]:
                 self.log.warning("Do not try to change the field during a sweep!")
                 return
             heater = self.get_heater_status(axis)
@@ -236,8 +243,8 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
             time.sleep(1)   
             # heater on
             self.set_switch_heater(axis, mode="ON")
-            self.log.info(f"Heater {coil} ON, waiting 5 s")
-            time.sleep(5)
+            self.log.info(f"Heater {coil} ON, waiting 0.5 s")
+            time.sleep(0.5)
             # sweep
             self.set_sweep_mode(axis, "sweep")
             self.log.info("Sweeping...")
@@ -245,9 +252,9 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
             self.log.info("Sweep finished")
             # heater off
             self.set_switch_heater(axis, mode="OFF")
-            self.log.info(f"Heater {coil} OFF, waiting 5 s")
+            self.log.info(f"Heater {coil} OFF, waiting 0.5 s")
             self.imag[coil] = self.iout[coil]
-            time.sleep(5)
+            time.sleep(0.5)
             # zeroing
             self.set_sweep_mode(axis, "sweep")
             self.log.info("Zeroing...")

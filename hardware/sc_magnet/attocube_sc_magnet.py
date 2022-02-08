@@ -22,8 +22,10 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 import pyvisa
 import time
 import numpy as np
+from qtpy import QtCore
 
-from core.module import Base, ConfigOption
+from core.module import Base
+from core.configoption import ConfigOption
 from interface.sc_magnet_interface import SuperConductingMagnetInterface
 from interface.sc_magnet_interface import SCMagnetConstraints
 
@@ -59,9 +61,9 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
     _address_xy = ConfigOption('gpib_address_x', missing='error')
     _address_z = ConfigOption('gpib_address_z', missing='error')
     _timeout = ConfigOption('gpib_timeout', 500, missing='warn')
-    _current_ratio_x = ConfigOption('current_ratio_x', missing='error')
-    _current_ratio_y = ConfigOption('current_ratio_y', missing='error')
-    _current_ratio_z = ConfigOption('current_ratio_z', missing='error')
+    current_ratio_x = ConfigOption('current_ratio_x', missing='error')
+    current_ratio_y = ConfigOption('current_ratio_y', missing='error')
+    current_ratio_z = ConfigOption('current_ratio_z', missing='error')
 
     # default waiting time of the pc after a message was sent to the magnet
     _waitingtime = ConfigOption('magnet_waitingtime', 0.5)
@@ -80,6 +82,8 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
         except:
             self.log.error(test)
             raise
+
+        sigValuesUpdated = QtCore.Signal(str)
 
         self.ch = {"x":1, "y":2}
 
@@ -192,6 +196,7 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
 
         axis = self.get_axis(coil)
         self.iout = self.query_device(axis, 'IOUT?\n')[:-2]
+        self.sigValuesUpdated.emit(coil)
 
         return self.iout
 
@@ -199,6 +204,7 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
 
         axis = self.get_axis(coil)
         self.imag = self.query_device(axis, 'IMAG?\n')[:-2]
+        self.sigValuesUpdated.emit(coil)
 
         return self.imag
 

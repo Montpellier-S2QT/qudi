@@ -22,7 +22,6 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 from qtpy import QtCore
 from collections import OrderedDict
 from copy import copy
-from threading import Thread
 import time
 import datetime
 import numpy as np
@@ -30,19 +29,17 @@ import numpy as np
 from logic.generic_logic import GenericLogic
 from core.util.mutex import Mutex
 from core.connector import Connector
-from core.configoption import ConfigOption
-from core.statusvariable import StatusVar
 
-class CoilMagnetLogic(GenericLogic):
+class SuperConductingMagnetLogic(GenericLogic):
     
-    _modclass = 'coilmagnetlogic'
+    _modclass = 'sccoilmagnetlogic'
     _modtype = 'logic'
 
     # Declare connectors
     powersupply = Connector(interface='SuperConductingMagnetInterface')
     
     # Internal signals
-    sigContinueSweeping = QtCore.Signal()
+    sigContinueSweeping = QtCore.Signal(str)
 
     # Update signals, e.g. for GUI module
     sigFieldSet = QtCore.Signal()
@@ -66,7 +63,10 @@ class CoilMagnetLogic(GenericLogic):
        self.constr = self._power_supply.get_constraints()
        
        # Connect internal signals
-       self.sigContinueSweeping.connect(self._wait_sweep_and_pause, QtCore.Qt.QueuedConnection)
+    #    self.sigContinueSweeping.connect(self._wait_sweep_and_pause, QtCore.Qt.QueuedConnection)
+
+       # Connect external signals
+       self._power_supply.sigValuesUpdated.connect(self.get_currents)
 
        self.check_sweep_ended = False
        self.coeff = {
@@ -94,49 +94,58 @@ class CoilMagnetLogic(GenericLogic):
         B = self.constr.field_in_range(B, coil)
         current = B/self.coeff[coil]
         
-        sweep_thread = Thread(target=self._power_supply.sweep_coil, args=(current, coil))
-        sweep_thread.start()
-        self.sigContinueSweeping.emit()
+        self._power_supply.sweep_coil(current, coil)
+        # self.sigContinueSweeping.emit(coil)
 
         return B
 
-    def _wait_sweep_and_pause(self, coil):
-        """ Checks every 0.5s if the sweep is over. When it is the case, pause.
-            @param dict
-            @param float 
-            @param str "x", "y" or "z"
-        """
-        if self.check_sweep_ended:
-            self.check_sweep_ended = False
-            [ps_current, magnet_current] = self._get_currents(coil)
-            self.sigCurrentsValuesUpdated.emit(coil, ps_current, magnet_current)
-            return
+    # def _wait_sweep_and_pause(self, coil):
+    #     """ Checks every 0.5s if the sweep is over. When it is the case, pause.
+    #         @param dict
+    #         @param float 
+    #         @param str "x", "y" or "z"
+    #     """
+    #     if self.check_sweep_ended:
+    #         self.check_sweep_ended = False
+    #         [ps_current, magnet_current] = self.get_currents(coil)
+    #         self.sigCurrentsValuesUpdated.emit(coil, ps_current, magnet_current)
+    #         return
         
-        # check every 0.5s if the value is reached
-        time.sleep(0.5)
-        self.check_sweep_ended = self._power_supply.sweeping_status(coil)
-        [ps_current, magnet_current] = self._get_currents(coil)
-        self.sigCurrentsValuesUpdated.emit(coil, ps_current, magnet_current)
-        self.sigContinueSweeping.emit()
+    #     # check every 0.5s if the value is reached
+    #     time.sleep(0.5)
+    #     self.check_sweep_ended = self._power_supply.sweeping_status(coil)
+    #     [ps_current, magnet_current] = self.get_currents(coil)
+    #     self.sigCurrentsValuesUpdated.emit(coil, ps_current, magnet_current)
+    #     self.sigContinueSweeping.emit(coil)
 
-        return
+    #     return
     
-    def _get_currents(self, coil):
+    def get_currents(self, coil):
         """ Read currents. """
         ps_current = self._power_supply.get_powersupply_current(coil)
         magnet_current = self._power_supply.get_coil_current(coil)
 
+        self.log.warning([ps_current, magnet_current])
+        self.sigCurrentsValuesUpdated.emit(coil, ps_current, magnet_current)
+
         return [ps_current, magnet_current]
+
+    def get_sweep_status(self, coil):
+
+        if self._power_supply.sweeping_status(coil):
+            return "Standby"
+        else:
+            return "Sweeping..."
     
     
     def go_to_field(self, Bx, By, Bz):
        """ Routine doing the full work to set a field value, B in G.
        """
-       Bx = self._set_field_coil(Bx, "x")
+       Bx = self._set_field_coil(10*Bx, "x")/10
        time.sleep(0.5)
-       By = self._set_field_coil(By, "y")
+       By = self._set_field_coil(10*By, "y")/10
        time.sleep(0.5)
-       Bz = self._set_field_coil(Bz, "z")
+       Bz = self._set_field_coil(10*Bz, "z")/10
        time.sleep(0.5)
        self.sigFieldSet.emit()
        self.sigNewFieldValues.emit(Bx, By, Bz)
