@@ -20,7 +20,8 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 """
 
 import abc
-from core.util.interfaces import InterfaceMetaclass
+from core.meta import InterfaceMetaclass
+from core.util.helpers import in_range
 
 class SuperConductingMagnetInterface(metaclass=InterfaceMetaclass):
     """ This is the Interface class to define the controls for the devices
@@ -31,152 +32,74 @@ class SuperConductingMagnetInterface(metaclass=InterfaceMetaclass):
     _modclass = 'interface'
     
     @abc.abstractmethod
-    def get_limits(self, axis):
-        """
-        Read lower/upped sweep limit and voltage limit (5 for z, 1 for x and y)
-        @param adress of the desired magnet
-        
-        @return float [llim, ulim, vlim]
+    def get_constraints(self):
+        """ Constraints and parameters of SC magnet's hardware
         """
         pass
     
     @abc.abstractmethod
-    def start_remote_mode(self, axis):
-        """
-        Select remote operation
-        """
-        pass
-    
-    @abc.abstractmethod
-    def channel_select(self, axis, n_channel):
-        """
-        Select module for subsequent commands
-        @param int: wanted channel
-        
-        @return int: selected channel
+    def sweep_coil(self, Amps, coil):
+        """ Bring a coil to field Amps and the power supply back to zero.
         """
         pass
     
     @abc.abstractmethod
-    def get_active_coil_status(self, axis, mode):
+    def sweeping_status(self, coil):
+        pass
+    
+    @abc.abstractmethod
+    def get_powersupply_current(self, coil):
         """
-        Query current coil and power supply caracteristics
+        Query current power supply
         
         @return array
         """
         pass
     
     @abc.abstractmethod
-    def get_rates(self, axis):
+    def get_coil_current(self, coil):
         """
-        Query sweep rates for selected sweep range
+        Query current coil
         
         @return array
         """
         pass
     
-    @abc.abstractmethod
-    def read_sweep_mode(self, axis):
+class SCMagnetConstraints:
+    """ Constraints and parameters of SC magnet's hardware
+    """
+    def __init__(self):
+        """ Defaults parameters
         """
-        Query sweep mode
+        # max field values
+        self.max_B = {}
+        self.max_B["x"] = 500
+        self.max_B["y"] = 500
+        self.max_B["z"] = 500
+
+        # min field values
+        self.min_B = {}
+        self.min_B["x"] = -500
+        self.min_B["y"] = -500
+        self.min_B["z"] = -500
         
-        @return str
-        """
-        pass
-    
-    @abc.abstractmethod
-    def get_ranges(self, axis):
-        """
-        Query range limit for sweep rate boundary
-        
-        @return str
-        """
-        pass
-    
-    @abc.abstractmethod
-    def get_mode(self, axis):
-        """
-        Query selected operating mode
-        
-        @return str
-        """
-        pass
-    
-    @abc.abstractmethod
-    def get_units(self, axis):
-        """
-        Query selected units
-        
-        @return str
-        """
-        pass
-    
-    @abc.abstractmethod
-    def set_switch_heater(self, axis, mode='OFF'):
-        """
-        Control persistent switch heater
-        @param USB adress
-        @param string: ON or OFF to set the switch heater on or off
-        """
-        pass
-    
-    @abc.abstractmethod
-    def set_units(self, axis, units='G'):
-        """
-        Select Units
-        @param string: A or G
-        
-        @return string: selected units
-        """
-        pass
-    
-    @abc.abstractmethod
-    def set_sweep_mode(self, axis, mode):
-        """
-        Start output current sweep
-        @param str: sweep mode
-        
-        @return str
-        """
-        pass
-    
-    @abc.abstractmethod
-    def set_limits(self, axis, ll=None, ul=None, vl=None):
-        """
-        Set current and voltage sweep limits
-        @param float: lower current sweep limit
-        @param float: upper current sweep limit
-        @param float: voltage sweep limit
-        
-        @return array
-        """
-        pass
-    
-    @abc.abstractmethod
-    def set_ranges(self, axis, ranges):
-        """
-        Set range limit for sweep rate boundary
-        @param array: range values
-        
-        @return array
-        """
-        pass
-    
-    @abc.abstractmethod
-    def set_rates(self, axis, rates):
-        """
-        Set sweep rates for selected sweep range
-        @param array: range values
-        
-        @return array
-        """
-        pass
-    
-    @abc.abstractmethod
-    def self_test_query(self, axis):
-        """
-        Self test query
-        
-        @return bool
-        """
-        pass
+        # max current values
+        self.max_A = {}
+        self.max_A["x"] = 39.67
+        self.max_A["y"] = 47.73
+        self.max_A["z"] = 15.72
+
+        # min current values
+        self.min_A = {}
+        self.min_A["x"] = -39.67
+        self.min_A["y"] = -47.73
+        self.min_A["z"] = -15.72
+
+    def field_in_range(self, field, coil):
+        return in_range(field, self.min_B[coil], self.max_B[coil])
+
+    def current_in_range(self, current, coil):
+        return in_range(current, self.min_A[coil], self.max_A[coil])
+
+    def using_heater(self):
+        return self.heater

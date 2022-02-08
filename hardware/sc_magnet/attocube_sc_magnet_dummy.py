@@ -39,16 +39,6 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
 
     sc_magnet:
         module.Class: 'sc_magnet.attocube_sc_magnet.SuperConductingMagnet'
-        gpib_address_x: 'GPIB0::12::INSTR'
-        gpib_address_y: 'GPIB0::12::INSTR'
-        gpib_address_z: 'GPIB0::12::INSTR'
-        gpib_timeout: 10
-        max_field_z: 5000
-        max_field_x: 5000
-        max_field_y: 5000
-        max_current_z: 15.72
-        max_current_x: 39.67
-        max_current_y: 47.73
 
     """
     
@@ -56,78 +46,24 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
     _modtype = 'hardware'
 
     # visa address of the hardware
-    _address_xy = ConfigOption('gpib_address_x', missing='error')
-    _address_z = ConfigOption('gpib_address_z', missing='error')
-    _timeout = ConfigOption('gpib_timeout', 500, missing='warn')
     _current_ratio_x = ConfigOption('current_ratio_x', missing='error')
     _current_ratio_y = ConfigOption('current_ratio_y', missing='error')
     _current_ratio_z = ConfigOption('current_ratio_z', missing='error')
-
-    # default waiting time of the pc after a message was sent to the magnet
-    _waitingtime = ConfigOption('magnet_waitingtime', 0.5)
-        
+    
     def on_activate(self):
         """ Initialisation performed during activation of the module. """
-        # trying to load the visa connection to the module
-        self._rm = pyvisa.ResourceManager()
-        try:
-            test = 'Could not connect to the address >>{}<<.'.format(self._address_xy)
-            self.xy_magnet = self._rm.open_resource(self._address_xy,
-                                                          timeout=self._timeout)
-            test = 'Could not connect to the address >>{}<<.'.format(self._address_z)
-            self.z_magnet = self._rm.open_resource(self._address_z,
-                                                          timeout=self._timeout)
-        except:
-            self.log.error(test)
-            raise
 
         self.ch = {"x":1, "y":2}
-
-        self._model = self.query_device(self.xy_magnet, '*IDN?\n')
-        self.log.info('Superconducting magnet {} initialised and connected.'.format(self._model))
-        self.xy_magnet.write('*CLS;*RST\n')
-        self.xy_magnet.read()
-        
-        self._model = self.query_device(self.z_magnet,'*IDN?\n')
-        self.log.info('Superconducting magnet {} initialised and connected.'.format(self._model))
-        self.z_magnet.write('*CLS;*RST\n')
-        self.z_magnet.read()
-
-        self.start_remote_mode(self.xy_magnet)
-        self.start_remote_mode(self.z_magnet)
+        self.iout = {"x":0, "y":0, "z":0}
+        self.imag = {"x":0, "y":0, "z":0}
+        self.pshtr = {"x":"OFF", "y":"OFF", "z":"OFF"}
+        self.sweep_mode = {"x":"pause", "y":"pause", "z":"pause"}
+        self.ratio = {"x":self._current_ratio_x, "y":self._current_ratio_y, "z":self._current_ratio_z}
 
         return
     
     def on_deactivate(self):
         """ Cleanup performed during deactivation of the module. """
-        temp = 0
-        self.channel_select(self.xy_magnet, 2)
-        temp += self.query_device(self.xy_magnet, 'PSHTR?\n')
-        self.channel_select(self.xy_magnet, 1)
-        temp += self.query_device(self.xy_magnet, 'PSHTR?\n')
-        temp += self.query_device(self.z_magnet, 'PSHTR?\n')
-        if temp > 0:
-            self.log.warning('Switch heater still ON !')
-            
-        temp = 0
-        self.channel_select(self.xy_magnet, 2)
-        temp += self.query_device(self.xy_magnet, 'IMAG?\n')
-        self.channel_select(self.xy_magnet, 1)
-        temp += self.query_device(self.xy_magnet, 'IMAG?\n')
-        temp += self.query_device(self.z_magnet, 'IMAG?\n')
-        if temp != 0:
-            self.log.warning('Magnetic field still applied !')
-            
-        temp = 0
-        self.channel_select(self.xy_magnet, 2)
-        temp += self.query_device(self.xy_magnet, 'IOUT?\n')
-        self.channel_select(self.xy_magnet, 1)
-        temp += self.query_device(self.xy_magnet, 'IOUT?\n')
-        temp += self.query_device(self.z_magnet, 'IOUT?\n')
-        if temp != 0:
-            self.log.warning('Power supply output current not at zero !')
-        
-        self._rm.close()
         return
 
     ###################################################################################
@@ -144,86 +80,21 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
     def get_axis(self, coil):
         """ Return the axis with which we want to communicate.
         """
-        if coil == "z":
-           axis = self.z_magnet
-        else:
-           axis = self.xy_magnet
-           n = self.channel_select(axis, self.ch[coil])
+        axis = coil
+        
         return axis
-    
-    def get_limits(self, axis):
-        """
-        Read lower/upped sweep limit and voltage limit (5 for z, 1 for x and y)
-        @param adress of the desired magnet
-        
-        @return str [llim, ulim, vlim]
-        """
-        self.ll = self.query_device(axis, 'LLIM?\n')[:-2]
-        self.ul = self.query_device(axis, 'ULIM?\n')[:-2]
-        self.vl = self.query_device(axis, 'VLIM?\n')[:-2]
-        
-        return [self.ll, self.ul, self.vl]
-    
-    def start_remote_mode(self, axis):
-        """
-        Select remote operation
-        """
-        axis.write('*CLS;REMOTE;ERROR 0\n')
-        time.sleep(0.5)
-        axis.read()
-
-        return
-    
-    def channel_select(self, axis, n_channel):
-        """
-        Select module for subsequent commands
-        @param int: wanted channel
-        
-        @return int: selected channel
-        """
-        axis.write('CHAN {}\n'.format(n_channel))
-        time.sleep(0.5)
-        axis.read()
-        self.current_channel = n_channel
-        
-        return n_channel
 
     def get_powersupply_current(self, coil):
 
-        axis = self.get_axis(coil)
-        self.iout = self.query_device(axis, 'IOUT?\n')[:-2]
-
-        return self.iout
+        return self.iout[coil]
 
     def get_coil_current(self, coil):
 
-        axis = self.get_axis(coil)
-        self.imag = self.query_device(axis, 'IMAG?\n')[:-2]
-
-        return self.imag
-
-    def get_powersupply_voltage(self, coil):
-
-        axis = self.get_axis(coil)
-        self.vout = self.query_device(axis,'VOUT?\n')[:-2]
-
-        return self.vout
-
-    def get_coil_voltage(self, coil):
-
-        axis = self.get_axis(coil)
-        self.vmag = self.query_device(axis, 'VMAG?\n')[:-2]
-
-        return self.vmag
+        return self.imag[coil]
 
     def get_heater_status(self, axis):
-        self.pshtr = self.query_device(axis,'PSHTR?\n')
-        if int(self.pshtr) == 0:
-            self.pshtr = 'OFF'
-        else:
-            self.pshtr = 'ON'
 
-        return self.pshtr
+        return self.pshtr[axis]
     
     def read_sweep_mode(self, axis):
         """
@@ -231,9 +102,8 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
         
         @return str
         """
-        self.sweep_mode = self.query_device(axis, 'SWEEP?\n')
-        
-        return self.sweep_mode
+
+        return self.sweep_mode[axis]
 
     def sweeping_status(self, coil):
 
@@ -247,28 +117,15 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
 
         return check_sweep_ended
     
-    def get_units(self, axis):
-        """
-        Query selected units
-        
-        @return str
-        """
-        self.units = self.query_device(axis, 'UNITS?\n')
-        
-        return self.units
-    
     def set_switch_heater(self, axis, mode='OFF'):
         """
         Control persistent switch heater
         @param USB adress
         @param string: ON or OFF to set the switch heater on or off
         """
-        axis.write('PSHTR {}\n'.format(mode))
-        time.sleep(0.5)
-        axis.read()
-        self.pshtr = mode
+        self.pshtr[axis] = mode
         
-        return self.pshtr
+        return self.pshtr[axis]
     
     def set_units(self, axis, units='A'):
         """
@@ -277,12 +134,7 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
         
         @return string: selected units
         """
-        axis.write('UNITS {}\n'.format(units))
-        time.sleep(0.5)
-        axis.read()
-        self.current_units = units
-        
-        return self.current_units
+        return units
 
     def set_sweep_mode(self, axis, mode):
         """
@@ -291,10 +143,7 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
         
         @return str
         """
-        axis.write('SWEEP ' + mode + '\n')
-        time.sleep(0.5)
-        axis.read()
-        self.sweep_mode = mode
+        self.sweep_mode[axis] = mode
         
         return self.sweep_mode
     
@@ -307,51 +156,15 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
         
         @return array
         """
-        order = ''
-        if ll is not None:
-            order += 'LLIM {};'.format(ll)
-        if ul is not None:
-            order += 'ULIM {};'.format(ul)
-        if vl is not None:
-            order += 'VLIM {};'.format(vl)
-        order = order[:-1]
-        order += '\n'
-        
-        axis.write(order)
-        time.sleep(0.5)
-        axis.read()
         [self.ll, self.ul, self.vl] = [ll, ul, vl]
         
         return [ll, ul, vl]
-    
-    def query_device(self, axis, message, discarded_line_nb=1):
-        """
-        query from rm does not work for us, we need to read several lines.
-        """
-        axis.write(message)
-        time.sleep(0.5)
-        for i in range(discarded_line_nb):
-            axis.read()
-            time.sleep(0.5)
-        answer = axis.read()
-        if answer[:-4]==message[:-1]:
-            answer = axis.read()
-        return answer
-
-    def get_mode(self, axis):
-        """
-        Query selected operating mode
-        
-        @return str
-        """
-        self.current_mode = self.query_device(axis, 'MODE?\n')
-        
-        return self.current_mode
 
     def sweep_until_target(self, axis, target, coil):
         """ Checks every 2s if the sweep is over. When it is the case, pause.
         """
         cur_stat = self.get_powersupply_current(coil)
+        self.iout[coil] += self.ratio[axis]
         while np.abs(target-float(cur_stat)) > 1e-3:
             self.log.info(target)
             self.log.info(float(cur_stat))
@@ -359,7 +172,7 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
             time.sleep(2)
             cur_stat = self.get_powersupply_current(coil)
         time.sleep(5)
-        self.set_sweep_mode(axis, "PAUSE")
+        self.set_sweep_mode(axis, "pause")
         return
         
     
@@ -370,7 +183,7 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
         # we do not do anything if a heater is ON or a magnet sweeping
         for test_coil in ["x", "y", "z"]:
             axis = self.get_axis(test_coil) 
-            mode = self.read_sweep_mode(axis)[:-2]
+            mode = self.read_sweep_mode(axis)
             
             if mode not in ["Pause", "Standby"]:
                 self.log.warning("Do not try to change the field during a sweep!")
@@ -397,14 +210,14 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
                 if coilA > psA:
                     # imag > iout, we go up
                     l = self.set_limits(axis, ul=coilA)
-                    self.set_sweep_mode(axis, "UP FAST")
+                    self.set_sweep_mode(axis, "sweep")
                     self.log.info(f"Sweeping coil {coil} up fast")
                     self.sweep_until_target(axis, coilA, coil)
                 
                 else:
                     # imag < iout, we go down
                     l = self.set_limits(axis, ll=coilA)
-                    self.set_sweep_mode(axis, "DOWN FAST")
+                    self.set_sweep_mode(axis, "sweep")
                     self.log.info(f"Sweeping coil {coil} down fast")
                     self.sweep_until_target(axis, coilA, coil)
 
@@ -426,16 +239,17 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
             self.log.info(f"Heater {coil} ON, waiting 5 s")
             time.sleep(5)
             # sweep
-            self.set_sweep_mode(axis, direction+" SLOW")
+            self.set_sweep_mode(axis, "sweep")
             self.log.info("Sweeping...")
             self.sweep_until_target(axis, Amps, coil)
             self.log.info("Sweep finished")
             # heater off
             self.set_switch_heater(axis, mode="OFF")
             self.log.info(f"Heater {coil} OFF, waiting 5 s")
+            self.imag[coil] = self.iout[coil]
             time.sleep(5)
             # zeroing
-            self.set_sweep_mode(axis, "ZERO FAST")
+            self.set_sweep_mode(axis, "sweep")
             self.log.info("Zeroing...")
             self.sweep_until_target(axis, 0, coil)
             self.log.info(f"Field set for coil {coil}.")

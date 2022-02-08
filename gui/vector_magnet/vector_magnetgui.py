@@ -54,7 +54,7 @@ class VectorMagnetGui(GUIBase):
     
     # declare connectors
     scmagnetlogic = Connector(interface='SuperConductingMagnetLogic')
-#    coilmagnetlogic = Connector(interface='CoilMagnetLogic')
+    coilmagnetlogic = Connector(interface='CoilMagnetLogic')
     
     # declare signals
     sigGoToField = QtCore.Signal(float, float, float)

@@ -38,13 +38,8 @@ class CoilMagnetLogic(GenericLogic):
     _modclass = 'coilmagnetlogic'
     _modtype = 'logic'
 
-    # Config options
-    _coeff_x = ConfigOption('coeff_x', 10.50) #G/A
-    _coeff_y = ConfigOption('coeff_y', 10.50) #G/A
-    _coeff_z = ConfigOption('coeff_z', 42.00) #G/A
-
     # Declare connectors
-    powersupply = Connector(interface='ProcessControlInterface')
+    powersupply = Connector(interface='SuperConductingMagnetInterface')
     
     # Internal signals
     sigContinueSweeping = QtCore.Signal()
@@ -58,7 +53,8 @@ class CoilMagnetLogic(GenericLogic):
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
 
-        # locking for thread safety
+        # locking for thread safety 
+        # TODO: not used for now
         self.threadlock = Mutex()
 
     def on_activate(self):
@@ -67,13 +63,16 @@ class CoilMagnetLogic(GenericLogic):
        self._power_supply = self.powersupply()
 
        # Constraints method
-       self.limits = self._power_supply.get_limits()
+       self.constr = self._power_supply.get_constraints()
        
        # Connect internal signals
        self.sigContinueSweeping.connect(self._wait_sweep_and_pause, QtCore.Qt.QueuedConnection)
 
        self.check_sweep_ended = False
-       self.coeff = {'x': self.coeff_x, 'y': self.coeff_y, 'z': self.coeff_z}
+       self.coeff = {
+           'x': self._power_supply.current_ratio_x, 
+           'y': self._power_supply.current_ratio_y, 
+           'z': self._power_supply.current_ratio_z}
        
        return 0
 
@@ -86,12 +85,13 @@ class CoilMagnetLogic(GenericLogic):
         """ Set the field for one coil. 
         B in G, coil is a str, "x", "y" or "z" .
         """
-        if B > self.limits.max_B[coil]:
-            B = self.limits.max_B[coil]
-            self.log.warning("Max current value in {} exceeded. Applying max value instead.".format(coil))
-        if B < self.limits.min_B[coil]:
-            B = self.limits.min_B[coil]
-            self.log.warning("Max current value in {} exceeded. Applying max value instead.".format(coil))
+        # if B > self.constr.max_B[coil]:
+        #     B = self.constr.max_B[coil]
+        #     self.log.warning("Max current value in {} exceeded. Applying max value instead.".format(coil))
+        # if B < self.constr.min_B[coil]:
+        #     B = self.constr.min_B[coil]
+        #     self.log.warning("Max current value in {} exceeded. Applying max value instead.".format(coil))
+        B = self.constr.field_in_range(B, coil)
         current = B/self.coeff[coil]
         
         sweep_thread = Thread(target=self._power_supply.sweep_coil, args=(current, coil))
@@ -108,22 +108,23 @@ class CoilMagnetLogic(GenericLogic):
         """
         if self.check_sweep_ended:
             self.check_sweep_ended = False
-            [ps_current, magnet_current] = self.get_currents(coil)
+            [ps_current, magnet_current] = self._get_currents(coil)
             self.sigCurrentsValuesUpdated.emit(coil, ps_current, magnet_current)
             return
         
         # check every 0.5s if the value is reached
         time.sleep(0.5)
         self.check_sweep_ended = self._power_supply.sweeping_status(coil)
-        [ps_current, magnet_current] = self.get_currents(coil)
+        [ps_current, magnet_current] = self._get_currents(coil)
         self.sigCurrentsValuesUpdated.emit(coil, ps_current, magnet_current)
         self.sigContinueSweeping.emit()
 
         return
     
-    def get_currents(self, coil):
+    def _get_currents(self, coil):
         """ Read currents. """
-        [ps_current, magnet_current] = self._power_supply._get_current(coil)
+        ps_current = self._power_supply.get_powersupply_current(coil)
+        magnet_current = self._power_supply.get_coil_current(coil)
 
         return [ps_current, magnet_current]
     
