@@ -70,8 +70,8 @@ class VectorMagnetGui(GUIBase):
         """
         if self._magnet_type == 'supra':
             self._magnetlogic = self.scmagnetlogic()
-#        elif self._magnet_type == 'coil':
-#            self._magnetlogic = self.coilmagnetlogic()
+        elif self._magnet_type == 'coil':
+            self._magnetlogic = self.coilmagnetlogic()
         else:
             self.log.warning("Unknown magnet type, using coil instead.")
             self._magnetlogic = self.scmagnetlogic()
