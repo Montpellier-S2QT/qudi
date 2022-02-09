@@ -135,8 +135,116 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
         return
 
     ###################################################################################
-    #####                            USEFULL FUNCTIONS                            #####
+    #####                            USEFUL FUNCTIONS                             #####
     ###################################################################################
+
+    def query_device(self, axis, message, discarded_line_nb=1):
+        """
+        query from rm does not work for us, we need to read several lines.
+        """
+        axis.write(message)
+        time.sleep(0.5)
+        for i in range(discarded_line_nb):
+            axis.read()
+            time.sleep(0.5)
+        answer = axis.read()
+        if answer[:-4]==message[:-1]:
+            answer = axis.read()
+        return answer
+
+    def sweep_until_target(self, axis, target, coil):
+        """ Checks every 2s if the sweep is over. When it is the case, pause.
+        """
+        cur_stat = self.get_powersupply_current(coil)
+        while np.abs(target-float(cur_stat)) > 1e-3:
+            self.log.info(target)
+            self.log.info(float(cur_stat))
+            # check every 2s if the value is reached
+            time.sleep(2)
+            cur_stat = self.get_powersupply_current(coil)
+        time.sleep(5)
+        self.set_sweep_mode(axis, "PAUSE")
+        return
+        
+    
+    def sweep_coil(self, Amps, coil):
+        """ Bring a coil to field Amps and the power supply back to zero.
+        """
+
+        # we do not do anything if a heater is ON or a magnet sweeping
+        for test_coil in ["x", "y", "z"]:
+            axis = self.get_axis(test_coil) 
+            mode = self.read_sweep_mode(axis)[:-2]
+            
+            if mode not in ["Pause", "Standby"]:
+                self.log.warning("Do not try to change the field during a sweep!")
+                return
+            heater = self.get_heater_status(axis)
+            if heater == "ON":
+                self.log.warning("Do not try to change the field with a heater on!")
+                return
+
+        axis = self.get_axis(coil)
+        # First check the units, we need to be in A
+        self.set_units(axis, "A")
+        # Then check if we are already at the desired field or not
+        coilA = float(self.get_coil_current(coil))
+        psA = float(self.get_powersupply_current(coil))
+        self.log.info("Current amps value {}".format(coilA))
+        if np.abs(coilA-Amps) < 1e-3:
+            self.log.info(f"Coil {coil} already at the desired value.")
+        else:
+            # check if the magnet field and the power supply field are the same
+            # if not, we have to change the power supply field
+            if np.abs(coilA-psA) > 1e-3:
+                
+                if coilA > psA:
+                    # imag > iout, we go up
+                    l = self.set_limits(axis, ul=coilA)
+                    self.set_sweep_mode(axis, "UP FAST")
+                    self.log.info(f"Sweeping coil {coil} up fast")
+                    self.sweep_until_target(axis, coilA, coil)
+                
+                else:
+                    # imag < iout, we go down
+                    l = self.set_limits(axis, ll=coilA)
+                    self.set_sweep_mode(axis, "DOWN FAST")
+                    self.log.info(f"Sweeping coil {coil} down fast")
+                    self.sweep_until_target(axis, coilA, coil)
+
+            # now we have imag = iout, select the sweep direction
+            if coilA < Amps:
+                # imag > B, we go up
+                l = self.set_limits(axis, ul=Amps)
+                direction = "UP"
+                self.log.info("We need to sweep up")
+            else:
+                # imag < B, we go down
+                l = self.set_limits(axis, ll=Amps)
+                direction = "DOWN"
+                self.log.info("We need to sweep down")
+                
+            time.sleep(1)   
+            # heater on
+            self.set_switch_heater(axis, mode="ON")
+            self.log.info(f"Heater {coil} ON, waiting 5 s")
+            time.sleep(5)
+            # sweep
+            self.set_sweep_mode(axis, direction+" SLOW")
+            self.log.info("Sweeping...")
+            self.sweep_until_target(axis, Amps, coil)
+            self.log.info("Sweep finished")
+            # heater off
+            self.set_switch_heater(axis, mode="OFF")
+            self.log.info(f"Heater {coil} OFF, waiting 5 s")
+            time.sleep(5)
+            # zeroing
+            self.set_sweep_mode(axis, "ZERO FAST")
+            self.log.info("Zeroing...")
+            self.sweep_until_target(axis, 0, coil)
+            self.log.info(f"Field set for coil {coil}.")
+                
+        return
 
     def get_constraints(self):
         """ Constraints and parameters of SC magnet's hardware
@@ -144,6 +252,10 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
         constr = SCMagnetConstraints()
 
         return constr
+
+    ###################################################################################
+    #####                             WRITE AND READ                              #####
+    ###################################################################################
 
     def get_axis(self, coil):
         """ Return the axis with which we want to communicate.
@@ -329,124 +441,16 @@ class SuperConductingMagnet(Base, SuperConductingMagnetInterface):
         [self.ll, self.ul, self.vl] = [ll, ul, vl]
         
         return [ll, ul, vl]
-    
-    def query_device(self, axis, message, discarded_line_nb=1):
-        """
-        query from rm does not work for us, we need to read several lines.
-        """
-        axis.write(message)
-        time.sleep(0.5)
-        for i in range(discarded_line_nb):
-            axis.read()
-            time.sleep(0.5)
-        answer = axis.read()
-        if answer[:-4]==message[:-1]:
-            answer = axis.read()
-        return answer
 
     def get_mode(self, axis):
         """
-        Query selected operating mode
+        Query selected operating mode (local or remote)
         
         @return str
         """
         self.current_mode = self.query_device(axis, 'MODE?\n')
         
         return self.current_mode
-
-    def sweep_until_target(self, axis, target, coil):
-        """ Checks every 2s if the sweep is over. When it is the case, pause.
-        """
-        cur_stat = self.get_powersupply_current(coil)
-        while np.abs(target-float(cur_stat)) > 1e-3:
-            self.log.info(target)
-            self.log.info(float(cur_stat))
-            # check every 2s if the value is reached
-            time.sleep(2)
-            cur_stat = self.get_powersupply_current(coil)
-        time.sleep(5)
-        self.set_sweep_mode(axis, "PAUSE")
-        return
-        
-    
-    def sweep_coil(self, Amps, coil):
-        """ Bring a coil to field Amps and the power supply back to zero.
-        """
-
-        # we do not do anything if a heater is ON or a magnet sweeping
-        for test_coil in ["x", "y", "z"]:
-            axis = self.get_axis(test_coil) 
-            mode = self.read_sweep_mode(axis)[:-2]
-            
-            if mode not in ["Pause", "Standby"]:
-                self.log.warning("Do not try to change the field during a sweep!")
-                return
-            heater = self.get_heater_status(axis)
-            if heater == "ON":
-                self.log.warning("Do not try to change the field with a heater on!")
-                return
-
-        axis = self.get_axis(coil)
-        # First check the units, we need to be in G
-        self.set_units(axis, "A")
-        # Then check if we are already at the desired field or not
-        coilA = float(self.get_coil_current(coil))
-        psA = float(self.get_powersupply_current(coil))
-        self.log.info("Current amps value {}".format(coilA))
-        if np.abs(coilA-Amps) < 1e-3:
-            self.log.info(f"Coil {coil} already at the desired value.")
-        else:
-            # check if the magnet field and the power supply field are the same
-            # if not, we have to change the power supply field
-            if np.abs(coilA-psA) > 1e-3:
-                
-                if coilA > psA:
-                    # imag > iout, we go up
-                    l = self.set_limits(axis, ul=coilA)
-                    self.set_sweep_mode(axis, "UP FAST")
-                    self.log.info(f"Sweeping coil {coil} up fast")
-                    self.sweep_until_target(axis, coilA, coil)
-                
-                else:
-                    # imag < iout, we go down
-                    l = self.set_limits(axis, ll=coilA)
-                    self.set_sweep_mode(axis, "DOWN FAST")
-                    self.log.info(f"Sweeping coil {coil} down fast")
-                    self.sweep_until_target(axis, coilA, coil)
-
-            # now we have imag = iout, select the sweep direction
-            if coilA < Amps:
-                # imag > B, we go up
-                l = self.set_limits(axis, ul=Amps)
-                direction = "UP"
-                self.log.info("We need to sweep up")
-            else:
-                # imag < B, we go down
-                l = self.set_limits(axis, ll=Amps)
-                direction = "DOWN"
-                self.log.info("We need to sweep down")
-                
-            time.sleep(1)   
-            # heater on
-            self.set_switch_heater(axis, mode="ON")
-            self.log.info(f"Heater {coil} ON, waiting 5 s")
-            time.sleep(5)
-            # sweep
-            self.set_sweep_mode(axis, direction+" SLOW")
-            self.log.info("Sweeping...")
-            self.sweep_until_target(axis, Amps, coil)
-            self.log.info("Sweep finished")
-            # heater off
-            self.set_switch_heater(axis, mode="OFF")
-            self.log.info(f"Heater {coil} OFF, waiting 5 s")
-            time.sleep(5)
-            # zeroing
-            self.set_sweep_mode(axis, "ZERO FAST")
-            self.log.info("Zeroing...")
-            self.sweep_until_target(axis, 0, coil)
-            self.log.info(f"Field set for coil {coil}.")
-                
-        return
 
     ###################################################################################
     #####                            USELESS FUNCTIONS                            #####

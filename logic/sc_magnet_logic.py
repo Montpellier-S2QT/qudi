@@ -83,7 +83,7 @@ class SuperConductingMagnetLogic(GenericLogic):
 
     def _set_field_coil(self, B, coil):
         """ Set the field for one coil. 
-        B in G, coil is a str, "x", "y" or "z" .
+        B in mT, coil is a str, "x", "y" or "z" .
         """
         # if B > self.constr.max_B[coil]:
         #     B = self.constr.max_B[coil]
@@ -91,13 +91,13 @@ class SuperConductingMagnetLogic(GenericLogic):
         # if B < self.constr.min_B[coil]:
         #     B = self.constr.min_B[coil]
         #     self.log.warning("Max current value in {} exceeded. Applying max value instead.".format(coil))
-        B = self.constr.field_in_range(B, coil)
+        B = self.constr.field_in_range(B, coil)*10
         current = B/self.coeff[coil]
         
         self._power_supply.sweep_coil(current, coil)
         # self.sigContinueSweeping.emit(coil)
 
-        return B
+        return B/10
 
     # def _wait_sweep_and_pause(self, coil):
     #     """ Checks every 0.5s if the sweep is over. When it is the case, pause.
@@ -139,13 +139,13 @@ class SuperConductingMagnetLogic(GenericLogic):
     
     
     def go_to_field(self, Bx, By, Bz):
-       """ Routine doing the full work to set a field value, B in G.
+       """ Routine doing the full work to set a field value, B in mT.
        """
-       Bx = self._set_field_coil(10*Bx, "x")/10
+       Bx = self._set_field_coil(Bx, "x")
        time.sleep(0.5)
-       By = self._set_field_coil(10*By, "y")/10
+       By = self._set_field_coil(By, "y")
        time.sleep(0.5)
-       Bz = self._set_field_coil(10*Bz, "z")/10
+       Bz = self._set_field_coil(Bz, "z")
        time.sleep(0.5)
        self.sigFieldSet.emit()
        self.sigNewFieldValues.emit(Bx, By, Bz)
