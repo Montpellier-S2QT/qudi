@@ -239,7 +239,7 @@ class Mapper:
                             'writable.'.format(widget_property_name,
                                                widget.__class__.__name__))
         widget_property_setter = meta_property.write
-        if isinstance(widget, (ScienDSpinBox, ScienDSpinBox, ScienSpinBox)):
+        if isinstance(widget, (ScienDSpinBox, ScienSpinBox)):
             widget_property_setter = lambda _, x: widget.setValue(x)
 
         if isinstance(model_getter, str):
