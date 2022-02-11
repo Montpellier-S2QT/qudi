@@ -372,10 +372,8 @@ class Mapper:
         # update widget
         self._mappings[key][
             'widget_property_notifications_disabled'] = True
-        self._mappings[key]['widget_property_setter'](widget, value)
         try:
-            pass
-
+            self._mappings[key]['widget_property_setter'](widget, value)
         finally:
             self._mappings[key][
                 'widget_property_notifications_disabled'] = False
