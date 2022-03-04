@@ -39,12 +39,13 @@ class Main(Base, SwitchInterface):
         These Two-Position, High-Speed Flip Mounts flip lenses, filters, and other optical components into and out of a
          free-space beam.
     """
+    name = ConfigOption('name', missing="error")
     dll_folder = ConfigOption('dll_folder', default=r'C:\Program Files\Thorlabs\Kinesis')
     dll_file = ConfigOption('dll_ffile', default='Thorlabs.MotionControl.FilterFlipper.dll')
     serial_numbers = ConfigOption('serial_numbers', missing='error')
     polling_rate_ms = ConfigOption('polling_rate_ms', default=200)
     invert_axis = ConfigOption('invert_axis', default=[False])
-    switch_states = ConfigOption(name='switch_states', default=None)
+    switch_states = ConfigOption(name='switch_states', default=['Down', 'Up'])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -81,15 +82,7 @@ class Main(Base, SwitchInterface):
 
         @return str: The name of the hardware
         """
-        return self._name
-
-    @property
-    def number_of_switches(self):
-        """ Number of switches provided by the hardware.
-
-        @return int: number of switches
-        """
-        return len(self.switch_states)
+        return self.name
 
     @property
     def available_states(self):
@@ -125,6 +118,8 @@ class Main(Base, SwitchInterface):
         setpoint = 2 if not self._is_inverted() else 1
         self._dll.FF_MoveToPosition(self._serial_numbers[switchNumber], setpoint)
         return True
+
+    # Hardware function not in switch interface
 
     def _is_inverted(self, axis=0):
         """ Helper function to get if axis is inverted in config """
