@@ -54,7 +54,9 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
     _ip_address = ConfigOption('ip_address')
     _ip_port = ConfigOption('port', 5000)
     _timeout = ConfigOption('timeout', 5)
+    _loop = ConfigOption('loop', 1)
     _main_channel = ConfigOption('main_channel', 'A')
+    _max_power = ConfigOption('max_power', None)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -65,6 +67,8 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
         """ Initialisation performed during activation of the module.
         """
         self.open_resource()
+        if not self._max_power:
+            self._max_power = 50 if self._loop else 25
 
     def open_resource(self):
         """ Open a new visa connection """
@@ -84,6 +88,24 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
             self._inst.close()
         except visa.VisaIOError:
             self.log.warning('Crycon connexion has not been closed properly.')
+
+    def get_process_value(self, channel=None):
+        """ Return a measured value
+
+        @param (int) channel: (Optional) The number of the channel
+        @return (float): The measured process value
+        """
+        return self.get_temperature()
+
+    def get_process_unit(self, channel=None):
+        """ Return the unit that the value is measured in as a tuple of ('abbreviation', 'full unit name')
+
+        @param (int) channel: (Optional) The number of the channel
+
+        @return: The unit as a tuple of ('abbreviation', 'full unit name')
+
+         """
+        return 'K'
 
     def get_temperature(self, channel=None):
         """ Cryocon function to get one temperature """
@@ -109,9 +131,8 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
 
     def set_temperature(self, temperature, channel=None, turn_on=False):
         """ Function to set the temperature setpoint """
-        channel = channel if channel is not None else self._main_channel
-        loop = 1 if channel == 'A' else 2
-        text = 'loop {}:setp {}'.format(loop, temperature)
+
+        text = 'loop {}:setp {}'.format(self._loop, temperature)
         try:
             self._query(text)
         except:
@@ -122,10 +143,9 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
 
     def get_setpoint_temperature(self, channel=None):
         """ Return the main channel set point temperature"""
-        channel = channel if channel is not None else self._main_channel
-        loop = 1 if channel == 'A' else 2
+
         try:
-            text = 'loop {}:setp?'.format(loop)
+            text = 'loop {}:setp?'.format(self._loop)
             setpoint = float(self._query(text)[:-2])
         except:
             setpoint = np.NaN
@@ -158,10 +178,9 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
 
          @return (float): The current kp coefficient associated with the proportional term
          """
-        channel = channel if channel is not None else self._main_channel
-        loop = 1 if channel == 'A' else 2
+
         try:
-            text = 'loop {}:pgain?'.format(loop)
+            text = 'loop {}:pgain?'.format(self._loop)
             value = float(self._query(text)[:-1])
         except:
             value = np.NaN
@@ -179,10 +198,9 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
 
          @return (float): The current ki coefficient associated with the integral term
          """
-        channel = channel if channel is not None else self._main_channel
-        loop = 1 if channel == 'A' else 2
+
         try:
-            text = 'loop {}:igain?'.format(loop)
+            text = 'loop {}:igain?'.format(self._loop)
             value = float(self._query(text)[:-1])
         except:
             value = np.NaN
@@ -200,10 +218,9 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
 
          @return (float): The current kd coefficient associated with the derivative term
          """
-        channel = channel if channel is not None else self._main_channel
-        loop = 1 if channel == 'A' else 2
+
         try:
-            text = 'loop {}:dgain?'.format(loop)
+            text = 'loop {}:dgain?'.format(self._loop)
             value = float(self._query(text)[:-1])
         except:
             value = np.NaN
@@ -235,7 +252,7 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
 
         @return (float): The current manual value
         """
-        pass  # Not implemented
+        return 0
 
     def set_manual_value(self, manualvalue):
         """ Set the manual value, used if the device is disabled
@@ -282,15 +299,13 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
 
         @return (float): The current control value
         """
-        channel = channel if channel is not None else self._main_channel
-        loop = 1 if channel == 'A' else 2
+
         try:
-            text = 'loop {}:htrread?'.format(loop)
+            text = 'loop {}:htrread?'.format(self._loop)
             value = float(self._query(text)[:-2])  # '0.00%\r'
         except:
             value = np.NaN
-        max_power = 50 if loop == 1 else 25  # Cryocon loop 1 max range is 50 W, loop 2 is  25 W
-        return value*max_power
+        return value*self._max_power
 
     def get_control_unit(self):
         """ Return the unit that the value is set in as a tuple of ('abreviation', 'full unit name') """
@@ -304,7 +319,7 @@ class Cryocon(Base, ProcessInterface, PIDControllerInterface):
 
         @return dict(): A dict with keys 'P', 'I', 'D' if available, an empty dict otherwise
         """
-        pass
+        return {}
 
     # Script helper methods
 
