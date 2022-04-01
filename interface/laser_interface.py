@@ -26,10 +26,20 @@ from core.meta import InterfaceMetaclass
 class ShutterState(Enum):
     CLOSED = 0
     OPEN = 1
+    ALIGNMENT = 2
 
 class LaserState(Enum):
     OFF = 0
     ON = 1
+
+class Constraints:
+    """ Class defining formally the hardware constraints """
+    def __init__(self):
+        self.tunable_power = None        # If the laser power is tunable
+        self.tunable_wavelength = None   # If the laser wavelength is tunable
+        self.has_shutter = None          # If the laser has shutter
+        self.power_range = None          # The laser power range min and max if tunable
+        self.wavelength_range = None     # The laser wavelength range min and max if tunable
 
 class LaserInterface(metaclass=InterfaceMetaclass):
     """ This interface can be used to control a laser. It handles power control, wavelength control, control modes and
@@ -37,6 +47,14 @@ class LaserInterface(metaclass=InterfaceMetaclass):
 
     This interface is useful for a general laser that you can find in a lab.
     """
+
+    @abstract_interface_method
+    def get_constraints(self):
+        """ Returns all the fixed parameters of the hardware which can be used by the logic.
+
+        @return (Constraints): An object of class Constraints containing all fixed parameters of the hardware
+        """
+        pass
 
     @abstract_interface_method
     def set_laser_state(self, laser_state):
@@ -71,16 +89,24 @@ class LaserInterface(metaclass=InterfaceMetaclass):
         pass
 
     @abstract_interface_method
-    def set_power(self, power):
-        """Setter method to control the laser power in W if tunable.
+    def set_power_setpoint(self, power):
+        """Setter method to control the laser power setpoint in W if tunable.
 
-        @param (float) power: laser power in W.
+        @param (float) power setpoint: laser power in W.
+        """
+        pass
+
+    @abstract_interface_method
+    def get_power_setpoint(self):
+        """Getter method to know the laser power setpoint in W if tunable.
+
+        @return (float) power setpoint: laser power setpoint in W.
         """
         pass
 
     @abstract_interface_method
     def get_power(self):
-        """Getter method to know the laser power in W if tunable.
+        """Getter method to know the laser current power in W if tunable.
 
         @return (float) power: laser power in W.
         """
@@ -95,7 +121,7 @@ class LaserInterface(metaclass=InterfaceMetaclass):
         pass
 
     @abstract_interface_method
-    def set_shutter_state(self):
+    def get_shutter_state(self):
         """Getter method to control the laser shutter if available.
 
         @return (ShutterState) shutter_state: shutter state (OPEN/CLOSED/AUTO).

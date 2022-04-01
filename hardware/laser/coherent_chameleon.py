@@ -21,12 +21,9 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 from core.module import Base
 from core.configoption import ConfigOption
-from interface.laser_interface import LaserInterface
-from interface.simple_laser_interface import LaserState
-from interface.simple_laser_interface import ShutterState
+from interface.laser_interface import LaserInterface, LaserState, ShutterState, Constraints
 
 import visa
-import time
 
 class Chameleon(Base, LaserInterface):
 
@@ -60,23 +57,45 @@ class Chameleon(Base, LaserInterface):
         self._device.query('E=0')
         self._device.query('>=0')
 
+        self._constraints = self._build_constraints()
+
     def on_deactivate(self):
         """ Deactivate module.
         """
 
         self._device.close()
+
+    def get_constraints(self):
+        """ Returns all the fixed parameters of the hardware which can be used by the logic.
+
+        @return (Constraints): An object of class Constraints containing all fixed parameters of the hardware
+        """
+        return self._constraints
+
+    def _build_constraints(self):
+        """ Internal method that build the constraints once at initialisation
+
+         This makes multiple call to the DLL, so it will be called only once by on_activate
+         """
+        constraints = Constraints()
+        constraints.has_shutter = True
+        constraints.tunable_power = False
+        constraints.tunable_wavelength = True
+        constraints.wavelength_range = self._get_wavelength_range()
+
+        return constraints
     
     def set_laser_state(self, laser_state):
         """Setter method to control the laser state (ON or OFF).
 
-        @param (LaserState) laser_state: laser state (ON or OFF).
+        @param (LaserState|int) laser_state: laser state (ON or OFF).
         """
         self._device.query('L={}'.format(laser_state))
 
     def get_laser_state(self):
         """Getter method to know the laser state (ON or OFF).
 
-        @return (LaserState) laser_state: laser state (ON or OFF).
+        @return (LaserState|int) laser_state: laser state (ON or OFF).
         """
         laser_state = int(self._device.query('?L'))
         return laser_state
@@ -86,7 +105,7 @@ class Chameleon(Base, LaserInterface):
 
         @param (float) wavelength: laser wavelength in m.
         """
-        self._device.query('VW={}'.format(wavelength*1e9))
+        self._device.query('VW={}'.format(int(wavelength*1e9)))
 
     def get_wavelength(self):
         """Getter method to know the laser wavelength in m if tunable.
@@ -96,20 +115,27 @@ class Chameleon(Base, LaserInterface):
         wavelength = float(self._device.query('?VW'))*1e-9
         return wavelength
 
-    def set_power(self, power):
-        """Setter method to control the laser power in W if tunable.
-
-        @param (float) power: laser power in W.
-        """
-        pass
-
     def get_power(self):
-        """Getter method to know the laser power in W if tunable.
+        """Getter method to know the laser current power in W if tunable.
 
         @return (float) power: laser power in W.
         """
         power = float(self._device.query('?UF'))*1e-3
         return power
+
+    def set_power_setpoint(self, power_setpoint):
+        """Setter method to control the laser power setpoint in W if tunable.
+
+        @param (float) power setpoint: laser power in W.
+        """
+        pass
+
+    def get_power_setpoint(self):
+        """Getter method to know the laser power setpoint in W if tunable.
+
+        @return (float) power setpoint: laser power setpoint in W.
+        """
+        pass
 
     def set_shutter_state(self, shutter_state):
         """Setter method to control the laser shutter if available.
@@ -125,3 +151,12 @@ class Chameleon(Base, LaserInterface):
         """
         shutter_state = int(self._device.query('?S'))
         return shutter_state
+
+    def _get_wavelength_range(self):
+        """Getter method to get the wavelength range available in the laser.
+
+        @return (tuple) wavelength range: wavelength range (min, max)
+        """
+        wavelength_min = float(self._device.query('?TMIN'))*1e-9
+        wavelength_max = float(self._device.query('?TMAX'))*1e-9
+        return (wavelength_min, wavelength_max)
