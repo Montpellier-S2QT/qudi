@@ -100,6 +100,7 @@ please use _ni_x_series_in_streamer.py_ as hardware module.
 * Added possibility to fit data of all ranges in ODMR module when Fit range is -1
 *
 * Added basic field calculation tool with NV center.
+* Added GUI module to interact with savelogic metadata
 
 
 Config changes:
