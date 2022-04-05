@@ -85,7 +85,7 @@ class Arduino(Base):
         - O for OUTPUT
         - P for INPUT_PULLUP MO13
         """
-        command = (''.join(('M',mode,str(pin_number)))).encode()
+        command = (''.join(('M',mode,str(pin_number))))
         self._inst.write(command)
         
     def digital_read(self, pin_number):
@@ -93,7 +93,7 @@ class Arduino(Base):
         Performs a digital read on pin_number and returns the value (1 or 0)
         Internally sends b'RD{pin_number}' over the serial connection
         """
-        command = (''.join(('RD', str(pin_number)))).encode()
+        command = (''.join(('RD', str(pin_number))))
         self._inst.write(command)
         line_received = self._inst.readline().decode().strip()
         header, value = line_received.split(':') # e.g. D13:1
@@ -108,7 +108,7 @@ class Arduino(Base):
         connection
         """
         command = (''.join(('WD', str(pin_number), ':',
-            str(digital_value)))).encode()
+            str(digital_value))))
         self._inst.write(command) 
         
         
@@ -117,7 +117,7 @@ class Arduino(Base):
         Performs an analog read on pin_number and returns the value (0 to 1023)
         Internally sends b'RA{pin_number}' over the serial connection
         """
-        command = (''.join(('RA', str(pin_number)))).encode()
+        command = (''.join(('RA', str(pin_number))))
         self._inst.write(command) 
         line_received = self._inst.readline().decode().strip()
         header, value = line_received.split(':') # e.g. A4:1
@@ -132,7 +132,7 @@ class Arduino(Base):
         connection
         """
         command = (''.join(('WA', str(pin_number), ':',
-            str(analog_value)))).encode()
+            str(analog_value))))
         self._inst.write(command) 
 
     # def close(self):
