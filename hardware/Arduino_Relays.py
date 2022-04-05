@@ -23,29 +23,24 @@ along with Qudi. If not, see <http://www.gnu.org/licenses/>.
 Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
-import visa    # ouvrire un cannal de connection entre python et l'instrument de hardware
+import visa    
 
-from core.module import Base  # c'est le base  pour allumer le qudi
-from core.configoption import ConfigOption  # importer les information des instruments des fichiers config
+from core.module import Base  
+from core.configoption import ConfigOption  
 
-import time     #pour le calcule de temps 
+import time     
 
-class Arduino(Base):
+class Arduino_Relays(Base): # without ProcessControlInterface we will  put it  after if we need
     
-    _modclass = 'Arduino'
+    _modclass = 'Arduino_Relyas'
     _modtype = 'hardware'
     
     _address = ConfigOption('address', missing='error') # dans le configoption on a l'adresse de l'instrument le qudi va pour la chercher
     _pin_list = ConfigOption('pin_list',[6,7,9,10,12,13],missing='warn')
-    # _voltage_max_1 = ConfigOption('voltage_max_1', 30)
-    # _current_max_1 = ConfigOption('current_max_1', 10)
-    # _voltage_max_2 = ConfigOption('voltage_max_2', 30)
-    # _current_max_2 = ConfigOption('current_max_2', 10)
-    # _voltage_max_3 = ConfigOption('voltage_max_3', 30)
-    # _current_max_3 = ConfigOption('current_max_3', 10)
     
-    _model = None  # il va presenter l'identifiant
-    _inst = None # instrument 
+    
+    _model = None  
+    _inst = None 
     
     
     def on_activate(self):
@@ -69,6 +64,7 @@ class Arduino(Base):
         
     def init_all_pins(self):
         """ initializes all pin in output mode """ 
+        time.sleep(2)
         for i in range(len(self._pin_list)):
             self.set_pin_mode(self._pin_list[i], 'O')
             time.sleep(0.5)
@@ -135,44 +131,48 @@ class Arduino(Base):
             str(analog_value))))
         self._inst.write(command) 
 
-    # def close(self):
-    #      """
-    #     To ensure we are properly closing our connection to the
-    #     Arduino device. 
-    #     """
-    #      self.conn.close()
-    #      print('Connection to Arduino closed')
+    
          
     
      
 
     def switch_coil(self, polarity,coil):
+       """
+       Switch the coil from off to on depends on the coil and the sign of the polarity 
+       x,z (coils) are off when polarity positive and on when it's negative, y coil works in inverse sense 
+        """
+        
+        
+        
+        
+        
+        
        if coil == 'x' :
            if polarity == 'neg':
                self.digital_write(self._pin_list[0],1)
-               time.sleep(0.1)
+               time.sleep(0.5)
                self.digital_write(self._pin_list[1],1)
            else:
               self.digital_write(self._pin_list[0],0)
-              time.sleep(0.1)
+              time.sleep(0.5)
               self.digital_write(self._pin_list[1],0)
        elif coil == 'y'     :
            if polarity == 'neg':
               self.digital_write(self._pin_list[2],0)
-              time.sleep(0.1)
+              time.sleep(0.5)
               self.digital_write(self._pin_list[3],0)
            else:
                self.digital_write(self._pin_list[2],1)
-               time.sleep(0.1)
+               time.sleep(0.5)
                self.digital_write(self._pin_list[3],1)
        elif coil == 'z'  :
             if polarity == 'neg':
                 self.digital_write(self._pin_list[4],1)
-                time.sleep(0.1)
+                time.sleep(0.5)
                 self.digital_write(self._pin_list[5],1)
             else:
                 self.digital_write(self._pin_list[4],0)
-                time.sleep(0.1)
+                time.sleep(0.5)
                 self.digital_write(self._pin_list[5],0)
        return
                      
