@@ -37,7 +37,8 @@ class PowerSupply(Base, ProcessControlInterface):
     _modtype = 'hardware'
 
     _address = ConfigOption('address', missing='error')
-
+    
+    # if using the relays limit voltage to 30 V
     _voltage_max_1 = ConfigOption('voltage_max_1', 32)
     _current_max_1 = ConfigOption('current_max_1', 5)
     _voltage_max_2 = ConfigOption('voltage_max_2', 32)
