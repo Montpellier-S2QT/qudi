@@ -23,7 +23,7 @@ along with Qudi. If not, see <http://www.gnu.org/licenses/>.
 Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
-import visa    # ouvrire un cannal de connection entre python et l'instrument de hardware
+# import visa    # ouvrire un cannal de connection entre python et l'instrument de hardware
 
 from core.module import Base  # c'est le base  pour allumer le qudi
 from core.configoption import ConfigOption  # importer les information des instruments des fichiers config
@@ -48,15 +48,18 @@ class Arduino(Base, ProcessControlInterface):
     _model = None  # il va presenter l'identifiant
     _inst = None # instrument 
     
-    def on_activate(self):
-        """ Startup the module """
-
-        rm = visa.ResourceManager() # rm est le resource maneger
+    def on_activate(self, serial_port='/dev/ttyACM0', baud_rate=9600,
+            read_timeout=5):
+        """
+        Initializes the serial connection to the Arduino board
+        """
+        
         
         try:
-            self._inst = rm.open_resource(self._address)
+            self.conn = serial.Serial(serial_port, baud_rate)
+            self.conn.timeout = read_timeout # Timeout for readline()
             
-        except visa.VisaIOError:
+        except :
             self.log.error('Could not connect to hardware. Please check the wires and the address.')
             return
         
@@ -78,13 +81,7 @@ class Arduino(Base, ProcessControlInterface):
         return     
    
             
-    # def __init__(self, serial_port='/dev/ttyACM0', baud_rate=9600,
-    #         read_timeout=5):
-    #     """
-    #     Initializes the serial connection to the Arduino board
-    #     """
-    #     self.conn = serial.Serial(serial_port, baud_rate)
-    #     self.conn.timeout = read_timeout # Timeout for readline()
+    
         
     def set_pin_mode(self, pin_number, mode):
         """
@@ -157,32 +154,32 @@ class Arduino(Base, ProcessControlInterface):
 
     def switch_coil(self, polarity,coil):
        if coil == 'x' :
-                 if polarity == 'neg':
-                     self.digital(self._pin_list[0],1)
-                     time.sleep(0.1)
-                     self.digital(self._pin_list[1],1)
-                 else:
-                     self.digital(self._pin_list[0],0)
-                     time.sleep(0.1)
-                     self.digital(self._pin_list[1],0)
+           if polarity == 'neg':
+               self.digital_write(self._pin_list[0],1)
+               time.sleep(0.1)
+               self.digital_write(self._pin_list[1],1)
+           else:
+              self.digital_write(self._pin_list[0],0)
+              time.sleep(0.1)
+              self.digital_write(self._pin_list[1],0)
        elif coil == 'y'     :
-                if polarity == 'neg':
-                     self.digital(self._pin_list[2],0)
-                     time.sleep(0.1)
-                     self.digital(self._pin_list[3],0)
-                else:
-                     self.digital(self._pin_list[2],1)
-                     time.sleep(0.1)
-                     self.digital(self._pin_list[3],1)
+           if polarity == 'neg':
+              self.digital_write(self._pin_list[2],0)
+              time.sleep(0.1)
+              self.digital_write(self._pin_list[3],0)
+           else:
+               self.digital_write(self._pin_list[2],1)
+               time.sleep(0.1)
+               self.digital_write(self._pin_list[3],1)
        elif coil == 'z'  :
-                if polarity == 'neg':
-                     self.digital(self._pin_list[4],1)
-                     time.sleep(0.1)
-                     self.digital(self._pin_list[5],1)
-                else:
-                     self.digital(self._pin_list[4],0)
-                     time.sleep(0.1)
-                     self.digital(self._pin_list[5],0)
+            if polarity == 'neg':
+                self.digital_write(self._pin_list[4],1)
+                time.sleep(0.1)
+                self.digital_write(self._pin_list[5],1)
+            else:
+                self.digital_write(self._pin_list[4],0)
+                time.sleep(0.1)
+                self.digital_write(self._pin_list[5],0)
        return
                      
                  
