@@ -23,15 +23,14 @@ along with Qudi. If not, see <http://www.gnu.org/licenses/>.
 Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
-# import visa    # ouvrire un cannal de connection entre python et l'instrument de hardware
+import visa    # ouvrire un cannal de connection entre python et l'instrument de hardware
 
 from core.module import Base  # c'est le base  pour allumer le qudi
 from core.configoption import ConfigOption  # importer les information des instruments des fichiers config
-from interface.process_control_interface import ProcessControlInterface  # interface de connection 
-import serial   #connection avec l'arduino
+
 import time     #pour le calcule de temps 
 
-class Arduino(Base, ProcessControlInterface):
+class Arduino(Base):
     
     _modclass = 'Arduino'
     _modtype = 'hardware'
@@ -48,20 +47,15 @@ class Arduino(Base, ProcessControlInterface):
     _model = None  # il va presenter l'identifiant
     _inst = None # instrument 
     
-    def on_activate(self, serial_port='/dev/ttyACM0', baud_rate=9600,
-            read_timeout=5):
-        """
-        Initializes the serial connection to the Arduino board
-        """
-        
-        
+    
+    def on_activate(self):
+        """ Startup the module """
+
+        rm = visa.ResourceManager()
         try:
-            self.conn = serial.Serial(serial_port, baud_rate)
-            self.conn.timeout = read_timeout # Timeout for readline()
-            
-        except :
+            self._inst = rm.open_resource(self._address)
+        except visa.VisaIOError:
             self.log.error('Could not connect to hardware. Please check the wires and the address.')
-            return
         
         self.init_all_pins()
         return
@@ -92,7 +86,7 @@ class Arduino(Base, ProcessControlInterface):
         - P for INPUT_PULLUP MO13
         """
         command = (''.join(('M',mode,str(pin_number)))).encode()
-        self.conn.write(command)
+        self._inst.write(command)
         
     def digital_read(self, pin_number):
         """
@@ -100,8 +94,8 @@ class Arduino(Base, ProcessControlInterface):
         Internally sends b'RD{pin_number}' over the serial connection
         """
         command = (''.join(('RD', str(pin_number)))).encode()
-        self.conn.write(command)
-        line_received = self.conn.readline().decode().strip()
+        self._inst.write(command)
+        line_received = self._inst.readline().decode().strip()
         header, value = line_received.split(':') # e.g. D13:1
         if header == ('D'+ str(pin_number)):
             # If header matches
@@ -115,7 +109,7 @@ class Arduino(Base, ProcessControlInterface):
         """
         command = (''.join(('WD', str(pin_number), ':',
             str(digital_value)))).encode()
-        self.conn.write(command) 
+        self._inst.write(command) 
         
         
     def analog_read(self, pin_number):
@@ -124,8 +118,8 @@ class Arduino(Base, ProcessControlInterface):
         Internally sends b'RA{pin_number}' over the serial connection
         """
         command = (''.join(('RA', str(pin_number)))).encode()
-        self.conn.write(command) 
-        line_received = self.conn.readline().decode().strip()
+        self._inst.write(command) 
+        line_received = self._inst.readline().decode().strip()
         header, value = line_received.split(':') # e.g. A4:1
         if header == ('A'+ str(pin_number)):
             # If header matches
@@ -139,7 +133,7 @@ class Arduino(Base, ProcessControlInterface):
         """
         command = (''.join(('WA', str(pin_number), ':',
             str(analog_value)))).encode()
-        self.conn.write(command) 
+        self._inst.write(command) 
 
     # def close(self):
     #      """
