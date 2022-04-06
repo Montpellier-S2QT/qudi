@@ -141,7 +141,7 @@ class Arduino_Relays(Base): # without ProcessControlInterface we will  put it  a
        Switch the coil from off to on depends on the coil and the sign of the polarity 
        x,z (coils) are off when polarity positive and on when it's negative, y coil works in inverse sense 
         """
-       if coil == 'x' :
+       if coil == 1 :  # x coil
            if polarity == 'neg':
                self.digital_write(self._pin_list[0],1)
                time.sleep(0.5)
@@ -150,7 +150,7 @@ class Arduino_Relays(Base): # without ProcessControlInterface we will  put it  a
               self.digital_write(self._pin_list[0],0)
               time.sleep(0.5)
               self.digital_write(self._pin_list[1],0)
-       elif coil == 'y'     :
+       elif coil == 2     :  # y coil 
            if polarity == 'neg':
               self.digital_write(self._pin_list[2],0)
               time.sleep(0.5)
@@ -159,7 +159,7 @@ class Arduino_Relays(Base): # without ProcessControlInterface we will  put it  a
                self.digital_write(self._pin_list[2],1)
                time.sleep(0.5)
                self.digital_write(self._pin_list[3],1)
-       elif coil == 'z'  :
+       elif coil == 3  :  #  z coil 
             if polarity == 'neg':
                 self.digital_write(self._pin_list[4],1)
                 time.sleep(0.5)
