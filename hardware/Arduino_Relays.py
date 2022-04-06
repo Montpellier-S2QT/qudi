@@ -35,7 +35,7 @@ class Arduino_Relays(Base): # without ProcessControlInterface we will  put it  a
     _modclass = 'Arduino_Relyas'
     _modtype = 'hardware'
     
-    _address = ConfigOption('address', missing='error') # dans le configoption on a l'adresse de l'instrument le qudi va pour la chercher
+    _address = ConfigOption('address', missing='error') 
     _pin_list = ConfigOption('pin_list',[6,7,9,10,12,13],missing='warn')
     
     
@@ -44,7 +44,7 @@ class Arduino_Relays(Base): # without ProcessControlInterface we will  put it  a
     
     
     def on_activate(self):
-        """ Startup the module """
+        """ Startup the module and intialize all pin on output mode """
 
         rm = visa.ResourceManager()
         try:
@@ -141,12 +141,6 @@ class Arduino_Relays(Base): # without ProcessControlInterface we will  put it  a
        Switch the coil from off to on depends on the coil and the sign of the polarity 
        x,z (coils) are off when polarity positive and on when it's negative, y coil works in inverse sense 
         """
-        
-        
-        
-        
-        
-        
        if coil == 'x' :
            if polarity == 'neg':
                self.digital_write(self._pin_list[0],1)
