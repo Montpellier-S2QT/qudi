@@ -252,7 +252,7 @@ class AWG5200(Base, PulserInterface):
             activation_config = self.generate_activation_config(8)
         else:
             self.log.error('AWG model not recognized, activation config cannot be generated')
-            return
+            return constraints
 
         constraints.activation_config = activation_config
         if self._has_sequence_mode():
