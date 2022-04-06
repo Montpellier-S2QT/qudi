@@ -242,7 +242,7 @@ class AWG5200(Base, PulserInterface):
         constraints.sequence_steps.step = 1
         constraints.sequence_steps.default = 0
 
-        constraints.sequence_tracks.max = int(self.query('SLISt:SEQuence:TRACk:MAX?'))
+        #constraints.sequence_tracks.max = int(self.query('SLISt:SEQuence:TRACk:MAX?'))
        
         if self.awg_model == 'AWG5202':
             activation_config = self.generate_activation_config(2)
@@ -355,7 +355,7 @@ class AWG5200(Base, PulserInterface):
 
         # Sanity checks
         if len(analog_samples) == 0:
-            self.log.error('No analog samples passed to write_waveform method in awg70k.')
+            self.log.error(f'No analog samples passed to write_waveform method in {self.awg_model}.')
             return -1, waveforms
 
         min_samples = int(self.query('WLIS:WAV:LMIN?'))
@@ -851,7 +851,7 @@ class AWG5200(Base, PulserInterface):
                     ch_num = int(chnl.rsplit('_ch', 1)[1])
                     amp[chnl] = float(self.query('SOUR{0:d}:VOLT:AMPL?'.format(ch_num)))
                 else:
-                    self.log.warning('Get analog amplitude from AWG70k channel "{0}" failed. '
+                    self.log.warning(f'Get analog amplitude from {self.awg_model} channel "{0}" failed. '
                                      'Channel non-existent.'.format(chnl))
 
         # get voltage offsets
@@ -864,7 +864,7 @@ class AWG5200(Base, PulserInterface):
                     ch_num = int(chnl.rsplit('_ch', 1)[1])
                     off[chnl] = float(self.query('SOUR{0:d}:VOLT:OFFS?'.format(ch_num)))
                 else:
-                    self.log.warning('Get analog offset from AWG70k channel "{0}" failed. '
+                    self.log.warning(f'Get analog offset from {self.awg_model} channel "{0}" failed. '
                                      'Channel non-existent.'.format(chnl))
         return amp, off
 
@@ -1010,8 +1010,8 @@ class AWG5200(Base, PulserInterface):
             if chnl not in digital_channels:
                 continue
             d_ch_number = int(chnl.rsplit('_ch', 1)[1])
-            a_ch_number = (1 + d_ch_number) // 2
-            marker_index = 2 - (d_ch_number % 2)
+            a_ch_number = 1 + (d_ch_number - 1) // 4
+            marker_index = 4 - (d_ch_number % 4)
             low_val[chnl] = float(
                 self.query('SOUR{0:d}:MARK{1:d}:VOLT:LOW?'.format(a_ch_number, marker_index)))
         # get high marker levels
@@ -1019,8 +1019,8 @@ class AWG5200(Base, PulserInterface):
             if chnl not in digital_channels:
                 continue
             d_ch_number = int(chnl.rsplit('_ch', 1)[1])
-            a_ch_number = (1 + d_ch_number) // 2
-            marker_index = 2 - (d_ch_number % 2)
+            a_ch_number = 1 + (d_ch_number - 1) // 4
+            marker_index = 4 - (d_ch_number % 4)
             high_val[chnl] = float(
                 self.query('SOUR{0:d}:MARK{1:d}:VOLT:HIGH?'.format(a_ch_number, marker_index)))
 
@@ -1189,12 +1189,14 @@ class AWG5200(Base, PulserInterface):
         digital channel 1. All other available channels will remain unchanged.
         """
         current_channel_state = self.get_active_channels()
+        print('ch_state', current_channel_state)
+        print('ch', ch)
 
         if ch is None:
             return current_channel_state
 
         if not set(current_channel_state).issuperset(ch):
-            self.log.error('Trying to (de)activate channels that are not present in AWG70k.\n'
+            self.log.error(f'Trying to (de)activate channels that are not present in {self.awg_model}.\n'
                            'Setting of channel activation aborted.')
             return current_channel_state
 
