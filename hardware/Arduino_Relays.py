@@ -27,13 +27,12 @@ import visa
 
 from core.module import Base  
 from core.configoption import ConfigOption  
-
+from interface.Interface_control_arduino import Interface_control_arduino
 import time     
 
-class Arduino_Relays(Base): # without ProcessControlInterface we will  put it  after if we need
+class Arduino_Relays(Base,Interface_control_arduino): # without ProcessControlInterface we will  put it  after if we need
     
-    _modclass = 'Arduino_Relyas'
-    _modtype = 'hardware'
+   
     
     _address = ConfigOption('address', missing='error') 
     _pin_list = ConfigOption('pin_list',[6,7,9,10,12,13],missing='warn')
