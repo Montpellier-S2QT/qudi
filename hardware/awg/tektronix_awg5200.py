@@ -145,6 +145,10 @@ class AWG5200(Base, PulserInterface):
         self.log.info('Closed connection to AWG')
         return
 
+
+    #######################
+    # interface functions #
+    #######################
     
     def get_constraints(self):
         """
@@ -243,13 +247,41 @@ class AWG5200(Base, PulserInterface):
         constraints.sequence_steps.default = 0
 
         #constraints.sequence_tracks.max = int(self.query('SLISt:SEQuence:TRACk:MAX?'))
-       
+
+        # The name a_ch<num> and d_ch<num> are generic names, which describe 
+        # UNAMBIGUOUSLY the channels.
         if self.awg_model == 'AWG5202':
             activation_config = self.generate_activation_config(2)
         elif self.awg_model == 'AWG5204':
-            activation_config = self.generate_activation_config(4)
+            activation_config = OrderedDict()
+            activation_config["all"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
+                                                  'a_ch2', 'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8',
+                                                  'a_ch3', 'd_ch9', 'd_ch10', 'd_ch11', 'd_ch12',
+                                                  'a_ch4', 'd_ch13', 'd_ch14', 'd_ch15', 'd_ch16'})
+            activation_config["analog"] = frozenset({'a_ch1', 'a_ch2', 'a_ch3', 'a_ch4'})
+            activation_config["ch1_with_mrk"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4'})
+            activation_config["ch1_ch2_with_mrk"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
+                                                               'a_ch2', 'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8'})
+            
         elif self.awg_model == 'AWG5208':
-            activation_config = self.generate_activation_config(8)
+            activation_config = OrderedDict()
+            activation_config["all"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
+                                                  'a_ch2', 'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8',
+                                                  'a_ch3', 'd_ch9', 'd_ch10', 'd_ch11', 'd_ch12',
+                                                  'a_ch4', 'd_ch13', 'd_ch14', 'd_ch15', 'd_ch16',
+                                                  'a_ch5', 'd_ch17', 'd_ch18', 'd_ch19', 'd_ch20',
+                                                  'a_ch6', 'd_ch21', 'd_ch22', 'd_ch23', 'd_ch24',
+                                                  'a_ch7', 'd_ch25', 'd_ch26', 'd_ch27', 'd_ch28',
+                                                  'a_ch8', 'd_ch29', 'd_ch30', 'd_ch31', 'd_ch32'})
+            activation_config["analog"] = frozenset({'a_ch1', 'a_ch2', 'a_ch3', 'a_ch4',
+                                                     'a_ch5', 'a_ch6', 'a_ch7', 'a_ch8'})
+            activation_config["ch1_with_mrk"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4'})
+            activation_config["ch1_ch2_with_mrk"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
+                                                               'a_ch2', 'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8'})
+            activation_config["ch1-4_with_mrk"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
+                                                             'a_ch2', 'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8',
+                                                             'a_ch3', 'd_ch9', 'd_ch10', 'd_ch11', 'd_ch12',
+                                                             'a_ch4', 'd_ch13', 'd_ch14', 'd_ch15', 'd_ch16'})
         else:
             self.log.error('AWG model not recognized, activation config cannot be generated')
             return constraints
@@ -261,37 +293,10 @@ class AWG5200(Base, PulserInterface):
             constraints.sequence_option = SequenceOption.NON
 
         # FIXME: additional constraint really necessary?
-        constraints.dac_resolution = {'min': 8, 'max': 10, 'step': 1, 'unit': 'bit'}
+        constraints.dac_resolution = {'min': 12, 'max': 16, 'step': 1, 'unit': 'bit'}
         return constraints
 
     
-    def generate_activation_config(self, ch_nb):
-        """ Generates a dict with keys like 'ch1_2mrk_ch2_0mrk' containing all the 
-        possible combinations given the number of available channels, with 4 markers
-        for each. There is no freedom in the marker choice though, we take them
-        in the numbering order for each channel.
-        The name a_ch<num> and d_ch<num> are generic names, which describe 
-        UNAMBIGUOUSLY the channels.
-        """
-        ch_powerset = powerset(range(1, ch_nb+1),1)
-        act_conf = OrderedDict()
-        for ch_list in ch_powerset:
-            for marker_list in product(range(5), repeat=len(ch_list)):
-                name_str= ''
-                act_ch = []
-                for (i,ch) in enumerate(ch_list):
-                    act_ch.append(f'a_ch{ch}')
-                    name_str = name_str + f'ch{ch}_{marker_list[i]}mrk_'
-                    if marker_list[i]>0:
-                        for n in range(1, marker_list[i]+1):
-                            act_ch.append(f'd_ch{n+4*(ch-1)}') 
-                act_conf[name_str[:-1]] = frozenset(act_ch)
-        # The last element added corresponds to all the channels,
-        # duplicating it with the key "all", more convenient for the user
-        act_conf["all"] = frozenset(act_ch)
-        return act_conf
-    
-
     def pulser_on(self):
         """ Switches the pulsing device on.
 
@@ -307,7 +312,7 @@ class AWG5200(Base, PulserInterface):
                 time.sleep(0.25)
         return self.get_status()[0]
 
-    
+
     def pulser_off(self):
         """ Switches the pulsing device off.
 
@@ -323,7 +328,7 @@ class AWG5200(Base, PulserInterface):
                 time.sleep(0.25)
         return self.get_status()[0]
 
-    
+
     def write_waveform(self, name, analog_samples, digital_samples, is_first_chunk, is_last_chunk,
                        total_number_of_samples):
         """
@@ -383,18 +388,50 @@ class AWG5200(Base, PulserInterface):
             # Get the integer analog channel number
             a_ch_num = int(a_ch.split('ch')[-1])
             # Get the digital channel specifiers belonging to this analog channel markers
-            mrk_ch_1 = 'd_ch{0:d}'.format(a_ch_num * 2 - 1)
-            mrk_ch_2 = 'd_ch{0:d}'.format(a_ch_num * 2)
+            mrk_ch_1 = 'd_ch{0:d}'.format((a_ch_num-1)*4 + 1)
+            mrk_ch_2 = 'd_ch{0:d}'.format((a_ch_num-1)*4 + 2)
+            mrk_ch_3 = 'd_ch{0:d}'.format((a_ch_num-1)*4 + 3)
+            mrk_ch_4 = 'd_ch{0:d}'.format((a_ch_num-1)*4 + 4)
 
             start = time.time()
             # Encode marker information in an array of bytes (uint8). Avoid intermediate copies!!!
-            if mrk_ch_1 in digital_samples and mrk_ch_2 in digital_samples:
+            # marker encoding
+            # marker 1 = bit 0
+            # marker 2 = bit 1
+            # marker 3 = bit 2
+            # marker 4 = bit 3
+            if mrk_ch_1 in digital_samples and mrk_ch_2 in digital_samples and \
+               mrk_ch_3 in digital_samples and mrk_ch_3 in digital_samples:
+                mrk_bytes = digital_samples[mrk_ch_4].view('uint8')
+                tmp_bytes = digital_samples[mrk_ch_3].view('uint8')
+                np.left_shift(mrk_bytes, 1, out=mrk_bytes)
+                np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
+                tmp_bytes = digital_samples[mrk_ch_2].view('uint8')
+                np.left_shift(mrk_bytes, 2, out=mrk_bytes)
+                np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
+                tmp_bytes = digital_samples[mrk_ch_1].view('uint8')
+                np.left_shift(mrk_bytes, 3, out=mrk_bytes)
+                np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
+            
+            elif mrk_ch_1 in digital_samples and mrk_ch_2 in digital_samples and \
+                 mrk_ch_3 in digital_samples:
+                mrk_bytes = digital_samples[mrk_ch_3].view('uint8')
+                tmp_bytes = digital_samples[mrk_ch_2].view('uint8')
+                np.left_shift(mrk_bytes, 1, out=mrk_bytes)
+                np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
+                tmp_bytes = digital_samples[mrk_ch_1].view('uint8')
+                np.left_shift(mrk_bytes, 2, out=mrk_bytes)
+                np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
+                
+            elif mrk_ch_1 in digital_samples and mrk_ch_2 in digital_samples:
                 mrk_bytes = digital_samples[mrk_ch_2].view('uint8')
                 tmp_bytes = digital_samples[mrk_ch_1].view('uint8')
                 np.left_shift(mrk_bytes, 1, out=mrk_bytes)
                 np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
+                
             elif mrk_ch_1 in digital_samples:
                 mrk_bytes = digital_samples[mrk_ch_1].view('uint8')
+                
             else:
                 mrk_bytes = None
             self.log.debug('Prepare digital channel data: {0}'.format(time.time()-start))
@@ -515,7 +552,7 @@ class AWG5200(Base, PulserInterface):
             time.sleep(0.25)
         return num_steps
 
-    
+
     def get_waveform_names(self):
         """ Retrieve the names of all uploaded waveforms on the device.
 
@@ -529,7 +566,7 @@ class AWG5200(Base, PulserInterface):
         waveform_list = natural_sort(query_return.split(',')) if query_return else list()
         return waveform_list
 
-    
+
     def get_sequence_names(self):
         """ Retrieve the names of all uploaded sequence on the device.
 
@@ -548,7 +585,7 @@ class AWG5200(Base, PulserInterface):
             self.log.error('Unable to read sequence list from device. VisaIOError occurred.')
         return sequence_list
 
-    
+
     def delete_waveform(self, waveform_name):
         """ Delete the waveform with name "waveform_name" from the device memory.
 
@@ -568,7 +605,7 @@ class AWG5200(Base, PulserInterface):
                 deleted_waveforms.append(waveform)
         return deleted_waveforms
 
-    
+
     def delete_sequence(self, sequence_name):
         """ Delete the sequence with name "sequence_name" from the device memory.
 
@@ -588,7 +625,7 @@ class AWG5200(Base, PulserInterface):
                 deleted_sequences.append(sequence)
         return deleted_sequences
 
-    
+
     def load_waveform(self, load_dict):
         """ Loads a waveform to the specified channel of the pulsing device.
         @param dict|list load_dict: a dictionary with keys being one of the available channel
@@ -616,7 +653,7 @@ class AWG5200(Base, PulserInterface):
         Please note that the channel index used here is not to be confused with the number suffix
         in the generic channel descriptors (i.e. 'd_ch1', 'a_ch1'). The channel index used here is
         highly hardware specific and corresponds to a collection of digital and analog channels
-        being associated to a SINGLE wavfeorm asset.
+        being associated to a SINGLE waveform asset.
         """
         if isinstance(load_dict, list):
             new_dict = dict()
@@ -651,7 +688,7 @@ class AWG5200(Base, PulserInterface):
 
         return self.get_loaded_assets()[0]
 
-    
+
     def load_sequence(self, sequence_name):
         """ Loads a sequence to the channels of the device in order to be ready for playback.
         For devices that have a workspace (i.e. AWG) this will load the sequence from the device
@@ -694,7 +731,7 @@ class AWG5200(Base, PulserInterface):
 
         return self.get_loaded_assets()[0]
 
-    
+
     def get_loaded_assets(self):
         """
         Retrieve the currently loaded asset names for each active channel of the device.
@@ -739,7 +776,7 @@ class AWG5200(Base, PulserInterface):
 
         return loaded_assets, current_type
 
-    
+
     def clear_all(self):
         """ Clears all loaded waveform from the pulse generators RAM.
 
@@ -757,7 +794,7 @@ class AWG5200(Base, PulserInterface):
                 time.sleep(0.25)
         return 0
 
-    
+
     def get_status(self):
         """ Retrieves the status of the pulsing hardware
 
@@ -773,7 +810,7 @@ class AWG5200(Base, PulserInterface):
         # All the other status messages should have higher integer values then 1.
         return current_status, status_dic
 
-    
+
     def set_sample_rate(self, sample_rate):
         """ Set the sample rate of the pulse generator hardware
 
@@ -790,7 +827,7 @@ class AWG5200(Base, PulserInterface):
         time.sleep(1)
         return self.get_sample_rate()
 
-    
+
     def get_sample_rate(self):
         """ Set the sample rate of the pulse generator hardware
 
@@ -799,7 +836,7 @@ class AWG5200(Base, PulserInterface):
         return_rate = float(self.query('CLOCK:SRATE?'))
         return return_rate
 
-    
+
     def get_analog_level(self, amplitude=None, offset=None):
         """ Retrieve the analog amplitude and offset of the provided channels.
 
@@ -868,7 +905,7 @@ class AWG5200(Base, PulserInterface):
                                      'Channel non-existent.'.format(chnl))
         return amp, off
 
-    
+
     def set_analog_level(self, amplitude=None, offset=None):
         """ Set amplitude and/or offset value of the provided analog channel.
 
@@ -958,7 +995,7 @@ class AWG5200(Base, PulserInterface):
                     time.sleep(0.25)
         return self.get_analog_level()
 
-    
+
     def get_digital_level(self, low=None, high=None):
         """ Retrieve the digital low and high level of the provided channels.
 
@@ -1095,21 +1132,21 @@ class AWG5200(Base, PulserInterface):
             if chnl not in digital_channels:
                 continue
             d_ch_number = int(chnl.rsplit('_ch', 1)[1])
-            a_ch_number = (1 + d_ch_number) // 2
-            marker_index = 2 - (d_ch_number % 2)
+            a_ch_number = 1 + (d_ch_number - 1) // 4
+            marker_index = 4 - (d_ch_number % 4)
             self.write('SOUR{0:d}:MARK{1:d}:VOLT:HIGH {2}'.format(a_ch_number, marker_index, high[chnl]))
         # set low marker levels
         for chnl in low:
             if chnl not in digital_channels:
                 continue
             d_ch_number = int(chnl.rsplit('_ch', 1)[1])
-            a_ch_number = (1 + d_ch_number) // 2
-            marker_index = 2 - (d_ch_number % 2)
+            a_ch_number = 1 + (d_ch_number - 1) // 4
+            marker_index = 4 - (d_ch_number % 4)
             self.write('SOUR{0:d}:MARK{1:d}:VOLT:LOW {2}'.format(a_ch_number, marker_index, low[chnl]))
 
         return self.get_digital_level()
 
-    
+
     def get_active_channels(self, ch=None):
         """ Get the active channels of the pulse generator hardware.
 
@@ -1128,7 +1165,7 @@ class AWG5200(Base, PulserInterface):
         for their setting.
         """
         # If you want to check the input use the constraints:
-        # constraints = self.get_constraints()
+        constraints = self.get_constraints()
 
         analog_channels = self._get_all_analog_channels()
 
@@ -1138,19 +1175,40 @@ class AWG5200(Base, PulserInterface):
             active_ch[a_ch] = bool(int(self.query('OUTPUT{0:d}:STATE?'.format(ch_num))))
             # check how many markers are active on each channel, i.e. the DAC resolution
             if active_ch[a_ch]:
-                digital_mrk = 10 - int(self.query('SOUR{0:d}:DAC:RES?'.format(ch_num)))
-                if digital_mrk == 2:
-                    active_ch['d_ch{0:d}'.format(ch_num * 2)] = True
-                    active_ch['d_ch{0:d}'.format(ch_num * 2 - 1)] = True
+                digital_mrk = constraints.dac_resolution['max'] - \
+                    int(self.query('SOUR{0:d}:DAC:RES?'.format(ch_num)))
+                if digital_mrk == 4:
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+1)] = True
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+2)] = True
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+3)] = True
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+4)] = True
+                elif digital_mrk == 3:
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+1)] = True
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+2)] = True
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+3)] = True
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+4)] = False
+                elif digital_mrk == 2:
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+1)] = True
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+2)] = True
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+3)] = False
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+4)] = False
                 elif digital_mrk == 1:
-                    active_ch['d_ch{0:d}'.format(ch_num * 2)] = False
-                    active_ch['d_ch{0:d}'.format(ch_num * 2 - 1)] = True
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+1)] = True
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+1)] = False
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+3)] = False
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+4)] = False
+                    
                 else:
-                    active_ch['d_ch{0:d}'.format(ch_num * 2)] = False
-                    active_ch['d_ch{0:d}'.format(ch_num * 2 - 1)] = False
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+1)] = False
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+2)] = False
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+3)] = False
+                    active_ch['d_ch{0:d}'.format((ch_num-1)*4+4)] = False
+
             else:
-                active_ch['d_ch{0:d}'.format(ch_num * 2)] = False
-                active_ch['d_ch{0:d}'.format(ch_num * 2 - 1)] = False
+                active_ch['d_ch{0:d}'.format((ch_num-1)*4+1)] = False
+                active_ch['d_ch{0:d}'.format((ch_num-1)*4+2)] = False
+                active_ch['d_ch{0:d}'.format((ch_num-1)*4+3)] = False
+                active_ch['d_ch{0:d}'.format((ch_num-1)*4+4)] = False
 
         # return either all channel information or just the one asked for.
         if ch is not None:
@@ -1159,7 +1217,7 @@ class AWG5200(Base, PulserInterface):
                 del active_ch[chnl]
         return active_ch
 
-    
+
     def set_active_channels(self, ch=None):
         """
         Set the active/inactive channels for the pulse generator hardware.
@@ -1189,8 +1247,6 @@ class AWG5200(Base, PulserInterface):
         digital channel 1. All other available channels will remain unchanged.
         """
         current_channel_state = self.get_active_channels()
-        print('ch_state', current_channel_state)
-        print('ch', ch)
 
         if ch is None:
             return current_channel_state
@@ -1222,10 +1278,10 @@ class AWG5200(Base, PulserInterface):
         for a_ch in analog_channels:
             ach_num = int(a_ch.rsplit('_ch', 1)[1])
             # determine number of markers for current a_ch
-            if new_channels_state['d_ch{0:d}'.format(2 * ach_num - 1)]:
-                marker_num = 2 if new_channels_state['d_ch{0:d}'.format(2 * ach_num)] else 1
-            else:
-                marker_num = 0
+            marker_num = 0
+            for i in range(1,5):
+                if new_channels_state['d_ch{0:d}'.format(4*(ach_num-1)+i)]:
+                    marker_num += 1 
             # set DAC resolution for this channel
             dac_res = max_res - marker_num
             self.write('SOUR{0:d}:DAC:RES {1:d}'.format(ach_num, dac_res))
@@ -1266,7 +1322,7 @@ class AWG5200(Base, PulserInterface):
                              'Method call will be ignored.')
         return False
 
-    
+
     def reset(self):
         """Reset the device.
 
@@ -1276,6 +1332,10 @@ class AWG5200(Base, PulserInterface):
         self.write('*WAI')
         return 0
 
+
+    ##############################
+    # end of interface functions #
+    ##############################
     
     def query(self, question):
         """ Asks the device a 'question' and receive and return an answer from it.
@@ -1752,3 +1812,32 @@ class AWG5200(Base, PulserInterface):
     
     def _has_sequence_mode(self):
         return 'SEQ' in self.__installed_options
+
+
+    def generate_activation_config(self, ch_nb):
+        """ Generates a dict with keys like 'ch1_2mrk_ch2_0mrk' containing all the 
+        possible combinations given the number of available channels, with 4 markers
+        for each. There is no freedom in the marker choice though, we take them
+        in the numbering order for each channel.
+        The name a_ch<num> and d_ch<num> are generic names, which describe 
+        UNAMBIGUOUSLY the channels.
+        """
+        # this is actually creating too many possiblities, very painful to scroll
+        # through them. Do not use for more than 2, maybe 3 channels.
+        ch_powerset = powerset(range(1, ch_nb+1),1)
+        act_conf = OrderedDict()
+        for ch_list in ch_powerset:
+            for marker_list in product(range(5), repeat=len(ch_list)):
+                name_str= ''
+                act_ch = []
+                for (i,ch) in enumerate(ch_list):
+                    act_ch.append(f'a_ch{ch}')
+                    name_str = name_str + f'ch{ch}_{marker_list[i]}mrk_'
+                    if marker_list[i]>0:
+                        for n in range(1, marker_list[i]+1):
+                            act_ch.append(f'd_ch{n+4*(ch-1)}') 
+                act_conf[name_str[:-1]] = frozenset(act_ch)
+        # The last element added corresponds to all the channels,
+        # duplicating it with the key "all", more convenient for the user
+        act_conf["all"] = frozenset(act_ch)
+        return act_conf
