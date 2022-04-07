@@ -122,14 +122,14 @@ class Vectormagnetlogic(GenericLogic):
     
     
     
-    def get_currents(self, coil,ctrparam= None):
+    def get_currents(self, coil):
         """ Read currents. """
         if coil == "x":
-            c = self._power_supply.get_control_value(channel= 1 ,ctrparam="CURR")
+            c = self._power_supply.get_control_value(ctrparam="CURR")
         elif coil == "y":
-            c = self._power_supply.get_control_value(channel=2,ctrparam="CURR")
+            c = self._power_supply.get_control_value(ctrparam="CURR")
         else:
-            c = self._power_supply.get_control_value(channel=3,ctrparam="CURR")
+            c = self._power_supply.get_control_value(ctrparam="CURR")
         return [c, c]
     
     
