@@ -85,7 +85,7 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
 
 
 
-# interface functions (arduino )      
+# interface functions       
     
     def set_control_value(self, value, channel=1,ctrparam="VOLT"):
         """ Set the value of the controlled process variable
@@ -110,7 +110,7 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
 
         @return (float): The current control value
         """
-        self.PowerSupply().get_control_value(channel=None, ctrparam="VOLT")
+        self.PowerSupply().get_control_value( ctrparam="VOLT")
         pass
 
     
