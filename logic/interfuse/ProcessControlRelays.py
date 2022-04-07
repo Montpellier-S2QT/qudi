@@ -23,7 +23,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 from core.connector import Connector
 from logic.generic_logic import GenericLogic
 from interface.process_control_interface import ProcessControlInterface
-
+import time
 
 class ProcessControlRelays(GenericLogic, ProcessControlInterface):
     """ This interfuse can be used to combin the work of Powersuplly and the Arduino.
@@ -31,7 +31,7 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
     """
     
     _powerSupply = Connector(interface='ProcessControlInterface')
-    _arduino_Relays = Connector()
+    _arduino_Relays = Connector(interface = 'Interface_control_arduino')
     
     
 
@@ -48,8 +48,99 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
         """
         return   
         
-# interface functions    
+# interface functions (arduino )   
+    def init_all_pins(self):
+        """ initializes all pin in output mode """ 
+        
+        
+        self.Arduino_Relays.init_all_pins()
+        return
+
+    def set_pin_mode(self, pin_number, mode):
+         """
+        Performs a pinMode() operation on pin_number
+        Internally sends b'M{mode}{pin_number} where mode could be:
+        - I for INPUT
+        - O for OUTPUT
+        - P for INPUT_PULLUP MO13
+        """
+        
+         self.Arduino_Relays.set_pin_mode(self, pin_number, mode)
+         return
+     
+    def digital_read(self, pin_number):   
+        """
+        Performs a digital read on pin_number and returns the value (1 or 0)
+        Internally sends b'RD{pin_number}' over the serial connection
+        """
+        
+        self.Arduino_Relays.digital_read(self, pin_number)
+        return
     
+    def digital_write(self, pin_number, digital_value):
+         """
+        Writes the digital_value on pin_number
+        Internally sends b'WD{pin_number}:{digital_value}' over the serial
+        connection
+        """
+         self.Arduino_Relays.digital_write(self, pin_number,digital_value)
+         return 
+        
+    def analog_read(self, pin_number):
+         """
+        Performs an analog read on pin_number and returns the value (0 to 1023)
+        Internally sends b'RA{pin_number}' over the serial connection
+        """
+         self.Arduino_Relays.analog_read(self, pin_number)
+         return 
+    
+    
+    def analog_write(self, pin_number, analog_value):
+        """
+        Writes the analog value (0 to 255) on pin_number
+        Internally sends b'WA{pin_number}:{analog_value}' over the serial
+        connection
+        """   
+        self.Arduino_Relays.analog_write(self, pin_number,analog_value)
+        return 
+
+    def switch_coil(self, polarity,coil):
+       """
+       Switch the coil from off to on depends on the coil and the sign of the polarity 
+       x,z (coils) are off when polarity positive and on when it's negative, y coil works in inverse sense 
+        """
+       if coil == 1 :  # x coil
+           if polarity == 'neg':
+               self.digital_write(self._pin_list[0],1)
+               time.sleep(0.5)
+               self.digital_write(self._pin_list[1],1)
+           else:
+              self.digital_write(self._pin_list[0],0)
+              time.sleep(0.5)
+              self.digital_write(self._pin_list[1],0)
+       elif coil == 2     :  # y coil 
+           if polarity == 'neg':
+              self.digital_write(self._pin_list[2],0)
+              time.sleep(0.5)
+              self.digital_write(self._pin_list[3],0)
+           else:
+               self.digital_write(self._pin_list[2],1)
+               time.sleep(0.5)
+               self.digital_write(self._pin_list[3],1)
+       elif coil == 3  :  #  z coil 
+            if polarity == 'neg':
+                self.digital_write(self._pin_list[4],1)
+                time.sleep(0.5)
+                self.digital_write(self._pin_list[5],1)
+            else:
+                self.digital_write(self._pin_list[4],0)
+                time.sleep(0.5)
+                self.digital_write(self._pin_list[5],0)
+       return
+
+
+
+# interface functions (arduino )      
     
     def set_control_value(self, value, channel=1,ctrparam="VOLT"):
         """ Set the value of the controlled process variable
@@ -59,10 +150,10 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
           Check sign of the value and call the Arduino 
         """
         if value < 0 :
-            self.Arduino_Relays.switch_coil('neg',channel)
+            self.switch_coil('neg',channel)
         else :
-            self.Arduino_Relays.switch_coil('pos',channel)
-            
+            self.switch_coil('pos',channel)
+        time.sleep(5)   
         self.PowerSupply.set_control_value(self, value, channel=1, ctrparam="VOLT")
         pass
 
