@@ -27,15 +27,11 @@ class Interface_control_arduino(metaclass=InterfaceMetaclass ):
     """ A simple interface to control one or multiple process value.
 
     This interface is in fact a very general/universal interface that can be used for a lot of things.
-    It can be used to interface any hardware where one to control one or multiple control value, like a temperature
-    or how much a PhD student get paid.
+    It can be used to interface any hardware  de type Arduino .
     """
     
     
     
-    @abstract_interface_method
-    def init_all_pins(self):
-        """ initializes all pin in output mode """ 
     
    
     @abstract_interface_method
@@ -76,6 +72,8 @@ class Interface_control_arduino(metaclass=InterfaceMetaclass ):
         Performs an analog read on pin_number and returns the value (0 to 1023)
         Internally sends b'RA{pin_number}' over the serial connection
         """
+         return
+     
     @abstract_interface_method    
     def analog_write(self, pin_number, analog_value):
         """
@@ -83,3 +81,4 @@ class Interface_control_arduino(metaclass=InterfaceMetaclass ):
         Internally sends b'WA{pin_number}:{analog_value}' over the serial
         connection
         """
+        return
