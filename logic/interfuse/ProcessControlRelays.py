@@ -99,7 +99,7 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
         else :
             self.switch_coil('pos',channel)
         time.sleep(5)   
-        self.PowerSupply().set_control_value( np.abs(value), channel=1, ctrparam="VOLT")
+        self.powersupply().set_control_value( np.abs(value), channel=1, ctrparam="VOLT")
         pass
 
    
@@ -110,7 +110,7 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
 
         @return (float): The current control value
         """
-        self.PowerSupply().get_control_value( ctrparam="VOLT")
+        self.powersupply().get_control_value( ctrparam="VOLT")
         pass
 
     
@@ -121,7 +121,7 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
 
         @return: The unit as a tuple of ('abbreviation', 'full unit name')
         """
-        self.PowerSupply().get_control_unit( ctrparam="VOLT")
+        self.powersupply().get_control_unit( ctrparam="VOLT")
         pass
 
     
@@ -132,7 +132,7 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
 
         @return (tuple): The limits as (low limit, high limit)
         """
-        self.PowerSupply().get_control_limit( channel=None, ctrparam="VOLT")
+        self.PowerSupply().get_control_limit(ctrparam="VOLT")
         pass
 
     def process_control_supports_multiple_channels(self):
@@ -142,7 +142,7 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
 
         This function is not abstract - Thus it is optional and if a hardware do not implement it, the answer is False.
         """
-        self.PowerSupply().process_control_supports_multiple_channels()
+        self.powersupply().process_control_supports_multiple_channels()
         return False
 
     def process_control_get_number_channels(self):
@@ -152,7 +152,7 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
 
         This function is not abstract - Thus it is optional and if a hardware do not implement it, the answer is 1.
         """
-        self.PowerSupply().process_control_get_number_channels()
+        self.powersupply().process_control_get_number_channels()
         return 1
     
     
