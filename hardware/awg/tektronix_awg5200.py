@@ -460,7 +460,7 @@ class AWG5200(Base, PulserInterface):
             self.log.debug('Send WFMX file: {0}'.format(time.time() - start))
 
             start = time.time()
-            self.write('MMEM:OPEN "{0}"'.format(self.ftp_working_dir + '/' + wfm_name + '.wfmx')))
+            self.write('MMEM:OPEN "{0}"'.format(self.ftp_working_dir + '/' + wfm_name + '.wfmx'))
             # Wait for everything to complete
             timeout_old = self.awg.timeout
             # increase this time so that there is no timeout for loading longer sequences
