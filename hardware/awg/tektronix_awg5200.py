@@ -70,7 +70,7 @@ class AWG5200(Base, PulserInterface):
     _tmp_work_dir = ConfigOption(name='tmp_work_dir',
                                  default=os.path.join(get_home_dir(), 'pulsed_files'),
                                  missing='warn')
-    _ftp_dir = ConfigOption(name='ftp_root_dir', default='C:\\inetpub\\ftproot', missing='warn')
+    _ftp_dir = ConfigOption(name='ftp_root_dir', default='/inetpub/ftproot/', missing='warn')
     _username = ConfigOption(name='ftp_login', default='anonymous', missing='warn')
     _password = ConfigOption(name='ftp_passwd', default='anonymous@', missing='warn')
 
@@ -85,8 +85,6 @@ class AWG5200(Base, PulserInterface):
 
         self.awg = None  # This variable will hold a reference to the awg visa resource
         self.awg_model = ''  # String describing the model
-
-        self.ftp_working_dir = 'waves'  # subfolder of FTP root dir on AWG disk to work in
 
         self.__max_seq_steps = 0
         self.__max_seq_repetitions = 0
@@ -114,6 +112,9 @@ class AWG5200(Base, PulserInterface):
             # set timeout by default to 30 sec
             self.awg.timeout = self._visa_timeout * 1000
 
+        # subfolder of FTP root dir on AWG disk to work in
+        self.ftp_working_dir = self._ftp_dir + 'waves'  
+            
         # try connecting to AWG using FTP protocol
         with FTP(self._ip_address) as ftp:
             ftp.login(user=self._username, passwd=self._password)
@@ -459,8 +460,7 @@ class AWG5200(Base, PulserInterface):
             self.log.debug('Send WFMX file: {0}'.format(time.time() - start))
 
             start = time.time()
-            self.write('MMEM:OPEN "{0}"'.format(os.path.join(
-                self._ftp_dir, self.ftp_working_dir, wfm_name + '.wfmx')))
+            self.write('MMEM:OPEN "{0}"'.format(self.ftp_working_dir + '/' + wfm_name + '.wfmx')))
             # Wait for everything to complete
             timeout_old = self.awg.timeout
             # increase this time so that there is no timeout for loading longer sequences
