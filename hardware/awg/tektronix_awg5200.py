@@ -71,6 +71,7 @@ class AWG5200(Base, PulserInterface):
                                  default=os.path.join(get_home_dir(), 'pulsed_files'),
                                  missing='warn')
     _ftp_dir = ConfigOption(name='ftp_root_dir', default='/inetpub/ftproot/', missing='warn')
+    _ftp_root_drive = ConfigOption(name='ftp_root_drive', default='C:/', missing='warn')
     _username = ConfigOption(name='ftp_login', default='anonymous', missing='warn')
     _password = ConfigOption(name='ftp_passwd', default='anonymous@', missing='warn')
 
@@ -254,9 +255,35 @@ class AWG5200(Base, PulserInterface):
         if self.awg_model == 'AWG5202':
             activation_config = self.generate_activation_config(2)
         elif self.awg_model == 'AWG5204':
-            activation_config = self.generate_activation_config(4)
+            activation_config = OrderedDict()
+            activation_config["all"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
+                                                  'a_ch2', 'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8',
+                                                  'a_ch3', 'd_ch9', 'd_ch10', 'd_ch11', 'd_ch12',
+                                                  'a_ch4', 'd_ch13', 'd_ch14', 'd_ch15', 'd_ch16'})
+            activation_config["analog"] = frozenset({'a_ch1', 'a_ch2', 'a_ch3', 'a_ch4'})
+            activation_config["ch1_with_mrk"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4'})
+            activation_config["ch1_ch2_with_mrk"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
+                                                               'a_ch2', 'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8'})
+            
         elif self.awg_model == 'AWG5208':
-             activation_config = self.generate_activation_config(8)
+            activation_config = OrderedDict()
+            activation_config["all"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
+                                                  'a_ch2', 'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8',
+                                                  'a_ch3', 'd_ch9', 'd_ch10', 'd_ch11', 'd_ch12',
+                                                  'a_ch4', 'd_ch13', 'd_ch14', 'd_ch15', 'd_ch16',
+                                                  'a_ch5', 'd_ch17', 'd_ch18', 'd_ch19', 'd_ch20',
+                                                  'a_ch6', 'd_ch21', 'd_ch22', 'd_ch23', 'd_ch24',
+                                                  'a_ch7', 'd_ch25', 'd_ch26', 'd_ch27', 'd_ch28',
+                                                  'a_ch8', 'd_ch29', 'd_ch30', 'd_ch31', 'd_ch32'})
+            activation_config["analog"] = frozenset({'a_ch1', 'a_ch2', 'a_ch3', 'a_ch4',
+                                                     'a_ch5', 'a_ch6', 'a_ch7', 'a_ch8'})
+            activation_config["ch1_with_mrk"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4'})
+            activation_config["ch1_ch2_with_mrk"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
+                                                               'a_ch2', 'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8'})
+            activation_config["ch1-4_with_mrk"] = frozenset({'a_ch1', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
+                                                             'a_ch2', 'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8',
+                                                             'a_ch3', 'd_ch9', 'd_ch10', 'd_ch11', 'd_ch12',
+                                                             'a_ch4', 'd_ch13', 'd_ch14', 'd_ch15', 'd_ch16'})
         else:
             self.log.error('AWG model not recognized, activation config cannot be generated')
             return constraints
@@ -434,7 +461,8 @@ class AWG5200(Base, PulserInterface):
             self.log.debug('Send WFMX file: {0}'.format(time.time() - start))
 
             start = time.time()
-            self.write('MMEM:OPEN "{0}"'.format(self.ftp_working_dir + '/' + wfm_name + '.wfmx'))
+            path_to_wfmx = self._ftp_root_drive + self.ftp_working_dir + '/' + wfm_name + '.wfmx'
+            self.write('MMEM:OPEN "{0}"'.format(path_to_wfmx))
             # Wait for everything to complete
             timeout_old = self.awg.timeout
             # increase this time so that there is no timeout for loading longer sequences
