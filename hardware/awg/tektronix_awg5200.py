@@ -402,40 +402,23 @@ class AWG5200(Base, PulserInterface):
             # marker 2 = bit 1
             # marker 3 = bit 2
             # marker 4 = bit 3
-            if mrk_ch_1 in digital_samples and mrk_ch_2 in digital_samples and \
-               mrk_ch_3 in digital_samples and mrk_ch_3 in digital_samples:
-                mrk_bytes = digital_samples[mrk_ch_4].view('uint8')
-                tmp_bytes = digital_samples[mrk_ch_3].view('uint8')
-                np.left_shift(mrk_bytes, 1, out=mrk_bytes)
-                np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
-                tmp_bytes = digital_samples[mrk_ch_2].view('uint8')
-                np.left_shift(mrk_bytes, 2, out=mrk_bytes)
-                np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
-                tmp_bytes = digital_samples[mrk_ch_1].view('uint8')
-                np.left_shift(mrk_bytes, 3, out=mrk_bytes)
-                np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
-            
-            elif mrk_ch_1 in digital_samples and mrk_ch_2 in digital_samples and \
-                 mrk_ch_3 in digital_samples:
-                mrk_bytes = digital_samples[mrk_ch_3].view('uint8')
-                tmp_bytes = digital_samples[mrk_ch_2].view('uint8')
-                np.left_shift(mrk_bytes, 1, out=mrk_bytes)
-                np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
-                tmp_bytes = digital_samples[mrk_ch_1].view('uint8')
-                np.left_shift(mrk_bytes, 2, out=mrk_bytes)
-                np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
-                
-            elif mrk_ch_1 in digital_samples and mrk_ch_2 in digital_samples:
-                mrk_bytes = digital_samples[mrk_ch_2].view('uint8')
-                tmp_bytes = digital_samples[mrk_ch_1].view('uint8')
-                np.left_shift(mrk_bytes, 1, out=mrk_bytes)
-                np.add(mrk_bytes, tmp_bytes, out=mrk_bytes)
-                
-            elif mrk_ch_1 in digital_samples:
-                mrk_bytes = digital_samples[mrk_ch_1].view('uint8')
-                
-            else:
-                mrk_bytes = None
+            mrk_bytes = None
+            if len(digital_samples.keys()) != 0:
+                for ch in digital_samples.keys():
+                    # convert to bytes and shifts for each marker position
+                    mrk_bytes_ch = digital_samples[ch].view('uint8')
+                    if ch == mrk_ch_2:
+                        np.left_shift(mrk_bytes_ch, 1, out=mrk_bytes_ch)
+                    elif ch == mrk_ch_3:
+                        np.left_shift(mrk_bytes_ch, 2, out=mrk_bytes_ch)
+                    elif ch == mrk_ch_4:
+                        np.left_shift(mrk_bytes_ch, 3, out=mrk_bytes_ch)
+                    # add to existing array or create it
+                    if mrk_bytes:
+                        np.add(mrk_bytes, mrk_bytes_ch, out=mrk_bytes)
+                    else:
+                        mrk_bytes = mrk_bytes_ch
+                    
             self.log.debug('Prepare digital channel data: {0}'.format(time.time()-start))
 
             # Create waveform name string
