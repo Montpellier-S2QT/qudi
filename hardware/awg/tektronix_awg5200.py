@@ -70,7 +70,7 @@ class AWG5200(Base, PulserInterface):
     _tmp_work_dir = ConfigOption(name='tmp_work_dir',
                                  default=os.path.join(get_home_dir(), 'pulsed_files'),
                                  missing='warn')
-    _ftp_dir = ConfigOption(name='ftp_root_dir', default='/inetpub/ftproot/', missing='warn')
+    _ftp_dir = ConfigOption(name='ftp_root_dir', default='inetpub/ftproot/', missing='warn')
     _ftp_root_drive = ConfigOption(name='ftp_root_drive', default='C:/', missing='warn')
     _username = ConfigOption(name='ftp_login', default='anonymous', missing='warn')
     _password = ConfigOption(name='ftp_passwd', default='anonymous@', missing='warn')
@@ -195,8 +195,9 @@ class AWG5200(Base, PulserInterface):
             constraints.sample_rate.max = 2.0e9           
             constraints.sample_rate.default = 2.0e9
 
-        constraints.a_ch_amplitude.min = 0.25
-        constraints.a_ch_amplitude.max = 0.5
+        # arb. values, not found in the manual
+        constraints.a_ch_amplitude.min = 0.01
+        constraints.a_ch_amplitude.max = 1
         constraints.a_ch_amplitude.step = 0.0001
         constraints.a_ch_amplitude.default = 0.5
         
@@ -414,7 +415,7 @@ class AWG5200(Base, PulserInterface):
                     elif ch == mrk_ch_4:
                         np.left_shift(mrk_bytes_ch, 3, out=mrk_bytes_ch)
                     # add to existing array or create it
-                    if mrk_bytes:
+                    if mrk_bytes is not None:
                         np.add(mrk_bytes, mrk_bytes_ch, out=mrk_bytes)
                     else:
                         mrk_bytes = mrk_bytes_ch
