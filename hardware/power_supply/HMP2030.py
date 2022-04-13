@@ -189,12 +189,14 @@ class PowerSupply(Base, ProcessControlInterface):
         else:
             self.log.error('Control value {} out of range'.format(value))
 
-    def get_control_value(self, ctrparam="VOLT"):
+    def get_control_value(self,channel = 1 ,ctrparam="VOLT"):
         """ Get current control value, here heating power
 
             @param (str) ctrparam: control parameter ("VOLT" or "CURR")
             @return float: current control value
         """
+        if channel is not None :
+            self._set_channel(channel)
         return float(self._inst.query("{}?".format(ctrparam)).split('\r')[0])
 
     def get_control_unit(self, ctrparam="VOLT"):
