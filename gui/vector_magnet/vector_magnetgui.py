@@ -247,58 +247,56 @@ class VectorMagnetGui(GUIBase):
             self.sigGoToField.emit(self.Bx, self.By, self.Bz)
         else:
             # coil magnet logic needs the field in Gauss
-            sign_ok = self.check_field_sign()
-            if sign_ok:
-                self.sigGoToField.emit(self.Bx_to_coil, self.By_to_coil,
-                                       self.Bz_to_coil)
-            else:
-                self.log.warning("No field was applied")
-                self.enable_gui()
+            self.sigGoToField.emit(self.Bx, self.By,
+                                        self.Bz,self.metadata)
+            # else:
+            #     self.log.warning("No field was applied")
+            #     self.enable_gui()
                 
         return
     
     
-    def check_field_sign(self):
-        """ Displays a warning if cables need to be switched """
+    # def check_field_sign(self):
+    #     """ Displays a warning if cables need to be switched """
         
-        self.Bx_to_coil = self.Bx*10
-        self.By_to_coil = self.By*10
-        self.Bz_to_coil = self.Bz*10
+    #     self.Bx_to_coil = self.Bx*10
+    #     self.By_to_coil = self.By*10
+    #     self.Bz_to_coil = self.Bz*10
         
-        switch_x = self.Bx < 0
-        switch_y = self.By < 0
-        switch_z = self.Bz < 0
-        text_x = "normal state: red on red and black on black."
-        text_z = text_x
-        text_y = "normal state: red on black and black on red."
+    #     switch_x = self.Bx < 0
+    #     switch_y = self.By < 0
+    #     switch_z = self.Bz < 0
+    #     text_x = "normal state: red on red and black on black."
+    #     text_z = text_x
+    #     text_y = "normal state: red on black and black on red."
         
-        if switch_x:
-            text_x ="inverted state: red on black and black on red."
-            self.Bx_to_coil = -self.Bx_to_coil
-        if switch_y:
-            text_y ="inverted state: red on red and black on black."
-            self.By_to_coil = -self.By_to_coil
-        if switch_z:    
-            text_z ="inverted state: red on black and black on red."
-            self.Bz_to_coil = -self.Bz_to_coil
+    #     if switch_x:
+    #         text_x ="inverted state: red on black and black on red."
+    #         self.Bx_to_coil = -self.Bx_to_coil
+    #     if switch_y:
+    #         text_y ="inverted state: red on red and black on black."
+    #         self.By_to_coil = -self.By_to_coil
+    #     if switch_z:    
+    #         text_z ="inverted state: red on black and black on red."
+    #         self.Bz_to_coil = -self.Bz_to_coil
             
     
-        msg = QtWidgets.QMessageBox()
-        msg.setWindowTitle("Cable inversion status")
-        msg.setText(f"You might need to invert the cables on some channels.\n \n"
-                    f"The needed configuration is following:\n"
-                    f"Coil x, {text_x}\n"
-                    f"Coil y, {text_y}\n"
-                    f"Coil z, {text_z}\n\n"
-                    f"Click OK when you are done.")
-        msg.setIcon(QtWidgets.QMessageBox.Warning)
-        msg.setStandardButtons(QtWidgets.QMessageBox.Cancel|QtWidgets.QMessageBox.Ok)
-        rep = msg.exec()
-        print(rep)
-        if rep == QtWidgets.QMessageBox.Ok:
-            return True
-        else:
-            return False
+    #     msg = QtWidgets.QMessageBox()
+    #     msg.setWindowTitle("Cable inversion status")
+    #     msg.setText(f"You might need to invert the cables on some channels.\n \n"
+    #                 f"The needed configuration is following:\n"
+    #                 f"Coil x, {text_x}\n"
+    #                 f"Coil y, {text_y}\n"
+    #                 f"Coil z, {text_z}\n\n"
+    #                 f"Click OK when you are done.")
+    #     msg.setIcon(QtWidgets.QMessageBox.Warning)
+    #     msg.setStandardButtons(QtWidgets.QMessageBox.Cancel|QtWidgets.QMessageBox.Ok)
+    #     rep = msg.exec()
+    #     print(rep)
+    #     if rep == QtWidgets.QMessageBox.Ok:
+    #         return True
+    #     else:
+    #         return False
 
 
     def compute_B_perp(self):
