@@ -43,27 +43,47 @@ class SwitchLogic(GenericLogic):
     # connector for one switch, if multiple switches are needed use the SwitchCombinerInterfuse
     switch = Connector(interface='SwitchInterface')
 
+    _custom_name_config = ConfigOption(name='custom_name', default=None, missing='nothing')
+    _custom_states_config = ConfigOption(name='custom_states', default=None, missing='nothing')
+
     _watchdog_interval = ConfigOption(name='watchdog_interval', default=1.0, missing='nothing')
     _autostart_watchdog = ConfigOption(name='autostart_watchdog', default=False, missing='nothing')
 
     sigSwitchesChanged = QtCore.Signal(dict)
     sigWatchdogToggled = QtCore.Signal(bool)
 
-    # directly wrapped attributes from hardware module
-    __wrapped_hw_attributes = frozenset({'switch_names', 'number_of_switches', 'available_states'})
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._thread_lock = RecursiveMutex()
 
-        self._watchdog_active = False
-        self._watchdog_interval_ms = 0
-        self._old_states = dict()
+        self._watchdog_active = None
+        self._watchdog_interval_ms = None
+        self._old_states = None
+        self._custom_states = None
+        self._hardware_states = None
 
     def on_activate(self):
-        """ Activate module
-        """
+        """ Activate module """
+
+        # First we check custom switch names of config
+        if not isinstance(self._custom_states, dict):
+            self.log.error('custom_states must be a dict of tuples')
+        if len(self._custom_states) != len(self.hardware().get_available_states()):
+            self.log.error('number of elements in custom states do not match')
+        if not all((isinstance(name, str) and name) for name in self._custom_states):
+            self.log.error('Switch name must be non-empty string')
+        if not all(len(states) > 1 for states in self._custom_states.values()):
+            self.log.error('State tuple must contain at least 2 states')
+        if not all(all((s and isinstance(s, str)) for s in states) for states in self._custom_states.values()):
+            self.log.error('Switch states must be non-empty strings')
+
+        # Convert state lists to tuples in order to restrict mutation
+        self._custom_states = {switch: tuple(states) for switch, states in self._custom_states.items()}
+        # Store the hardware defined states for name conversion
+        self._hardware_states = self.hardware().available_states
+
+        # Now we set up watchdog
         self._old_states = self.states
         self._watchdog_interval_ms = int(round(self._watchdog_interval * 1000))
 
@@ -74,22 +94,15 @@ class SwitchLogic(GenericLogic):
             self._watchdog_active = False
 
     def on_deactivate(self):
-        """ Deactivate module
-        """
+        """ Deactivate module """
         self._watchdog_active = False
 
-    def __getattr__(self, item):
-        if item in self.__wrapped_hw_attributes:
-            return getattr(self.switch(), item)
-        raise AttributeError(f'SwitchLogic has no attribute with name "{item}"')
-
-    @property
     def device_name(self):
         """ Name of the connected hardware switch as string.
 
         @return str: The name of the connected hardware switch
         """
-        return self.switch().name
+        return self.switch().get_name()
 
     @property
     def watchdog_active(self):
@@ -104,7 +117,7 @@ class SwitchLogic(GenericLogic):
         """
         with self._thread_lock:
             try:
-                states = self.switch().states
+                states = self.switch().get_states()
             except:
                 self.log.exception(f'Error during query of all switch states.')
                 states = dict()
