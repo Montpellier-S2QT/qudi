@@ -71,16 +71,16 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
            else:
                self.arduinorelays().digital_write(self.arduinorelays()._pin_list[2],1)
                time.sleep(0.5)
-               self.arduinorelays.digital_write(self.arduinorelays()._pin_list[3],1)
+               self.arduinorelays().digital_write(self.arduinorelays()._pin_list[3],1)
        elif coil == 3  :  #  z coil 
             if polarity == 'neg':
-                self.arduinorelays.digital_write(self.arduinorelays()._pin_list[4],1)
+                self.arduinorelays().digital_write(self.arduinorelays()._pin_list[4],1)
                 time.sleep(0.5)
-                self.arduinorelays.digital_write(self.arduinorelays()._pin_list[5],1)
+                self.arduinorelays().digital_write(self.arduinorelays()._pin_list[5],1)
             else:
-                self.arduinorelays.digital_write(self.arduinorelays()._pin_list[4],0)
+                self.arduinorelays().digital_write(self.arduinorelays()._pin_list[4],0)
                 time.sleep(0.5)
-                self.arduinorelays.digital_write(self.arduinorelays()._pin_list[5],0)
+                self.arduinorelays().digital_write(self.arduinorelays()._pin_list[5],0)
        return
 
 
@@ -104,7 +104,7 @@ class ProcessControlRelays(GenericLogic, ProcessControlInterface):
             self.switch_coil('neg',channel)
         else :
             self.switch_coil('pos',channel)
-        time.sleep(5)   
+        time.sleep(1)   
         self.powersupply().set_control_value( np.abs(value), channel= channel, ctrparam = ctrparam)
         return
 
