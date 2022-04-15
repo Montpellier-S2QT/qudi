@@ -25,7 +25,6 @@ import platform
 import numpy as np
 from collections import OrderedDict
 
-from interface.switch_interface import SwitchInterface
 from interface.pulser_interface import PulserInterface
 from interface.pulser_interface import PulserConstraints
 
