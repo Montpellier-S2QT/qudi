@@ -25,7 +25,6 @@ import platform
 import numpy as np
 from collections import OrderedDict
 
-from interface.switch_interface import SwitchInterface
 from interface.pulser_interface import PulserInterface
 from interface.pulser_interface import PulserConstraints
 
@@ -35,7 +34,7 @@ from core.util.mutex import Mutex
 from core.util.network import netobtain
 
 
-class PulseBlasterESRPRO(Base, SwitchInterface, PulserInterface):
+class PulseBlasterESRPRO(Base, PulserInterface):
     """ Hardware class to control the PulseBlasterESR-PRO card from SpinCore.
 
     This file is compatible with the PCI version SP18A of the PulseBlasterESR.
