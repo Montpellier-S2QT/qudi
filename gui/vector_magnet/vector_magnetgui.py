@@ -54,7 +54,7 @@ class VectorMagnetGui(GUIBase):
     
     # declare connectors
     scmagnetlogic = Connector(interface='SuperConductingMagnetLogic')
-    coilmagnetlogic = Connector(interface='CoilMagnetLogic')
+    coilmagnetlogic = Connector(interface='Vectormagnetlogic')
     
     # declare signals
     sigGoToField = QtCore.Signal(float, float, float)
@@ -248,7 +248,7 @@ class VectorMagnetGui(GUIBase):
         else:
             # coil magnet logic needs the field in Gauss
             self.sigGoToField.emit(self.Bx, self.By,
-                                        self.Bz,self.metadata)
+                                        self.Bz)
             # else:
             #     self.log.warning("No field was applied")
             #     self.enable_gui()
