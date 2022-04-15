@@ -22,7 +22,6 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 from core.module import Base
 from interface.switch_interface import SwitchInterface
 from core.configoption import ConfigOption
-from core.statusvariable import StatusVar
 
 
 class SwitchDummy(Base, SwitchInterface):
@@ -34,54 +33,30 @@ class SwitchDummy(Base, SwitchInterface):
         module.Class: 'switches.switch_dummy.SwitchDummy'
         name: 'First'  # optional
         remember_states: True  # optional
-        switches:
-            one: ['down', 'up']
-            two: ['down', 'up']
-            three: ['low', 'middle', 'high']
     """
 
-    # ConfigOptions
-    # customize available switches in config. Each switch needs a tuple of at least 2 state names.
-    _switches = ConfigOption(name='switches', missing='error')
     # optional name of the hardware
-    _hardware_name = ConfigOption(name='name', default=None, missing='nothing')
-    # if remember_states is True the last state will be restored at reloading of the module
-    _remember_states = ConfigOption(name='remember_states', default=True, missing='nothing')
-
-    # StatusVariable for remembering the last state of the hardware
-    _states = StatusVar(name='states', default=None)
+    _hardware_name = ConfigOption(name='name', default='switch_dummy')
+    _switches = {'one': ['down', 'up'], 'two': ['True', 'False'], 'three': ['low', 'middle', 'high']}
 
     def on_activate(self):
         """ Activate the module and fill status variables.
         """
-        self._switches = self._chk_refine_available_switches(self._switches)
-
-        # Choose config name for this module if no name is given in ConfigOptions
-        if self._hardware_name is None:
-            self._hardware_name = self._name
-
-        # reset states if requested, otherwise use the saved states
-        if self._remember_states and isinstance(self._states, dict) and \
-                set(self._states) == set(self._switches):
-            self._states = {switch: self._states[switch] for switch in self._switches}
-        else:
-            self._states = {switch: states[0] for switch, states in self._switches.items()}
+        self._states = {switch: states[0] for switch, states in self._switches.items()}
 
     def on_deactivate(self):
         """ Deactivate the module and clean up.
         """
         pass
 
-    @property
-    def name(self):
+    def get_name(self):
         """ Name of the hardware as string.
 
         @return str: The name of the hardware
         """
         return self._hardware_name
 
-    @property
-    def available_states(self):
+    def get_available_states(self):
         """ Names of the states as a dict of tuples.
 
         The keys contain the names for each of the switches. The values are tuples of strings
@@ -97,7 +72,6 @@ class SwitchDummy(Base, SwitchInterface):
         @param str switch: name of the switch to query the state for
         @return str: The current switch state
         """
-        assert switch in self.available_states, f'Invalid switch name: "{switch}"'
         return self._states[switch]
 
     def set_state(self, switch, state):
@@ -106,7 +80,4 @@ class SwitchDummy(Base, SwitchInterface):
         @param str switch: name of the switch to change
         @param str state: name of the state to set
         """
-        avail_states = self.available_states
-        assert switch in avail_states, f'Invalid switch name: "{switch}"'
-        assert state in avail_states[switch], f'Invalid state name "{state}" for switch "{switch}"'
         self._states[switch] = state
