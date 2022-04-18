@@ -53,8 +53,7 @@ class VectorMagnetGui(GUIBase):
     _magnet_type = ConfigOption("magnet_type", "coil") # otherwise "supra"
     
     # declare connectors
-    scmagnetlogic = Connector(interface='SuperConductingMagnetLogic')
-    coilmagnetlogic = Connector(interface='Vectormagnetlogic')
+    vectormagnetlogic = Connector(interface='VectorMagnetLogic')
     
     # declare signals
     sigGoToField = QtCore.Signal(float, float, float)
@@ -71,7 +70,7 @@ class VectorMagnetGui(GUIBase):
         if self._magnet_type == 'supra':
             self._magnetlogic = self.scmagnetlogic()
         elif self._magnet_type == 'coil':
-            self._magnetlogic = self.coilmagnetlogic()
+            self._magnetlogic = self.vectormagnetlogic()
         else:
             self.log.warning("Unknown magnet type, using coil instead.")
             self._magnetlogic = self.scmagnetlogic()

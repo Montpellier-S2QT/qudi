@@ -31,11 +31,7 @@ from core.configoption import ConfigOption
 from core.statusvariable import StatusVar
 
 
-class Vectormagnetlogic(GenericLogic):
-    
-    
-    
-    
+class VectorMagnetLogic(GenericLogic):
     
     _coeff_x = ConfigOption('coeff_x', 10.50) #G/A
     _coeff_y = ConfigOption('coeff_y', 10.50) #G/A
@@ -43,7 +39,6 @@ class Vectormagnetlogic(GenericLogic):
     
     # declare connectors
     powersupply = Connector(interface='ProcessControlInterface')
-    metadalogic = Connector(interface ='Metadatalogic'  )
     
     # Update signals, e.g. for GUI module
     sigFieldSet = QtCore.Signal()
@@ -63,7 +58,7 @@ class Vectormagnetlogic(GenericLogic):
        """ Initialisation performed during activation of the module. """
        # connectors
        self._power_supply = self.powersupply()
-       self._metadalogic = self.metadalogic()
+      
        
        self.max_voltage_x = self._power_supply._voltage_max_1 # in V
        self.max_voltage_y = self._power_supply._voltage_max_2 # in V
