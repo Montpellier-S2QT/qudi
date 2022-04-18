@@ -46,7 +46,7 @@ class ProcessControlModifier(GenericLogic, ProcessControlInterface):
     """
 
     hardware = Connector(interface='ProcessControlInterface')
-
+    
     _calibration = StatusVar(default=None)
     _calibration_file = ConfigOption('calibration_file', None)
     _force_calibration_from_file = ConfigOption('force_calibration_from_file', False)
