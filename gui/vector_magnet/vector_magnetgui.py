@@ -43,13 +43,16 @@ class VectorMagnetMainWindow(QtWidgets.QMainWindow):
         super(VectorMagnetMainWindow, self).__init__()
         uic.loadUi(ui_file, self)
         self.show()
-        
+
+
 class VectorMagnetGui(GUIBase):
     """ This is the GUI Class for the superconducting magnet.
     """
     
     _modclass = 'VectorMagnetGui'
     _modtype = 'gui'
+
+    # TODO ultimately we want to get rid of this
     _magnet_type = ConfigOption("magnet_type", "coil") # otherwise "supra"
     
     # declare connectors
@@ -67,13 +70,14 @@ class VectorMagnetGui(GUIBase):
         This init connects all the graphic modules, which were created in the
         *.ui file and configures the event handling between the modules.
         """
+        # TODO idem, we want to get rid of this in the final version
         if self._magnet_type == 'supra':
-            self._magnetlogic = self.scmagnetlogic()
+            self.magnetlogic = self.scmagnetlogic
         elif self._magnet_type == 'coil':
-            self._magnetlogic = self.vectormagnetlogic()
+            self.magnetlogic = self.vectormagnetlogic
         else:
             self.log.warning("Unknown magnet type, using coil instead.")
-            self._magnetlogic = self.scmagnetlogic()
+            self.magnetlogic = self.vectormagnetlogic
         
         ########################################################################
         #                      General configurations                          #
@@ -88,25 +92,25 @@ class VectorMagnetGui(GUIBase):
         
         # send signals to logic
         self.sigGoToField.connect(
-            self._magnetlogic.go_to_field, QtCore.Qt.QueuedConnection)
+            self.magnetlogic().go_to_field, QtCore.Qt.QueuedConnection)
         
         # connect to signals from logic
-        self._magnetlogic.sigFieldSet.connect(self.enable_gui)
-        self._magnetlogic.sigSweeping.connect(self.update_sweep_display)
-        self._magnetlogic.sigCurrentsValuesUpdated.connect(self.update_currents_display)
-        self._magnetlogic.sigNewFieldValues.connect(self.update_field_values)
+        self.magnetlogic().sigFieldSet.connect(self.enable_gui)
+        self.magnetlogic().sigSweeping.connect(self.update_sweep_display)
+        self.magnetlogic().sigCurrentsValuesUpdated.connect(self.update_currents_display)
+        self.magnetlogic().sigNewFieldValues.connect(self.update_field_values)
         
         # get power supply and coil status
-        self._mw.Bx_status_display.setText(self._magnetlogic.get_sweep_status("x"))
-        self._mw.By_status_display.setText(self._magnetlogic.get_sweep_status("y"))
-        self._mw.Bz_status_display.setText(self._magnetlogic.get_sweep_status("z"))
-        currents = self._magnetlogic.get_currents("x")
+        self._mw.Bx_status_display.setText(self.magnetlogic().get_sweep_status("x"))
+        self._mw.By_status_display.setText(self.magnetlogic().get_sweep_status("y"))
+        self._mw.Bz_status_display.setText(self.magnetlogic().get_sweep_status("z"))
+        currents = self.magnetlogic().get_currents("x")
         self._mw.iout_x_display.setText("{:.4f} A".format(currents[0]))
         self._mw.imag_x_display.setText("{:.4f} A".format(currents[1]))
-        currents = self._magnetlogic.get_currents("y")
+        currents = self.magnetlogic().get_currents("y")
         self._mw.iout_y_display.setText("{:.4f} A".format(currents[0]))
         self._mw.imag_y_display.setText("{:.4f} A".format(currents[1]))
-        currents = self._magnetlogic.get_currents("z")
+        currents = self.magnetlogic().get_currents("z")
         self._mw.iout_z_display.setText("{:.4f} A".format(currents[0]))
         self._mw.imag_z_display.setText("{:.4f} A".format(currents[1]))
         
@@ -118,7 +122,7 @@ class VectorMagnetGui(GUIBase):
 
         @return int: error code (0:OK, -1:error)
         """
-        if self._magnetlogic.check_before_closing():
+        if self.magnetlogic().check_before_closing():
             self._mw.close()
             return 0
         else:
@@ -246,56 +250,12 @@ class VectorMagnetGui(GUIBase):
             self.sigGoToField.emit(self.Bx, self.By, self.Bz)
         else:
             # coil magnet logic needs the field in Gauss
-            self.sigGoToField.emit(self.Bx, self.By,
-                                        self.Bz)
+            self.sigGoToField.emit(self.Bx, self.By, self.Bz)
             # else:
             #     self.log.warning("No field was applied")
             #     self.enable_gui()
                 
         return
-    
-    
-    # def check_field_sign(self):
-    #     """ Displays a warning if cables need to be switched """
-        
-    #     self.Bx_to_coil = self.Bx*10
-    #     self.By_to_coil = self.By*10
-    #     self.Bz_to_coil = self.Bz*10
-        
-    #     switch_x = self.Bx < 0
-    #     switch_y = self.By < 0
-    #     switch_z = self.Bz < 0
-    #     text_x = "normal state: red on red and black on black."
-    #     text_z = text_x
-    #     text_y = "normal state: red on black and black on red."
-        
-    #     if switch_x:
-    #         text_x ="inverted state: red on black and black on red."
-    #         self.Bx_to_coil = -self.Bx_to_coil
-    #     if switch_y:
-    #         text_y ="inverted state: red on red and black on black."
-    #         self.By_to_coil = -self.By_to_coil
-    #     if switch_z:    
-    #         text_z ="inverted state: red on black and black on red."
-    #         self.Bz_to_coil = -self.Bz_to_coil
-            
-    
-    #     msg = QtWidgets.QMessageBox()
-    #     msg.setWindowTitle("Cable inversion status")
-    #     msg.setText(f"You might need to invert the cables on some channels.\n \n"
-    #                 f"The needed configuration is following:\n"
-    #                 f"Coil x, {text_x}\n"
-    #                 f"Coil y, {text_y}\n"
-    #                 f"Coil z, {text_z}\n\n"
-    #                 f"Click OK when you are done.")
-    #     msg.setIcon(QtWidgets.QMessageBox.Warning)
-    #     msg.setStandardButtons(QtWidgets.QMessageBox.Cancel|QtWidgets.QMessageBox.Ok)
-    #     rep = msg.exec()
-    #     print(rep)
-    #     if rep == QtWidgets.QMessageBox.Ok:
-    #         return True
-    #     else:
-    #         return False
 
 
     def compute_B_perp(self):
