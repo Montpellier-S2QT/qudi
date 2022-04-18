@@ -22,6 +22,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import numpy as np
 import threading
+from collections import OrderedDict
 
 from logic.generic_logic import GenericLogic
 from core.util.mutex import Mutex
@@ -87,7 +88,7 @@ class WorkerThread(QtCore.QRunnable):
 
 class NVMicroscopeLogic(GenericLogic):
     
-    _modclass = 'microscopelogic'
+    _modclass = 'NVMicroscopeLogic'
     _modtype = 'logic'
 
     # declare connectors
@@ -114,6 +115,7 @@ class NVMicroscopeLogic(GenericLogic):
     sigXResChanged = QtCore.Signal(int) # for mapper
     sigYResChanged = QtCore.Signal(int) # for mapper
     sigRSChanged = QtCore.Signal(float) # for mapper
+    sigAngleChanged = QtCore.Signal(float) # for mapper
     
     sigStartPointChanged = QtCore.Signal(str)
 

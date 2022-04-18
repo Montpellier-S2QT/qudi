@@ -346,6 +346,9 @@
          <property name="text">
           <string>LL</string>
          </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
          <attribute name="buttonGroup">
           <string notr="true">StartPointButtonGroup</string>
          </attribute>
@@ -799,8 +802,8 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>477</width>
-          <height>129</height>
+          <width>241</width>
+          <height>190</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_3">

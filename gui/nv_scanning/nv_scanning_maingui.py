@@ -23,6 +23,7 @@ import os
 
 import numpy as np
 import pyqtgraph as pg
+from collections import OrderedDict
 
 from core.module import Connector
 from core.statusvariable import StatusVar
@@ -87,6 +88,8 @@ class NVScanningGui(GUIBase):
         
         self.initiate_mapping_dock()
         self.initiate_XYscanner_dock()
+
+        self.spec_params_widgets = {}
         
         # Show the main window
         self.show()
@@ -131,7 +134,7 @@ class NVScanningGui(GUIBase):
                                 model_getter='handle_rs',
                                 model_property_notifier='sigRSChanged',
                                 model_setter='handle_rs')
-        self._mw.rs_SpinBox.setMinimum(10e-9)
+        self._mw.rs_DoubleSpinBox.setMinimum(10e-9)
 
         self.mapper.add_mapping(widget=self._mw.angle_DoubleSpinBox,
                                 model=self.microscopelogic(),
@@ -155,10 +158,14 @@ class NVScanningGui(GUIBase):
         # creating a graph item to display the plot area
         self.scan_area_plot = pg.GraphItem()
         # adding graph item to the view box
-        self._mw.scanAreaView.addItem(self.scan_area_plot)
+        # self._mw.scanAreaView.addItem(self.scan_area_plot)
 
         return
             
+
+    def initiate_XYscanner_dock(self):
+        pass
+
     
     def create_spec_params_widgets(self, spec_params_values):
         """ Gets the list of parameters and creates the corresponding widgets."""
@@ -170,18 +177,27 @@ class NVScanningGui(GUIBase):
         for k in self.spec_params_widgets.keys():
             self.spec_params_widgets[k][0].hide()
             self.spec_params_widgets[k][1].hide()
-            self.spec_params_widgets.pop(k)
+        self.spec_params_widgets = OrderedDict()
 
         # create all the widgets
         for param in self.spec_params_values.keys():
             if isinstance(self.spec_params_values[param][0], str):
-                input_widget = QtWidgets.QLineEdit(spec_params_values[param][0])
+                input_widget = QtWidgets.QLineEdit()
+                input_widget.setText(spec_params_values[param][0])
             elif isinstance(self.spec_params_values[param][0], float):
-                input_widget = ScienDSpinBox(spec_params_values[param][0])
+                input_widget = ScienDSpinBox()
+                input_widget.setValue(spec_params_values[param][0])
                 if not spec_params_values[param][1]=='':
                     input_widget.setSuffix(spec_params_values[param][1])
+            elif isinstance(self.spec_params_values[param][0], bool):
+                input_widget = QtWidgets.QCheckBox()
+                input_widget.setText('')
+                input_widget.setChecked(self.spec_params_values[param][0])
             elif isinstance(self.spec_params_values[param][0], int):
-                input_widget = QtWidgets.QSpinBox(spec_params_values[param][0])
+                input_widget = QtWidgets.QSpinBox()
+                input_widget.setValue(spec_params_values[param][0])
+            else:
+                self.log.warning("Unknown parameter type encountered!")
 
             # TODO: mapping, with a converter
             
@@ -190,9 +206,13 @@ class NVScanningGui(GUIBase):
             grid.addWidget(self.spec_params_widgets[param][0], last_row, 1)
             grid.addWidget(self.spec_params_widgets[param][1], last_row, 2)
 
-    return
+        return
 
-            
+
+    def update_scan_area_plot(self):
+        pass
+
+    
     def change_max_scanner(self):
         """
         Opens a dialog to input a new scanner range.
@@ -213,3 +233,5 @@ class NVScanningGui(GUIBase):
             self._mw.y_position_DoubleSpinBox.setValue(y)
             self.log.info("Changed max scanner range.")
         return
+    
+
