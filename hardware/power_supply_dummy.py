@@ -161,24 +161,30 @@ class PowerSupplyDummy(Base, ProcessControlInterface):
         else:
             self.log.error('Control value {} out of range'.format(value))
 
-    def get_control_value(self, ctrparam="VOLT"):
+    def get_control_value(self, channel=None, ctrparam="VOLT"):
         """ Get current control value, here heating power
 
             @param (str) ctrparam: control parameter ("VOLT" or "CURR")
             @return float: current control value
         """
+        if channel is not None:
+            self._set_channel(channel)
+            
         if ctrparam == "CURR":
             rep = self.current[self.channel]
         else:
             rep = self.voltage[self.channel]
         return rep
 
-    def get_control_unit(self, ctrparam="VOLT"):
+    def get_control_unit(self, channel=None, ctrparam="VOLT"):
         """ Get unit of control value.
 
             @param (str) ctrparam: control parameter ("VOLT" or "CURR")
             @return tuple(str): short and text unit of control value
         """
+        if channel is not None:
+            self._set_channel(channel)
+            
         if ctrparam == "VOLT":
             return 'V', 'Volt'
         else:
