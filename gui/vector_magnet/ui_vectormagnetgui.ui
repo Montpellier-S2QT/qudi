@@ -223,7 +223,7 @@
            <x>10</x>
            <y>30</y>
            <width>741</width>
-           <height>202</height>
+           <height>208</height>
           </rect>
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_2">
@@ -518,7 +518,7 @@
             <item row="1" column="0">
              <widget class="QLabel" name="label_12">
               <property name="text">
-               <string>φ_tip (°)</string>
+               <string>φ_ref (°)</string>
               </property>
               <property name="alignment">
                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -547,7 +547,7 @@
             <item row="0" column="0">
              <widget class="QLabel" name="label_11">
               <property name="text">
-               <string>θ_tip (°)</string>
+               <string>θ_ref (°)</string>
               </property>
               <property name="alignment">
                <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -603,7 +603,7 @@
              </font>
             </property>
             <property name="text">
-             <string>β_perp = 0° corresponds to the intersection of the xy plane and the plane perpendicular to the NV axis</string>
+             <string>β_perp = 0° corresponds to the intersection of the xy plane and the plane perpendicular to the reference axis</string>
             </property>
            </widget>
           </item>
@@ -720,7 +720,6 @@
            <widget class="QLabel" name="Bz_label">
             <property name="font">
              <font>
-              <weight>75</weight>
               <bold>true</bold>
              </font>
             </property>
@@ -746,7 +745,6 @@
            <widget class="QLabel" name="By_label">
             <property name="font">
              <font>
-              <weight>75</weight>
               <bold>true</bold>
              </font>
             </property>
@@ -789,7 +787,6 @@
            <widget class="QLabel" name="Bx_label">
             <property name="font">
              <font>
-              <weight>75</weight>
               <bold>true</bold>
              </font>
             </property>
@@ -838,7 +835,7 @@
      <x>0</x>
      <y>0</y>
      <width>778</width>
-     <height>25</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuMenu">
