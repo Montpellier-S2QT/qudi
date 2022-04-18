@@ -32,20 +32,20 @@ from core.statusvariable import StatusVar
 
 
 class VectorMagnetLogic(GenericLogic):
-    
+
+    # TODO transfer this to hardware
     _coeff_x = ConfigOption('coeff_x', 10.50) #G/A
     _coeff_y = ConfigOption('coeff_y', 10.50) #G/A
     _coeff_z = ConfigOption('coeff_z', 42.00) #G/A
     
     # declare connectors
-    powersupply = Connector(interface='ProcessControlInterface')
+    magnetpowersupply = Connector(interface='ProcessControlInterface')
     
     # Update signals, e.g. for GUI module
     sigFieldSet = QtCore.Signal()
     sigSweeping = QtCore.Signal()
     sigCurrentsValuesUpdated = QtCore.Signal(str, float, float)
     sigNewFieldValues = QtCore.Signal(float, float, float)
-    
     
     
     def __init__(self, config, **kwargs):
@@ -56,17 +56,15 @@ class VectorMagnetLogic(GenericLogic):
         
     def on_activate(self):
        """ Initialisation performed during activation of the module. """
-       # connectors
-       self._power_supply = self.powersupply()
-      
+
+       # Get limits
+       self.max_voltage_x = self.magnetpowersupply()._voltage_max_1 # in V
+       self.max_voltage_y = self.magnetpowersupply()._voltage_max_2 # in V
+       self.max_voltage_z = self.magnetpowersupply()._voltage_max_3 # in V
        
-       self.max_voltage_x = self._power_supply._voltage_max_1 # in V
-       self.max_voltage_y = self._power_supply._voltage_max_2 # in V
-       self.max_voltage_z = self._power_supply._voltage_max_3 # in V
-       
-       self.max_current_x = self._power_supply._current_max_1 # in A
-       self.max_current_y = self._power_supply._current_max_2 # in A
-       self.max_current_z = self._power_supply._current_max_3 # in A
+       self.max_current_x = self.magnetpowersupply()._current_max_1 # in A
+       self.max_current_y = self.magnetpowersupply()._current_max_2 # in A
+       self.max_current_z = self.magnetpowersupply()._current_max_3 # in A
        
        return 0
 
@@ -79,6 +77,7 @@ class VectorMagnetLogic(GenericLogic):
         """ Set the field for one coil. 
         B in G, coil is a str, "x", "y" or "z" .
         """
+        # TODO make the unit SI
         if coil == "x":
             current = B/self._coeff_x
             # print(current)
@@ -92,19 +91,21 @@ class VectorMagnetLogic(GenericLogic):
             # print(current)
             ch = 3
         if np.abs(current) < 1e-4: # then we just turn off the channel
-            #self._power_supply._set_off(ch)
-            self._power_supply.set_control_value(0, ch)
-            self._power_supply.set_control_value(0, ch, ctrparam="CURR")
+            #self.magnet_power_supply()._set_off(ch)
+            self.magnetpowersupply().set_control_value(0, ch)
+            self.magnetpowersupply().set_control_value(0, ch, ctrparam="CURR")
             self.log.info("Turned off channel {}.".format(ch))
         else:
-            # first voltage to 32 V (copied from the old labview program)
-            self._power_supply.set_control_value(30, ch)
+            # first voltage to 30 V (copied from the old labview program)
+            # TODO : include this in hardware ? The superconducting magnet
+            # power supply will act differently
+            self.magnetpowersupply().set_control_value(30, ch)
             # then sets the current
-            self._power_supply.set_control_value(current, ch, ctrparam="CURR")
+            self.magnetpowersupply().set_control_value(current, ch, ctrparam="CURR")
             self.log.info("Current set in channel {}.".format(ch))
         time.sleep(1)  
-        curr = self._power_supply.get_control_value(channel=ch,ctrparam="CURR")
-        print(coil, curr)
+        curr = self.magnetpowersupply().get_control_value(channel=ch,ctrparam="CURR")
+        #print(coil, curr)
         self.sigCurrentsValuesUpdated.emit(coil, curr, curr)
         return
     
@@ -119,11 +120,11 @@ class VectorMagnetLogic(GenericLogic):
     def get_currents(self, coil):
         """ Read currents. """
         if coil == "x":
-            c = self._power_supply.get_control_value(channel= 1 ,ctrparam="CURR")
+            c = self.magnetpowersupply().get_control_value(channel=1, ctrparam="CURR")
         elif coil == "y":
-            c = self._power_supply.get_control_value(channel = 2 ,ctrparam="CURR")
+            c = self.magnetpowersupply().get_control_value(channel=2, ctrparam="CURR")
         else:
-            c = self._power_supply.get_control_value(channel= 3 ,ctrparam="CURR")
+            c = self.magnetpowersupply().get_control_value(channel=3, ctrparam="CURR")
         return [c, c]
     
     
