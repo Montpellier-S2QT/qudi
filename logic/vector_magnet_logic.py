@@ -33,6 +33,9 @@ from core.statusvariable import StatusVar
 
 class VectorMagnetLogic(GenericLogic):
 
+    _modclass = 'VectorMagnetLogic'
+    _modtype = 'logic'
+
     # TODO transfer this to hardware
     _coeff_x = ConfigOption('coeff_x', 10.50) #G/A
     _coeff_y = ConfigOption('coeff_y', 10.50) #G/A

@@ -1,10 +1,8 @@
 """
-
 Hardware module to interface a Rohde & Schwarz power supply HMP2030
 
 This file is adapted from the pi3diamond project distributed under GPL V3 licence.
 Created by Helmut Fedder <helmut@fedder.net>. Adapted by someone else.
-
 ---
 
 Qudi is free software: you can redistribute it and/or modify
@@ -49,8 +47,9 @@ class PowerSupply(Base, ProcessControlInterface):
     _model = None
     _inst = None
 
+    
     def on_activate(self):
-        """ Startup the module """
+        """ Startup the module. """
 
         rm = visa.ResourceManager()
         try:
@@ -76,26 +75,43 @@ class PowerSupply(Base, ProcessControlInterface):
         self._set_all_off()
         self._inst.close()
 
+        
     def _set_channel(self, channel):
-        """sets the channel 1, 2 or 3"""
+        """Sets the channel 1, 2 or 3.
+
+        @param int channel: channel number.
+        """
         if channel in [1, 2, 3]:
             self._inst.write('INST OUT{}'.format(channel))
         else:
             self.log.error('Wrong channel number. Chose 1, 2 or 3.')
-    
+
+            
     def _get_channel(self):
-        """ query the selected channel"""
+        """ Query the selected channel.
+
+        @param int channel: channel number.
+        """
         channel = int(self._inst.query('INST:NSEL?'))
         return channel
     
+    
     def _get_status_channel(self, channel):
-        """ Gets the current status of the selected channel (CC or CV)"""
+        """ Gets the current status of the selected channel (CC or CV)
+
+        @param int channel: channel number.
+        """
         state = int(self._inst.query('STAT:QUES:INST:ISUM{}:COND?'.format(channel)))
         status = 'CC' if state == 1 else 'CV'
         return status
     
+    
     def _set_voltage(self, value, channel=None):
-        """ Sets the voltage to the desired value"""
+        """ Sets the voltage to the desired value.
+        
+        @param float value: in V.
+        @param int channel: optional, channel number, if not given the active channel is used.
+        """
         if channel is not None:
             self._set_channel(channel)
         mini, maxi = self.get_control_limit(channel=channel)
@@ -103,83 +119,137 @@ class PowerSupply(Base, ProcessControlInterface):
             self._inst.write("VOLT {}".format(value))
         else:
             self.log.error('Voltage value {} out of range'.format(value))
-    
+        return
+
+            
     def _get_voltage(self, channel=None):
-        """ Get the measured the voltage """
+        """ Get the applied voltage.
+
+        @param int channel: optional, channel number, if not given the active channel is used.
+
+        @return float voltage: applied voltage in V.
+        """
+        
         if channel is not None:
             self._set_channel(channel)
         voltage = float(self._inst.query('MEAS:VOLT?'))
         return voltage
+    
         
     def _set_current(self, value, channel=None):
-        """ Sets the current to the desired value """
+        """ Sets the current to the desired value.
+
+        @param float value: in A.
+        @param int channel: optional, channel number, if not given the active channel is used.
+        """
 
         mini, maxi = self._get_control_limit_current(channel=channel)
         if mini <= value <= maxi:
             self._inst.write("CURR {}".format(value))
         else:
             self.log.error('Current value {} out of range'.format(value))
+        return
+    
     
     def _get_current(self, channel=None):
-        """ Get the measured the current  """
+        """ Get the applied current.
+
+        @param int channel: optional, channel number, if not given the active channel is used.
+
+        @return float current: applied current in A.
+        """ 
         if channel is not None:
             self._set_channel(channel)
         current = float(self._inst.query('MEAS:CURR?'))
         return current
     
+    
     def _set_on(self, channel=None):
-        """ Turns the output from the chosen channel on """
+        """ Turns the output from the chosen channel on.
+
+        @param int channel: optional, channel number, if not given the active channel is used.
+        """
         if channel is not None:
             self._set_channel(channel)
         self._inst.write('OUTP ON')
+        return
+    
 
     def _set_off(self, channel=None):
-        """ Turns the output from the chosen channel off """
+        """ Turns the output from the chosen channel off.
+
+        @param int channel: optional, channel number, if not given the active channel is used.
+        """
         if channel is not None:
             self._set_channel(channel)
         self._inst.write('OUTP OFF')
+        return
+    
             
     def _set_all_off(self):
-        """ Stops the output of all channels """
+        """ Stops the output of all channels."""
         self._set_off(1)
         self._set_off(2)
         self._set_off(3)
+        return
+
     
     def _reset(self):
-        """ Reset the whole system"""
+        """ Reset the whole system. """
         self._inst.write('*RST')  # resets the device
         self._inst.write('SYST:REM')  # sets the instrument to remote control
+        return
+    
         
     def _beep(self):
         """ gives an acoustical signal from the device """
         self._inst.write('SYST:BEEP')
+        return
+    
         
     def _error_list(self):
-        """ Get all errors from the error register """
+        """ Get all errors from the error register.
+        
+        @return str error
+        """
         error = str(self._inst.query('SYST:ERR?'))
         return error
+    
 
     def _set_over_voltage(self, maxi, channel=None):
-        """ Sets the over voltage protection for a selected channel"""
+        """ Sets the over voltage protection for a selected channel.
+        
+        @param float maxi: maximal voltage in V.
+        @param int channel: optional, channel number, if not given the active channel is used.
+        """
         if channel is not None:
             self._set_channel(channel)
         self._inst.write('VOLT:PROT {}'.format(maxi))
+        return
+    
 
     def _set_over_current(self, maxi, channel=None):
-        """ Sets the over current protection for a selected channel"""
+        """ Sets the over current protection for a selected channel.
+
+        @param float maxi: maximal current in A.
+        @param int channel: optional, channel number, if not given the active channel is used.
+        """
         if channel is not None:
             self._set_channel(channel)
         self._inst.write('FUSE ON')
         self._inst.write('CURR {}'.format(maxi))
-
-# Interface methods
+        return
+    
+    #####################
+    # Interface methods #
+    #####################
 
     def set_control_value(self, value, channel=1, ctrparam="VOLT"):
         """ Set control value
 
-            @param (float) value: control value
-            @param (int) channel: channel to control
-            @param (str) ctrparam: control parameter ("VOLT" or "CURR")
+        @param float value: control value
+        @param int channel: channel to control
+        @param str ctrparam: control parameter ("VOLT" or "CURR")
         """
         if channel is not None:
             self._set_channel(channel)
@@ -188,33 +258,40 @@ class PowerSupply(Base, ProcessControlInterface):
             self._inst.write("{} {}".format(ctrparam, value))
         else:
             self.log.error('Control value {} out of range'.format(value))
+        return
+    
 
-    def get_control_value(self,channel = 1 ,ctrparam="VOLT"):
+    def get_control_value(self, channel=1 ,ctrparam="VOLT"):
         """ Get current control value, here heating power
 
-            @param (str) ctrparam: control parameter ("VOLT" or "CURR")
-            @return float: current control value
+        @param str ctrparam: control parameter ("VOLT" or "CURR")
+        @param int channel: channel to control
+
+        @return float: current control value
         """
         if channel is not None :
             self._set_channel(channel)
         return float(self._inst.query("{}?".format(ctrparam)).split('\r')[0])
+    
 
     def get_control_unit(self, ctrparam="VOLT"):
         """ Get unit of control value.
 
-            @param (str) ctrparam: control parameter ("VOLT" or "CURR")
-            @return tuple(str): short and text unit of control value
+            @param str ctrparam: control parameter ("VOLT" or "CURR")
+            @return tuple (str): short and text unit of control value
         """
         if ctrparam == "VOLT":
             return 'V', 'Volt'
         else:
             return 'A', 'Ampere'
+        
 
     def get_control_limit(self, channel=None, ctrparam="VOLT"):
         """ Get minimum and maximum of control value.
 
-            @param (str) ctrparam: control parameter ("VOLT" or "CURR")
-            @return tuple(float, float): minimum and maximum of control value
+        @param int channel: channel to control
+        @param str ctrparam: control parameter ("VOLT" or "CURR")
+        @return tuple(float, float): minimum and maximum of control value
         """
         if channel is None:
             channel = self._get_channel()
@@ -228,11 +305,14 @@ class PowerSupply(Base, ProcessControlInterface):
             maxi = self._current_max_2 if channel == 2 else maxi
             maxi = self._current_max_3 if channel == 3 else maxi
         return 0, maxi
+    
 
     def process_control_supports_multiple_channels(self):
         """ Function to test if hardware support multiple channels """
         return True
 
+    
     def process_control_get_number_channels(self):
         """ Function to get the number of channels available for control """
         return 3
+

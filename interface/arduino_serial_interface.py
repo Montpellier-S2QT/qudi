@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Interface file to control processes for Aeduino hardware .
+Interface file to control processes for Arduino hardware .
 
 Qudi is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -23,15 +23,12 @@ from core.meta import InterfaceMetaclass
 
 
 
-class Interface_control_arduino(metaclass=InterfaceMetaclass ):
-    """ A simple interface to control one or multiple process value.
+class ArduinoSerialInterface(metaclass=InterfaceMetaclass ):
+    """ A simple interface to control an Arduino via serial connection.
 
     This interface is in fact a very general/universal interface that can be used for a lot of things.
-    It can be used to interface any hardware  de type Arduino .
+    It can be used to interface any Arduino hardware.
     """
-    
-    
-    
     
    
     @abstract_interface_method
@@ -42,18 +39,23 @@ class Interface_control_arduino(metaclass=InterfaceMetaclass ):
         - I for INPUT
         - O for OUTPUT
         - P for INPUT_PULLUP MO13
+
+        @param int pin_number
+        @param str mode
         """
-        return
-    
+        pass
     
     
     @abstract_interface_method
     def digital_read(self, pin_number):
         """
         Performs a digital read on pin_number and returns the value (1 or 0)
-        Internally sends b'RD{pin_number}' over the serial connection
+        Internally sends b'RD{pin_number}' over the serial connection.
+
+        @param int pin_number
+        @return int value: digital output of the pin (0 or 1).
         """
-        return
+        pass
     
     
     @abstract_interface_method
@@ -61,24 +63,33 @@ class Interface_control_arduino(metaclass=InterfaceMetaclass ):
         """
         Writes the digital_value on pin_number
         Internally sends b'WD{pin_number}:{digital_value}' over the serial
-        connection
+        connection.
+
+        @param int pin_number
+        @param int digital_value: 0 or 1, value to write.
         """
-        return
+        pass
     
     
     @abstract_interface_method
     def analog_read(self, pin_number):
          """
         Performs an analog read on pin_number and returns the value (0 to 1023)
-        Internally sends b'RA{pin_number}' over the serial connection
+        Internally sends b'RA{pin_number}' over the serial connection.
+
+        @param int pin_number
+        @return float value: analog output (in V?)
         """
-         return
+        pass
      
     @abstract_interface_method    
     def analog_write(self, pin_number, analog_value):
         """
         Writes the analog value (0 to 255) on pin_number
         Internally sends b'WA{pin_number}:{analog_value}' over the serial
-        connection
+        connection.
+
+        @param int pin_number
+        @param float analog value
         """
-        return
+        pass
