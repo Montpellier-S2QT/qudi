@@ -136,18 +136,12 @@ class NVScanningGui(GUIBase):
                                 model_setter='handle_rs')
         self._mw.rs_DoubleSpinBox.setMinimum(10e-9)
 
-        self.mapper.add_mapping(widget=self._mw.angle_DoubleSpinBox,
-                                model=self.microscopelogic(),
-                                model_getter='handle_angle',
-                                model_property_notifier='sigAngleChanged',
-                                model_setter='handle_angle')
 
         # connect the starting points radiobuttons
         self._mw.StartPointButtonGroup.buttonClicked.connect(
             lambda button: self.microscopelogic().handle_starting_point(button.text()))
         self.microscopelogic().sigStartPointChanged.connect(
             lambda sp: getattr(self._mw, sp+'_radioButton').setChecked(True))
-        
         
         # connect the time displays
         self.microscopelogic().sigUpdateRemTime.connect(
@@ -164,7 +158,45 @@ class NVScanningGui(GUIBase):
             
 
     def initiate_XYscanner_dock(self):
-        pass
+        """ Connection of the input widgets in the XY scanner parameters dockwidget."""
+
+        # connects the inputs
+        self.mapper.add_mapping(widget=self._mw.angle_DoubleSpinBox,
+                                model=self.microscopelogic(),
+                                model_getter='handle_angle',
+                                model_property_notifier='sigAngleChanged',
+                                model_setter='handle_angle')
+
+        self.mapper.add_mapping(widget=self._mw.width_DoubleSpinBox,
+                                model=self.microscopelogic(),
+                                model_getter='handle_scan_width',
+                                model_property_notifier='sigScanWidthChanged',
+                                model_setter='handle_scan_width')
+
+        self.mapper.add_mapping(widget=self._mw.height_DoubleSpinBox,
+                                model=self.microscopelogic(),
+                                model_getter='handle_scan_height',
+                                model_property_notifier='sigScanHeightChanged',
+                                model_setter='handle_scan_height')
+
+        self.mapper.add_mapping(widget=self._mw.x_position_DoubleSpinBox,
+                                model=self.microscopelogic(),
+                                model_getter='handle_x_center',
+                                model_property_notifier='sigXCenterChanged',
+                                model_setter='handle_x_center')
+
+        self.mapper.add_mapping(widget=self._mw.y_position_DoubleSpinBox,
+                                model=self.microscopelogic(),
+                                model_getter='handle_y_center',
+                                model_property_notifier='sigYCenterChanged',
+                                model_setter='handle_y_center')
+
+
+        self._mw.moveto_pushButton.clicked.connect(self.moveto)
+        self._mw.moveto_start_pushButton.clicked.connect(self.moveto_start)
+        self._mw.moveto_zero_pushButton.clicked.connect(self.moveto_zero)
+
+        return
 
     
     def create_spec_params_widgets(self, spec_params_values):
@@ -235,3 +267,28 @@ class NVScanningGui(GUIBase):
         return
     
 
+    def moveto(self):
+        """ Action when the MoveTo button is pushed.
+        NOT FINISHED
+        """
+        x = self._mw.x_position_DoubleSpinBox.value()
+        y = self._mw.y_position_DoubleSpinBox.value()
+        return
+
+
+    def moveto_start(self):
+        """ Action when the MoveTo_start button is pushed.
+        NOT FINISHED
+        """
+        x = self._mw.x_position_DoubleSpinBox.value()
+        y = self._mw.y_position_DoubleSpinBox.value()
+        h_range = self._mw.width_DoubleSpinBox.value()
+        v_range = self._mw.height_DoubleSpinBox.value()
+        return
+
+
+    def moveto_zero(self):
+        """ Action when the MoveTo_zero button is pushed.
+        NOT FINISHED
+        """
+        return

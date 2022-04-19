@@ -100,6 +100,7 @@ class NVMicroscopeLogic(GenericLogic):
     x_res = StatusVar('x_res', default=100)
     y_res = StatusVar('y_res', default=100)
     angle = StatusVar('y_res', default=0)
+    starting_point = StatusVar('starting_point', default='LL')
     x_center_pos = StatusVar('x_center_pos', default=15e-6)
     y_center_pos = StatusVar('y_center_pos', default=15e-6)
     scan_width = StatusVar('scan_width', default=1e-6)
@@ -116,9 +117,15 @@ class NVMicroscopeLogic(GenericLogic):
     sigYResChanged = QtCore.Signal(int) # for mapper
     sigRSChanged = QtCore.Signal(float) # for mapper
     sigAngleChanged = QtCore.Signal(float) # for mapper
-    
     sigStartPointChanged = QtCore.Signal(str)
+    sigScanWidthChanged = QtCore.Signal(float) # for mapper
+    sigScanHeightChanged = QtCore.Signal(float) # for mapper
+    sigXCenterChanged = QtCore.Signal(float) # for mapper
+    sigYCenterChanged = QtCore.Signal(float) # for mapper
 
+    sigStartScan = QtCore.Signal()
+    sigStopScan = QtCore.Signal(bool) # connected in GUI
+    sigResumeScan = QtCore.Signal()
 
 
     def __init__(self, config, **kwargs):
@@ -156,6 +163,7 @@ class NVMicroscopeLogic(GenericLogic):
         else:
             return self.x_res
 
+        
     # y resolution
     def handle_y_res(self, value=None):
         if value is not None:
@@ -166,6 +174,7 @@ class NVMicroscopeLogic(GenericLogic):
         else:
             return self.y_res
 
+        
     # return slowness
     def handle_rs(self, value=None):
         if value is not None:
@@ -176,6 +185,7 @@ class NVMicroscopeLogic(GenericLogic):
         else:
             return self.return_slowness
 
+    # scan angle
     def handle_angle(self, value=None):
         if value is not None:
             self.angle = value
@@ -185,6 +195,7 @@ class NVMicroscopeLogic(GenericLogic):
         else:
             return self.angle
 
+    # scan starting point
     def handle_starting_point(self, value=None):
         if value is not None:
             self.starting_point = value
@@ -195,4 +206,44 @@ class NVMicroscopeLogic(GenericLogic):
             return self.starting_point
 
 
-    #def update_scan_area(self):
+    def handle_scan_width(self, value=None):
+        if value is not None:
+            self.scan_width = value
+            self.sigScanWidthChanged.emit(self.scan_width)
+            self.update_scan_area()
+            return 
+        else:
+            return self.scan_width
+
+
+    def handle_scan_height(self, value=None):
+        if value is not None:
+            self.scan_height = value
+            self.sigScanHeightChanged.emit(self.scan_height)
+            self.update_scan_area()
+            return 
+        else:
+            return self.scan_height
+
+
+    def handle_x_center(self, value=None):
+        if value is not None:
+            self.x_center_pos = value
+            self.sigXCenterChanged.emit(self.x_center_pos)
+            self.update_scan_area()
+            return 
+        else:
+            return self.x_center_pos
+
+        
+    def handle_y_center(self, value=None):
+        if value is not None:
+            self.y_center_pos = value
+            self.sigYCenterChanged.emit(self.y_center_pos)
+            self.update_scan_area()
+            return 
+        else:
+            return self.y_center_pos
+        
+    def update_scan_area(self):
+        pass
