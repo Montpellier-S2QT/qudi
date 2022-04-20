@@ -61,7 +61,7 @@ class Shamrock(Base, GratingSpectrometerInterface):
         module.Class: 'spectrometer.shamrock.Shamrock'
     """
 
-    _dll_path = ConfigOption('dll_path', r'C:\Program Files\Andor SDK\Shamrock64\C\All')
+    _dll_location = ConfigOption('dll_location', r'C:\Program Files\Andor SDK\Shamrock64\C\All')
     # for some reason, the dll in Shamrock64 doesn't work..
     _serial_number = ConfigOption('serial_number', None)  # Optional - needed if multiple Shamrock are connected
 
@@ -81,14 +81,10 @@ class Shamrock(Base, GratingSpectrometerInterface):
     ##############################################################################
     def on_activate(self):
         """ Activate module """
-        os.environ['PATH'] = os.environ['PATH']+';' if os.environ['PATH'][-1] != ';' else os.environ['PATH']
-        os.environ['PATH'] += self._dll_path
-
         try:
-            self._dll = ct.windll.LoadLibrary('ShamrockCIF.dll')
+            self._dll = ct.cdll.LoadLibrary(self._dll_location)
         except OSError:
-            self.log.error('Error during dll loading of the Shamrock spectrometer, check the dll path.')
-            return
+            self.log.error('Error during dll loading of the Andor Shamrock spectrometer, check the dll path.')
 
         status_code = self._dll.ShamrockInitialize()
         if status_code != OK_CODE:
