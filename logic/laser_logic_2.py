@@ -33,15 +33,17 @@ from interface.laser_interface import LaserInterface, ShutterState, LaserState
 class LaserLogic(GenericLogic):
     """ Logic module to control a laser.
 
-    laser_logic:
+    laserlogic:
         module.Class: 'laser_logic.LaserLogic'
         connect:
             laser: 'mylaser'
     """
 
-    _laser = Connector(interface='LaserInterface')
+    laser = Connector(interface='LaserInterface')
     _wavelength = StatusVar('wavelength', None)
     _power_setpoint = StatusVar('power_setpoint', None)
+
+    sigUpdateSettings = QtCore.Signal()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -49,15 +51,15 @@ class LaserLogic(GenericLogic):
     def on_activate(self):
         """ Activate module.
         """
-        self._constraints = self._laser().get_constraints()
+        self._constraints = self.laser().get_constraints()
 
         if self._wavelength == None:
-            self._wavelength = self._laser().get_wavelength()
+            self._wavelength = self.laser().get_wavelength()
         else:
             self.wavelength = self._wavelength
 
         if self._power_setpoint == None:
-            self._power_setpoint = self._laser().get_power_setpoint()
+            self._power_setpoint = self.laser().get_power_setpoint()
         else:
             self.power_setpoint = self._power_setpoint
 
@@ -73,7 +75,7 @@ class LaserLogic(GenericLogic):
         @return (LaserState) laser_state: laser state (ON or OFF).
         """
         LaserState.__members__()
-        laser_state = self._laser.get_laser_state()
+        laser_state = self.laser.getlaser_state()
 
 
     @laser_state.setter
@@ -90,7 +92,7 @@ class LaserLogic(GenericLogic):
 
         @return (float) wavelength: laser wavelength in m.
         """
-        self._wavelength = self._laser().get_wavelength()
+        self._wavelength = self.laser().get_wavelength()
         return self._wavelength
 
     @wavelength.setter
@@ -99,7 +101,7 @@ class LaserLogic(GenericLogic):
 
         @param (float) wavelength: laser wavelength in m.
         """
-        if not self._constraints.wavelength_tunable:
+        if not self._constraints.tunable_wavelength:
             self.log.warning('The laser hardware module is not wavelength tunable. The wavelength cannot be changed.')
             return
         wavelength = float(wavelength)
@@ -108,8 +110,8 @@ class LaserLogic(GenericLogic):
             self.log.error('Wavelength value is not correct : it must be in range {} to {} '
                            .format(wavelength_min, wavelength_max))
             return
-        self._laser().set_wavelength(wavelength)
-        self._wavelength = self._laser().get_wavelength()
+        self.laser().set_wavelength(wavelength)
+        self._wavelength = self.laser().get_wavelength()
         self.sigUpdateSettings.emit()
 
     @property
@@ -118,7 +120,7 @@ class LaserLogic(GenericLogic):
 
         @return (float) power: laser power in W.
         """
-        return self._laser().get_power()
+        return self.laser().get_power()
 
     @property
     def power_setpoint(self):
@@ -126,7 +128,7 @@ class LaserLogic(GenericLogic):
 
         @return (float) power setpoint: laser power setpoint in W.
         """
-        self._power_setpoint = self._laser().get_power_setpoint()
+        self._power_setpoint = self.laser().get_power_setpoint()
         return self._power_setpoint
 
     @power_setpoint.setter
@@ -135,7 +137,7 @@ class LaserLogic(GenericLogic):
 
         @param (float) power_setpoint: laser power_setpoint in W.
         """
-        if not self._constraints.power_tunable:
+        if not self._constraints.tunable_power:
             self.log.warning('The laser hardware module is not power tunable. The laser power cannot be changed.')
             return
         power_setpoint = float(power_setpoint)
@@ -144,8 +146,8 @@ class LaserLogic(GenericLogic):
             self.log.error('Power value is not correct : it must be in range {} to {} '
                            .format(power_min, power_max))
             return
-        self._laser().set_power_setpoint(power_setpoint)
-        self._power_setpoint = self._laser().get_power_setpoint()
+        self.laser().set_power_setpoint(power_setpoint)
+        self._power_setpoint = self.laser().get_power_setpoint()
         self.sigUpdateSettings.emit()
 
     @property

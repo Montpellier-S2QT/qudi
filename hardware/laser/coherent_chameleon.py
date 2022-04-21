@@ -54,8 +54,8 @@ class Chameleon(Base, LaserInterface):
         self._device.read_termination = '\r\n'
         self._device.baud_rate = 19200
 
-        self._device.query('E=0')
-        self._device.query('>=0')
+        self._device.query('ECHO=0')
+        self._device.query('PROMPT=0')
 
         self._constraints = self._build_constraints()
 
