@@ -48,9 +48,10 @@ class MotorNewportConexAGP(Base, MotorInterface):
     """
 
     _com_port = ConfigOption('com_port', missing='error')
-    _controller_address = ConfigOption('controller_address', 1, missing='warn')
 
-    _axis_label = ConfigOption('axis_label', 'phi', missing='warn')
+    _axis_labels = ConfigOption('axis_labels', ['phi', 'theta'], missing='warn')
+    _axis_id = ConfigOption('axis_id', [0, 1])
+    _axis_units = ConfigOption('axis_units')
 
     vel_from_model = {
         'AG-PR100P': 1.5,
@@ -161,24 +162,26 @@ class MotorNewportConexAGP(Base, MotorInterface):
         """
         constraints = OrderedDict()
 
-        axis = {
-            'label': self._axis_label,
-            'ID': None,
-            'unit': self._axis_unit,
-            'ramp': None,
-            'pos_min': self._min_pos,
-            'pos_max': self._max_pos,
-            'pos_step': self._min_step,
-            'vel_min': self._velocity,
-            'vel_max': self._velocity,
-            'vel_step': self._velocity,
-            'acc_min': None,
-            'acc_max': None,
-            'acc_step': None,
-        }
+        for i in range(len(self._axis_labels)):
 
-        # assign the parameter container to a name which will identify it
-        constraints[axis['label']] = axis
+            axis = {
+                'label': self._axis_labels[i],
+                'ID': self._axis_id[i],
+                'unit': self._axis_units[i],
+                'ramp': None,
+                'pos_min': self._min_pos,
+                'pos_max': self._max_pos,
+                'pos_step': self._min_step,
+                'vel_min': self._velocity,
+                'vel_max': self._velocity,
+                'vel_step': self._velocity,
+                'acc_min': None,
+                'acc_max': None,
+                'acc_step': None,
+            }
+
+            # assign the parameter container to a name which will identify it
+            constraints[self._axis_labels[i]] = axis
         return constraints
 
     def move_rel(self, param_dict):
