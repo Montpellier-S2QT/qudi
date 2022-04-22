@@ -20,17 +20,18 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
-import serial
 from collections import OrderedDict
+
+import visa
 
 from core.module import Base
 from core.configoption import ConfigOption
 from interface.motor_interface import MotorInterface
 
 
-class MotorNewportConexAGP(Base, MotorInterface):
+class MotorNewportConex(Base, MotorInterface):
     """
-    Module for the CONEX-AGP controller for Agilis stages sold by Newport.
+    Module for the CONEX controller for Agilis stages sold by Newport.
 
     The controller takes commands of the form xxAAnn over a serial connection,
     where xx is the controller address and nn can be a value to be set or a question mark
@@ -39,116 +40,77 @@ class MotorNewportConexAGP(Base, MotorInterface):
 
     Example config for copy-paste:
 
-    newport_conex_agp:
-        module.Class: 'motor.motor_newport_conex_agp.MotorNewportConexAGP'
-        com_port: 'COM1'
-        controller_address: 1
-        axis_label: 'phi'
+    newport_conex:
+        module.Class: 'motor.motor_newport_conex.MotorNewportConex'
+        axis:
+            x1:
+                port: 'COM5'
+                adress: '01'
+                unit: 'm'
+            x2:
+                port: 'COM7'
+                adress: '01'
+                unit: 'm'
+            y1:
+                port: 'COM8'
+                adress: '01'
+                unit: 'm'
+            y2:
+                port: 'COM9'
+                adress: '01'
+                unit: 'm'
 
     """
 
-    _com_port = ConfigOption('com_port', missing='error')
-
-    _axis_labels = ConfigOption('axis_labels', ['phi', 'theta'], missing='warn')
-    _axis_id = ConfigOption('axis_id', [0, 1])
-    _axis_units = ConfigOption('axis_units')
-
-    vel_from_model = {
-        'AG-PR100P': 1.5,
-        'AG-GON-UP': 0.45,
-        'AG-GON-LP': 0.33,
-        'AG-LS25-27P': 0.4,
-    }
-
-    unit_from_model = {
-        'AG-PR100P': '°',
-        'AG-GON-UP': '°',
-        'AG-GON-LP': '°',
-        'AG-LS25-27P': 'mm',
-    }
+    _axis = ConfigOption('axis', missing='error')
 
     def on_activate(self):
         """ Initialisation performed during activation of the module.
         """
-        self._serial_connection = serial.Serial(
-            port=self._com_port,
-            baudrate=921600,
-            bytesize=8,
-            parity='N',
-            stopbits=1,
-            xonxoff=True)
+        self._rm = visa.ResourceManager()
 
-        model, pn, ud = self.query('ID').split('_')
-        controller, fw_ver = self.query('VE').split()
-        self.log.info('Stage {0} {1} {2} on controller {3} firmware {4}'
-                      ''.format(model, pn, ud, controller, fw_ver))
-        self._min_pos = float(self.query('SL'))
-        self._max_pos = float(self.query('SR'))
-        self._velocity = self.vel_from_model[model]
-        self._axis_unit = self.unit_from_model[model]
-        self._min_step = float(self.query('DB'))
-        self.log.info('Limits: {0}{2} to {1}{2}'
-                      ''.format(self._min_pos, self._max_pos, self._axis_unit))
+        self._devices = {}
+        for label, configs in self._axis.items():
+
+            device = self._rm.open_resource(configs["port"])
+            device.baud_rate = 921600
+            device.read_termination = "\r\n"
+
+            self._devices[label] = device
+
+            self.write(label, 'OR')
+
 
         return 0
 
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.
         """
-        self._serial_connection.close()
+        for i in range(len(self._com_ports)):
+            self._devices[i].close()
         return 0
 
-    def query(self, command):
-        """ Get a variable from the controller
-            @param command: two-letter command for controller
-
-            @return str: answer from controller
-        """
-        cmd = '{0:02d}{1:s}?\r\n'.format(self._controller_address, command).encode('ascii')
-        self._serial_connection.write(cmd)
-        ret = self._serial_connection.read_until(b'\r\n')
-        if cmd[0:4] != ret[0:4]:
-            self.log.error('Command {0} preamble not equal to reply {1} preamble'
-                           ''.format(cmd.decode('ascii'), ret.decode('ascii')))
-        return ret[4:].decode('ascii').rstrip()
-
-    def write_value(self, command, value):
-        """ Write a value to the controller
-
-        @param command: two-letter command/variable for controller
-        @param value: value to write to controller
-        """
-        cmd = '{0:02d}{1:s}{2}\r\n'.format(self._controller_address, command, value).encode('ascii')
-        self._serial_connection.write(cmd)
-
-    def write(self, command):
-        """ Write a single command
-
-        @param command: two-letter command for controller
-        """
-        cmd = '{0:02d}{1:s}\r\n'.format(self._controller_address, command).encode('ascii')
-        self._serial_connection.write(cmd)
-
-    def read(self):
-        """ Read an answer from the controller
-
-        @return str:
-        """
-        ret = self._serial_connection.read_until(b'\r\n')
-        return ret[4:].decode('ascii').rstrip()
-
-    def read_error(self):
+    def query(self, axis_label, command):
         """
 
-        @return bool, str:
+        :param axis_label:
+        :param command:
+        :return:
         """
-        err = self.query('TE')
-        if len(err) > 0 and err[0] != '@':
-            self.write_value('TB', err[0])
-            err_str = self.read()
-            self.log.error('Motor Error {0}'.format(err_str))
-            return True, err_str
-        return False, ''
+        device = self._devices[axis_label]
+        adress = self._axis[axis_label]['adress']
+        return device.query("{}{}?".format(adress, command)).split(command)[1]
+
+    def write(self, axis_label, command):
+        """
+
+        :param axis_label:
+        :param command:
+        :return:
+        """
+        device = self._devices[axis_label]
+        adress = self._axis[axis_label]['adress']
+        device.write("{}{}?".format(adress, command))
 
     def get_constraints(self):
         """ Retrieve the hardware constrains from the motor device.
@@ -162,26 +124,27 @@ class MotorNewportConexAGP(Base, MotorInterface):
         """
         constraints = OrderedDict()
 
-        for i in range(len(self._axis_labels)):
+        for label, configs in self._axis.items():
 
             axis = {
-                'label': self._axis_labels[i],
-                'ID': self._axis_id[i],
-                'unit': self._axis_units[i],
+                'label': label,
+                'ID': configs["adress"],
+                'unit': configs["unit"],
                 'ramp': None,
-                'pos_min': self._min_pos,
-                'pos_max': self._max_pos,
-                'pos_step': self._min_step,
-                'vel_min': self._velocity,
-                'vel_max': self._velocity,
-                'vel_step': self._velocity,
-                'acc_min': None,
-                'acc_max': None,
+                'pos_min': self.query(label, "SL"),
+                'pos_max': self.query(label, "SR"),
+                'pos_step': self.query(label, "SU"),
+                'vel_min': self.query(label, "VA"),
+                'vel_max': self.query(label, "VA"),
+                'vel_step': None,
+
+                'acc_min': self.query(label, "AC"),
+                'acc_max': self.query(label, "AC"),
                 'acc_step': None,
             }
 
-            # assign the parameter container to a name which will identify it
-            constraints[self._axis_labels[i]] = axis
+            constraints[label] = axis
+
         return constraints
 
     def move_rel(self, param_dict):
@@ -191,14 +154,13 @@ class MotorNewportConexAGP(Base, MotorInterface):
 
         @return dict: Dictionary with axis name and final position in units
         """
-        if self._axis_label in param_dict:
-            rel = param_dict[self._axis_label]
-            self.write_value('PR', rel)
-            self.read_error()
-            pos = float(self.query('TH'))
-            return {self._axis_label: pos}
+        pos_dict = {}
+        for label, pos in param_dict.items():
+            command = "PR{}".format(param_dict[label])
+            self.write(label, command)
+            pos_dict[label] = float(self.query(label, "TH"))
 
-        return {}
+        return pos_dict
 
     def move_abs(self, param_dict):
         """Moves stage to an absolute angle (absolute movement)
@@ -207,23 +169,21 @@ class MotorNewportConexAGP(Base, MotorInterface):
 
         @return dict velocity: Dictionary with axis name and final position in deg
         """
-        if self._axis_label in param_dict:
-            rel = param_dict[self._axis_label]
-            self.write_value('PA', rel)
-            self.read_error()
-            pos = float(self.query('TH'))
-            return {self._axis_label: pos}
+        pos_dict = {}
+        for label, pos in param_dict.items():
+            command = "PA{}".format(param_dict[label])
+            self.write(label, command)
+            pos_dict[label] = float(self.query(label, "TH"))
 
-        return {}
+        return pos_dict
 
     def abort(self):
         """Stops movement of the stage
 
         @return int: error code (0:OK, -1:error)
         """
-        self.write('ST')
-        if self.read_error()[0]:
-            return -1
+        for label in self._axis.keys():
+            self.write(label, 'ST')
         return 0
 
     def get_pos(self, param_list=None):
@@ -233,15 +193,13 @@ class MotorNewportConexAGP(Base, MotorInterface):
 
         @return dict pos: Dictionary with axis name and pos in deg
         """
-        if param_list is None:
-            param_list = [self._axis_label]
+        if not param_list:
+            param_list = [label for label in self._axis.keys()]
+        pos_dict = {}
+        for label in param_list:
+            pos_dict[label] = float(self.query(label, "TP"))
 
-        if self._axis_label in param_list:
-            pos = float(self.query('TP'))
-            self.read_error()
-            return {self._axis_label: pos}
-
-        return {}
+        return pos_dict
 
     def get_status(self, param_list=None):
         """ Get the status of the position
@@ -254,10 +212,13 @@ class MotorNewportConexAGP(Base, MotorInterface):
 
         @return dict status:
         """
-        self.read_error()
-        st = self.query('TS')
-        err = int(st, 16)
-        return {self._axis_label: err}
+        if not param_list:
+            param_list = [label for label in self._axis.keys()]
+        pos_dict = {}
+        for label in param_list:
+            pos_dict[label] = float(self.query(label, "TS"))
+
+        return pos_dict
 
     def calibrate(self, param_list=None):
         """ Calibrates the rotation motor
@@ -266,16 +227,14 @@ class MotorNewportConexAGP(Base, MotorInterface):
 
         @return dict pos: Dictionary with axis name and pos in deg
         """
-        if param_list is None:
-            param_list = [self._axis_label]
+        if not param_list:
+            param_list = [label for label in self._axis.keys()]
+        pos_dict = {}
+        for label in param_list:
+            self.write(label, "OR")
+            pos_dict[label] = float(self.query(label, "TH"))
 
-        if self._axis_label in param_list:
-            self.write('OR')
-            self.read_error()
-            pos = float(self.query('TH'))
-            return {self._axis_label: pos}
-
-        return {}
+        return pos_dict
 
     def get_velocity(self, param_list=None):
         """ Asks current value for velocity.
@@ -284,13 +243,13 @@ class MotorNewportConexAGP(Base, MotorInterface):
 
         @return dict velocity: Dictionary with axis name and velocity in deg/s
         """
-        if param_list is None:
-            param_list = [self._axis_label]
+        if not param_list:
+            param_list = [label for label in self._axis.keys()]
+        velocity_dict = {}
+        for label in param_list:
+            velocity_dict[label] = float(self.query(label, "VA"))
 
-        if self._axis_label in param_list:
-            return {self._axis_label: self._velocity}
-
-        return {}
+        return velocity_dict
 
     def set_velocity(self, param_dict):
         """ Write new value for velocity.
@@ -299,13 +258,16 @@ class MotorNewportConexAGP(Base, MotorInterface):
 
         @return dict velocity: Dictionary with axis name and target velocity in deg/s
         """
-        if self._axis_label in param_dict:
-            return {self._axis_label: self._velocity}
+        velocity_dict = {}
+        for label in param_dict.keys():
+            velocity_dict[label] = float(self.query(label, "VA"))
 
-        return {}
+        return velocity_dict
 
     def reset(self):
         """ Reset the controller.
             Afterwards, moving to the home position with calibrate() is necessary.
         """
-        self.write('RS')
+        for label in self._axis.keys():
+            self.write(label, 'RS')
+        return 0
