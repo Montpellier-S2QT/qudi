@@ -107,11 +107,11 @@ class NVMicroscopeLogic(GenericLogic):
     scan_height = StatusVar('scan_height', default=1e-6)
     user_save_tag = StatusVar('user_save_tag', default='')
 
-
     # signals
     sigUpdateDuration = QtCore.Signal(str) # connected in GUI
     sigUpdateRemTime = QtCore.Signal(str) # connected in GUI
-    sigRefreshScanArea = QtCore.Signal(list) # connected in GUI
+    sigRefreshScanArea = QtCore.Signal() # connected in GUI
+    sigUpdateProcedureList = QtCore.Signal(list) # connected in GUI
     
     sigXResChanged = QtCore.Signal(int) # for mapper
     sigYResChanged = QtCore.Signal(int) # for mapper
@@ -122,10 +122,12 @@ class NVMicroscopeLogic(GenericLogic):
     sigScanHeightChanged = QtCore.Signal(float) # for mapper
     sigXCenterChanged = QtCore.Signal(float) # for mapper
     sigYCenterChanged = QtCore.Signal(float) # for mapper
+    sigFileTagChanged = QtCore.Signal(str) # for mapper
 
     sigStartScan = QtCore.Signal()
-    sigStopScan = QtCore.Signal(bool) # connected in GUI
+    sigStopScan = QtCore.Signal(bool)
     sigResumeScan = QtCore.Signal()
+   
 
 
     def __init__(self, config, **kwargs):
@@ -158,7 +160,6 @@ class NVMicroscopeLogic(GenericLogic):
         if value is not None:
             self.x_res = value
             self.sigXResChanged.emit(self.x_res)
-            self.update_scan_area()
             return 
         else:
             return self.x_res
@@ -169,7 +170,6 @@ class NVMicroscopeLogic(GenericLogic):
         if value is not None:
             self.y_res = value
             self.sigYResChanged.emit(self.y_res)
-            self.update_scan_area()
             return 
         else:
             return self.y_res
@@ -180,70 +180,116 @@ class NVMicroscopeLogic(GenericLogic):
         if value is not None:
             self.return_slowness = value
             self.sigRSChanged.emit(self.return_slowness)
-            self.update_scan_area()
             return 
         else:
             return self.return_slowness
 
+        
     # scan angle
     def handle_angle(self, value=None):
         if value is not None:
             self.angle = value
             self.sigAngleChanged.emit(self.angle)
-            self.update_scan_area()
+            self.sigRefreshScanArea.emit()
             return 
         else:
             return self.angle
 
+        
     # scan starting point
     def handle_starting_point(self, value=None):
         if value is not None:
             self.starting_point = value
             self.sigStartPointChanged.emit(self.starting_point)
-            self.update_scan_area()
+            self.sigRefreshScanArea.emit()
             return 
         else:
             return self.starting_point
 
-
+        
+    # scan width
     def handle_scan_width(self, value=None):
         if value is not None:
             self.scan_width = value
             self.sigScanWidthChanged.emit(self.scan_width)
-            self.update_scan_area()
+            self.sigRefreshScanArea.emit()
             return 
         else:
             return self.scan_width
 
-
+        
+    # scan height
     def handle_scan_height(self, value=None):
         if value is not None:
             self.scan_height = value
             self.sigScanHeightChanged.emit(self.scan_height)
-            self.update_scan_area()
+            self.sigRefreshScanArea.emit()
             return 
         else:
             return self.scan_height
 
-
+        
+    # scan center pos x
     def handle_x_center(self, value=None):
         if value is not None:
             self.x_center_pos = value
             self.sigXCenterChanged.emit(self.x_center_pos)
-            self.update_scan_area()
+            self.sigRefreshScanArea.emit()
             return 
         else:
             return self.x_center_pos
 
         
+    # scan center pos y    
     def handle_y_center(self, value=None):
         if value is not None:
             self.y_center_pos = value
             self.sigYCenterChanged.emit(self.y_center_pos)
-            self.update_scan_area()
+            self.sigRefreshScanArea.emit()
             return 
         else:
             return self.y_center_pos
+
+
+    # file_tag
+    def handle_file_tag(self, value=None):
+        if value is not None:
+            self.user_save_tag = value
+            self.sigFileTagChanged.emit(self.user_save_tag)
+            return 
+        else:
+            return self.user_save_tag
+
         
-    def update_scan_area(self):
+    def scan_area_corners(self):
+        """ Returns the positions of the corners of the scan region."""
+        x0 = self.x_center_pos
+        y0 = self.y_center_pos
+        w = self.scan_width
+        h = self.scan_height
+        a = self.angle*np.pi/180
+        xcoords = x0+0.5*np.array([-w*np.cos(a)+h*np.sin(a), w*np.cos(a)+h*np.sin(a),
+                                   w*np.cos(a)-h*np.sin(a), -w*np.cos(a)-h*np.sin(a)])
+        ycoords = y0+0.5*np.array([-w*np.sin(a)-h*np.cos(a), w*np.sin(a)-h*np.cos(a),
+                                   w*np.sin(a)+h*np.cos(a), -w*np.sin(a)+h*np.cos(a)])
+        return np.transpose(np.stack((xcoords, ycoords)))
+
+    
+    def starting_point_coords(self):
+        """ Returns the position of the starting corner of the scan region."""
+        coords = self.scan_area_corners()
+        if self.starting_point == "LL":
+            return coords[0, :]
+        elif self.starting_point == "LR":
+            return coords[1, :]
+        elif self.starting_point == "UR":
+            return coords[2, :]
+        else:
+            return coords[3, :]
+
+        
+    def change_current_procedure(self, procedure_name):
+        pass
+
+    def update_scanning_procedures(self):
         pass

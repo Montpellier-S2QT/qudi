@@ -103,119 +103,8 @@
      <item>
       <layout class="QGridLayout" name="gridLayout">
        <property name="rightMargin">
-        <number>0</number>
+        <number>25</number>
        </property>
-       <item row="6" column="1">
-        <widget class="QLabel" name="label_remaining_time">
-         <property name="font">
-          <font>
-           <bold>false</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Remaining scan time:</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="2">
-        <widget class="QSpinBox" name="x_res_SpinBox">
-         <property name="maximumSize">
-          <size>
-           <width>100</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="font">
-          <font>
-           <bold>false</bold>
-          </font>
-         </property>
-         <property name="minimum">
-          <number>2</number>
-         </property>
-         <property name="maximum">
-          <number>1000000000</number>
-         </property>
-        </widget>
-       </item>
-       <item row="6" column="2">
-        <widget class="QLabel" name="display_remaining_time">
-         <property name="font">
-          <font>
-           <bold>false</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>0 min</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="3">
-        <widget class="QSpinBox" name="y_res_SpinBox">
-         <property name="maximumSize">
-          <size>
-           <width>100</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <property name="font">
-          <font>
-           <bold>false</bold>
-          </font>
-         </property>
-         <property name="minimum">
-          <number>2</number>
-         </property>
-         <property name="maximum">
-          <number>1000000000</number>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="1">
-        <widget class="QLabel" name="label_scan_duration">
-         <property name="font">
-          <font>
-           <bold>false</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Estimated scan time:</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QLabel" name="resolution_label">
-         <property name="font">
-          <font>
-           <bold>false</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>Resolution (x, y)</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="2">
-        <widget class="QLabel" name="display_scan_duration">
-         <property name="font">
-          <font>
-           <bold>false</bold>
-          </font>
-         </property>
-         <property name="text">
-          <string>0 min</string>
-         </property>
-        </widget>
-       </item>
        <item row="1" column="4">
         <widget class="QRadioButton" name="UL_radioButton">
          <property name="font">
@@ -231,15 +120,15 @@
          </attribute>
         </widget>
        </item>
-       <item row="1" column="5">
-        <widget class="QRadioButton" name="UR_radioButton">
+       <item row="2" column="5">
+        <widget class="QRadioButton" name="LR_radioButton">
          <property name="font">
           <font>
            <bold>false</bold>
           </font>
          </property>
          <property name="text">
-          <string>UR</string>
+          <string>LR</string>
          </property>
          <attribute name="buttonGroup">
           <string notr="true">StartPointButtonGroup</string>
@@ -264,33 +153,99 @@
          </attribute>
         </widget>
        </item>
-       <item row="2" column="5">
-        <widget class="QRadioButton" name="LR_radioButton">
+       <item row="1" column="5">
+        <widget class="QRadioButton" name="UR_radioButton">
          <property name="font">
           <font>
            <bold>false</bold>
           </font>
          </property>
          <property name="text">
-          <string>LR</string>
+          <string>UR</string>
          </property>
          <attribute name="buttonGroup">
           <string notr="true">StartPointButtonGroup</string>
          </attribute>
         </widget>
        </item>
-       <item row="1" column="3">
-        <widget class="QLabel" name="start_corner_label">
+       <item row="5" column="2">
+        <widget class="QLabel" name="display_scan_duration">
          <property name="font">
           <font>
            <bold>false</bold>
           </font>
          </property>
          <property name="text">
-          <string>Start</string>
+          <string>0 min</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLabel" name="return_slowness_label">
+         <property name="font">
+          <font>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Return slowness</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="2">
+        <widget class="QLabel" name="display_remaining_time">
+         <property name="font">
+          <font>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>0 min</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QSpinBox" name="x_res_SpinBox">
+         <property name="maximumSize">
+          <size>
+           <width>100</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="minimum">
+          <number>2</number>
+         </property>
+         <property name="maximum">
+          <number>1000000000</number>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="3">
+        <widget class="QSpinBox" name="y_res_SpinBox">
+         <property name="maximumSize">
+          <size>
+           <width>100</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <property name="font">
+          <font>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="minimum">
+          <number>2</number>
+         </property>
+         <property name="maximum">
+          <number>1000000000</number>
          </property>
         </widget>
        </item>
@@ -307,15 +262,60 @@
          </property>
         </spacer>
        </item>
-       <item row="1" column="1">
-        <widget class="QLabel" name="return_slowness_label">
+       <item row="1" column="3">
+        <widget class="QLabel" name="start_corner_label">
          <property name="font">
           <font>
            <bold>false</bold>
           </font>
          </property>
          <property name="text">
-          <string>Return slowness</string>
+          <string>Start</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="1">
+        <widget class="QLabel" name="label_remaining_time">
+         <property name="font">
+          <font>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Remaining scan time:</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLabel" name="resolution_label">
+         <property name="font">
+          <font>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Resolution (x, y)</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="QLabel" name="label_scan_duration">
+         <property name="font">
+          <font>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="text">
+          <string>Estimated scan time:</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -376,7 +376,7 @@
       </layout>
      </item>
      <item>
-      <widget class="QGraphicsView" name="scanAreaView">
+      <widget class="PlotWidgetModified" name="scanAreaView">
        <property name="font">
         <font>
          <bold>false</bold>
@@ -397,7 +397,7 @@
     <locale language="English" country="UnitedStates"/>
    </property>
    <property name="floating">
-    <bool>true</bool>
+    <bool>false</bool>
    </property>
    <property name="allowedAreas">
     <set>Qt::AllDockWidgetAreas</set>
@@ -727,10 +727,19 @@
      </item>
      <item row="3" column="2">
       <widget class="ScienDSpinBox" name="angle_DoubleSpinBox">
+       <property name="minimumSize">
+        <size>
+         <width>80</width>
+         <height>0</height>
+        </size>
+       </property>
        <property name="font">
         <font>
          <bold>false</bold>
         </font>
+       </property>
+       <property name="maximum">
+        <double>90.000000000000000</double>
        </property>
       </widget>
      </item>

@@ -29,6 +29,7 @@ from core.module import Connector
 from core.statusvariable import StatusVar
 from core.mapper import Mapper, Converter
 from gui.guibase import GUIBase
+from gui.colordefs import QudiPalettePale as palette
 
 #from gui.fitsettings import FitSettingsDialog
 from qtwidgets.scientific_spinbox import ScienDSpinBox
@@ -84,8 +85,8 @@ class NVScanningGui(GUIBase):
 
         # connect a few things
         self._mw.actionChange_scanner_range.triggered.connect(self.change_max_scanner)
-        self.microscopelogic().sigRefreshScanArea.connect(self.update_scan_area_plot)
-        
+
+        self.initiate_general_params_dock()
         self.initiate_mapping_dock()
         self.initiate_XYscanner_dock()
 
@@ -112,6 +113,25 @@ class NVScanningGui(GUIBase):
         self._mw.raise_()
         return
 
+
+    def initiate_general_params_dock(self):
+        """ Connection of the input widgets in the mapping parameters dockwidget."""
+        
+        # connect the inputs
+        self.mapper.add_mapping(widget=self._mw.file_tag_lineEdit,
+                                model=self.microscopelogic(),
+                                model_getter='handle_file_tag',
+                                model_property_notifier='sigFileTagChanged',
+                                model_setter='handle_file_tag')
+
+        self._mw.refresh_procedures_PushButton.clicked.connect(
+            self.microscopelogic().update_scanning_procedures)
+        self._mw.procedures_ComboBox.currentTextChanged.connect(
+            self.microscopelogic().change_current_procedure)
+
+        self.microscopelogic().sigUpdateProcedureList.connect(self.update_procedure_combobox)
+        return
+        
     
     def initiate_mapping_dock(self):
         """ Connection of the input widgets in the mapping parameters dockwidget."""
@@ -150,10 +170,28 @@ class NVScanningGui(GUIBase):
             self._mw.display_scan_duration.setText)
 
         # creating a graph item to display the plot area
-        self.scan_area_plot = pg.GraphItem()
+        # get the coords
+        self.scan_area_corners = self.microscopelogic().scan_area_corners()
+        # close the loop
+        self.scan_area_corners = np.append(self.scan_area_corners,
+                                           [[self.scan_area_corners[0, 0], self.scan_area_corners[0, 1]]],
+                                           axis=0)
+        self.scan_area_plot = pg.PlotDataItem(self.scan_area_corners, pen=pg.mkPen(palette.c1), symbol='o',
+                                              symbolPen=palette.c1, symbolBrush=palette.c1, symbolSize=5)
+        self.start_plot = pg.PlotDataItem(x=np.array([self.microscopelogic().starting_point_coords()[0]]),
+                                          y=np.array([self.microscopelogic().starting_point_coords()[1]]),
+                                          pen=pg.mkPen(palette.c2), symbol='o',
+                                          symbolPen=palette.c2, symbolBrush=palette.c2, symbolSize=7)
         # adding graph item to the view box
-        # self._mw.scanAreaView.addItem(self.scan_area_plot)
+        self._mw.scanAreaView.addItem(self.scan_area_plot)
+        self._mw.scanAreaView.addItem(self.start_plot)
+        self._mw.scanAreaView.setLabel('bottom', 'X position', units='m')
+        self._mw.scanAreaView.setLabel('left', 'Y position', units='m')
+        self._mw.scanAreaView.setAspectLocked(lock=True, ratio=1)
+        #self._mw.scanAreaView.setRange(xRange=(0, self.max_scanner),
+        #                               yRange=(0, self.max_scanner))
 
+        self.microscopelogic().sigRefreshScanArea.connect(self.update_scan_area_plot)
         return
             
 
@@ -242,8 +280,28 @@ class NVScanningGui(GUIBase):
 
 
     def update_scan_area_plot(self):
-        pass
+        """ Update the sketch of the scan region."""
+        
+        # get the coords
+        self.scan_area_corners = self.microscopelogic().scan_area_corners()
+        # close the loop
+        self.scan_area_corners = np.append(self.scan_area_corners,
+                                           [[self.scan_area_corners[0, 0], self.scan_area_corners[0, 1]]],
+                                           axis=0)
+        
+        self.scan_area_plot.setData(self.scan_area_corners)
+        self.start_plot.setData(x=np.array([self.microscopelogic().starting_point_coords()[0]]),
+                                y=np.array([self.microscopelogic().starting_point_coords()[1]]))
+        print(self.scan_area_corners*1e6)
+        return
 
+
+    def update_procedure_combobox(self, proc_list):
+        """ Updates the list of available scanning procedures."""
+        self._mw.procedures_ComboBox.clear()
+        self._mw.procedures_ComboBox.addItems(proc_list)
+        return
+    
     
     def change_max_scanner(self):
         """
@@ -282,8 +340,8 @@ class NVScanningGui(GUIBase):
         """
         x = self._mw.x_position_DoubleSpinBox.value()
         y = self._mw.y_position_DoubleSpinBox.value()
-        h_range = self._mw.width_DoubleSpinBox.value()
-        v_range = self._mw.height_DoubleSpinBox.value()
+        w = self._mw.width_DoubleSpinBox.value()
+        h = self._mw.height_DoubleSpinBox.value()
         return
 
 
