@@ -47,7 +47,7 @@ class NVMicroscopyBricksLogic(GenericLogic):
         super().__init__(config=config, **kwargs)
 
 
-     def on_activate(self):
+    def on_activate(self):
         """ Initialization performed during activation of the module.
         """
         return

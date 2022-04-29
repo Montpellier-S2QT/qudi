@@ -738,6 +738,12 @@
          <bold>false</bold>
         </font>
        </property>
+       <property name="alignment">
+        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+       </property>
+       <property name="suffix">
+        <string>°</string>
+       </property>
        <property name="maximum">
         <double>90.000000000000000</double>
        </property>
@@ -769,7 +775,7 @@
         </font>
        </property>
        <property name="text">
-        <string>Scan angle (°)</string>
+        <string>Scan angle</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -792,7 +798,7 @@
     <string>Procedure specific parameters</string>
    </property>
    <attribute name="dockWidgetArea">
-    <number>8</number>
+    <number>4</number>
    </attribute>
    <widget class="QWidget" name="dockWidgetContents_3">
     <layout class="QVBoxLayout" name="verticalLayout">
@@ -811,8 +817,8 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>241</width>
-          <height>190</height>
+          <width>484</width>
+          <height>86</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -921,7 +927,7 @@
    <widget class="QWidget" name="dockWidgetContents_5">
     <layout class="QVBoxLayout" name="verticalLayout_2">
      <item>
-      <widget class="PlotWidgetModified" name="ESRgraphicsView">
+      <widget class="PlotWidgetModified" name="ESRPlotView">
        <property name="font">
         <font>
          <bold>false</bold>
@@ -945,69 +951,11 @@
     <string>AFM Z scanner</string>
    </property>
    <attribute name="dockWidgetArea">
-    <number>4</number>
+    <number>8</number>
    </attribute>
    <widget class="QWidget" name="dockWidgetContents_6">
     <layout class="QGridLayout" name="gridLayout_6">
-     <item row="0" column="0" rowspan="2">
-      <widget class="QProgressBar" name="Zscanner_ProgressBar">
-       <property name="font">
-        <font>
-         <bold>false</bold>
-        </font>
-       </property>
-       <property name="value">
-        <number>24</number>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-       <property name="textVisible">
-        <bool>false</bool>
-       </property>
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="invertedAppearance">
-        <bool>false</bool>
-       </property>
-       <property name="format">
-        <string>p</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="2">
-      <widget class="QPushButton" name="retract_PushButton">
-       <property name="font">
-        <font>
-         <bold>false</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>Retract</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="3">
-      <widget class="QPushButton" name="engage_PushButton">
-       <property name="font">
-        <font>
-         <bold>false</bold>
-        </font>
-       </property>
-       <property name="text">
-        <string>Engage</string>
-       </property>
-      </widget>
-     </item>
      <item row="1" column="1">
-      <widget class="QLabel" name="Zscanner_pos_label">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="3">
       <widget class="ScienDSpinBox" name="lift_DoubleSpinBox">
        <property name="font">
         <font>
@@ -1020,9 +968,12 @@
        <property name="maximum">
         <double>5000.000000000000000</double>
        </property>
+       <property name="singleStep">
+        <double>0.000000000000000</double>
+       </property>
       </widget>
      </item>
-     <item row="1" column="2">
+     <item row="1" column="0">
       <widget class="QLabel" name="lift_label">
        <property name="font">
         <font>
@@ -1034,7 +985,19 @@
        </property>
       </widget>
      </item>
-     <item row="1" column="4">
+     <item row="0" column="2">
+      <widget class="QPushButton" name="engage_PushButton">
+       <property name="font">
+        <font>
+         <bold>false</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Engage</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="2">
       <widget class="QPushButton" name="lift_PushButton">
        <property name="font">
         <font>
@@ -1043,6 +1006,18 @@
        </property>
        <property name="text">
         <string>Lift</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QPushButton" name="retract_PushButton">
+       <property name="font">
+        <font>
+         <bold>false</bold>
+        </font>
+       </property>
+       <property name="text">
+        <string>Retract</string>
        </property>
       </widget>
      </item>

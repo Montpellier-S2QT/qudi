@@ -93,6 +93,7 @@ class NVMicroscopeLogic(GenericLogic):
 
     # declare connectors
     confocalscanner = Connector(interface='ConfocalScannerInterface')
+    brickslogic = Connector(interface='NVMicroscopyBricksLogic')
     savelogic = Connector(interface='SaveLogic')
 
     # status variables
@@ -106,12 +107,15 @@ class NVMicroscopeLogic(GenericLogic):
     scan_width = StatusVar('scan_width', default=1e-6)
     scan_height = StatusVar('scan_height', default=1e-6)
     user_save_tag = StatusVar('user_save_tag', default='')
+    lift = StatusVar('lift', default=10e-9)
+    curr_proc_name = StatusVar('curr_proc_name', default='Quenching')
 
     # signals
     sigUpdateDuration = QtCore.Signal(str) # connected in GUI
     sigUpdateRemTime = QtCore.Signal(str) # connected in GUI
     sigRefreshScanArea = QtCore.Signal() # connected in GUI
     sigUpdateProcedureList = QtCore.Signal(list) # connected in GUI
+    sigProcedureChanged = QtCore.Signal(dict) # connected in GUI
     
     sigXResChanged = QtCore.Signal(int) # for mapper
     sigYResChanged = QtCore.Signal(int) # for mapper
@@ -123,6 +127,8 @@ class NVMicroscopeLogic(GenericLogic):
     sigXCenterChanged = QtCore.Signal(float) # for mapper
     sigYCenterChanged = QtCore.Signal(float) # for mapper
     sigFileTagChanged = QtCore.Signal(str) # for mapper
+    sigLiftChanged = QtCore.Signal(float) # for mapper
+    sigSpecParamsChanged = QtCore.Signal(dict) # for mapper
 
     sigStartScan = QtCore.Signal()
     sigStopScan = QtCore.Signal(bool)
@@ -140,9 +146,11 @@ class NVMicroscopeLogic(GenericLogic):
     def on_activate(self):
         """ Initialization performed during activation of the module.
         """
-
         # in this threadpool our worker thread will be run
         self.threadpool = QtCore.QThreadPool()
+
+        self.scanning_proc = self.change_current_procedure(self.curr_proc_name)
+        
         return
     
 
@@ -260,6 +268,29 @@ class NVMicroscopeLogic(GenericLogic):
         else:
             return self.user_save_tag
 
+
+    # z scanner lift
+    def handle_lift(self, value=None):
+        if value is not None:
+            self.lift = value
+            self.sigLiftChanged.emit(self.lift)
+            return 
+        else:
+            return self.lift
+
+        
+    # mode specific parameters
+    def handle_spec_params(self, value=None):
+        if value is not None:
+            if value[0] in self.spec_params_dict.keys():
+                self.spec_params_dict[value[0]] = value[1]
+                self.sigSpecParamsChanged.emit(self.spec_params_dict)
+            else:
+                self.log.error("Unknown procedure specific parameter!")
+            return 
+        else:
+            return self.spec_params_dict
+
         
     def scan_area_corners(self):
         """ Returns the positions of the corners of the scan region."""
@@ -289,7 +320,14 @@ class NVMicroscopeLogic(GenericLogic):
 
         
     def change_current_procedure(self, procedure_name):
-        pass
+        """ Change to another scanning procedure. """
+        #self.scanning_proc = self.proc_list[procedure_name]
+        self.spec_params_dict = {"Measurement time": (0.1, "s")} #self.scanning_proc.parameter_dict
+        self.sigProcedureChanged.emit(self.spec_params_dict)
+        return
 
+    
     def update_scanning_procedures(self):
         pass
+
+    

@@ -38,7 +38,45 @@ from qtpy import QtGui
 from qtpy import QtWidgets
 from qtpy import uic
 
+class SpecParamsConverter(Converter):
+    """ Converter for the mapper between the procedure specific widgets and the logic."""
+    def __init__(self, param_name):
+        super().__init__()
+        self.param_name = param_name
+        
+    
+    def widget_to_model(self, data):
+        """
+        Converts data in the format given by the widget and converts it
+        to the model data format.
 
+        Parameter:
+        ==========
+        data: object data to be converted
+
+        Returns:
+        ========
+        out: object converted data
+        """
+        return (self.param_name, data)
+
+    
+    def model_to_widget(self, data):
+        """
+        Converts data in the format given by the model and converts it
+        to the widget data format.
+
+        Parameter:
+        ==========
+        data: object data to be converted (dict of spec params)
+
+        Returns:
+        ========
+        out: object converted data
+        """
+        return data[self.param_name]
+
+    
 class NVScanningMainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         # Get the path to the *.ui file
@@ -85,12 +123,16 @@ class NVScanningGui(GUIBase):
 
         # connect a few things
         self._mw.actionChange_scanner_range.triggered.connect(self.change_max_scanner)
+        self.microscopelogic().sigProcedureChanged.connect(self.create_spec_params_widgets)
 
         self.initiate_general_params_dock()
         self.initiate_mapping_dock()
         self.initiate_XYscanner_dock()
+        self.initiate_ESR_viewer_dock()
+        self.initiate_AFM_zscanner_dock()
 
         self.spec_params_widgets = {}
+        self.create_spec_params_widgets(self.microscopelogic().spec_params_dict)
         
         # Show the main window
         self.show()
@@ -237,11 +279,49 @@ class NVScanningGui(GUIBase):
         return
 
     
-    def create_spec_params_widgets(self, spec_params_values):
+    def initiate_ESR_viewer_dock(self):
+        """ Set up the ESR plot. """
+        self.esr_spectrum_plot = pg.PlotDataItem(x=np.linspace(2.85e9, 2.89e9, 50), y=np.zeros(50),
+                                                 pen=pg.mkPen(palette.c1), symbol='o',
+                                                 symbolPen=palette.c1, symbolBrush=palette.c1,
+                                                 symbolSize=5)
+        self.esr_spectrum_fit = pg.PlotDataItem(x=np.linspace(2.85e9, 2.89e9, 50), y=np.zeros(50),
+                                                pen=pg.mkPen(palette.c2))
+        self._mw.ESRPlotView.addItem(self.esr_spectrum_plot)
+        self._mw.ESRPlotView.addItem(self.esr_spectrum_fit)
+        self._mw.ESRPlotView.setLabel('bottom', 'Frequency', units='Hz')
+        self._mw.ESRPlotView.setLabel('left', 'PL', units='cts/s')
+        return
+        
+
+    def initiate_AFM_zscanner_dock(self):
+        """ Connection of the input widgets in the AFM Z scanner parameters dockwidget."""
+        
+        self.mapper.add_mapping(widget=self._mw.lift_DoubleSpinBox,
+                                model=self.microscopelogic(),
+                                model_getter='handle_lift',
+                                model_property_notifier='sigLiftChanged',
+                                model_setter='handle_lift')
+        
+        self._mw.retract_PushButton.clicked.connect(
+            lambda : self.microscopelogic().brickslogic().set_zscanner_position(scanner_state='retracted'))
+        
+        self._mw.engage_PushButton.clicked.connect(
+            lambda : self.microscopelogic().brickslogic().set_zscanner_position(scanner_state='engaged'))
+        
+        self._mw.lift_PushButton.clicked.connect(
+            lambda : self.microscopelogic().brickslogic().set_zscanner_position(
+                scanner_state='lifted',
+                relative_lift=self._mw.lift_DoubleSpinBox.value()))
+
+        return
+        
+    
+    def create_spec_params_widgets(self, spec_params_dict):
         """ Gets the list of parameters and creates the corresponding widgets."""
         
         grid = self._mw.paramsGridLayout
-        self.spec_params_values = spec_params_values
+        self.spec_params_dict = spec_params_dict
 
         # First purge the dict
         for k in self.spec_params_widgets.keys():
@@ -250,26 +330,33 @@ class NVScanningGui(GUIBase):
         self.spec_params_widgets = OrderedDict()
 
         # create all the widgets
-        for param in self.spec_params_values.keys():
-            if isinstance(self.spec_params_values[param][0], str):
+        for param in self.spec_params_dict.keys():
+            if isinstance(self.spec_params_dict[param][0], str):
                 input_widget = QtWidgets.QLineEdit()
-                input_widget.setText(spec_params_values[param][0])
-            elif isinstance(self.spec_params_values[param][0], float):
+                input_widget.setText(spec_params_dict[param][0])
+            elif isinstance(self.spec_params_dict[param][0], float):
                 input_widget = ScienDSpinBox()
-                input_widget.setValue(spec_params_values[param][0])
-                if not spec_params_values[param][1]=='':
-                    input_widget.setSuffix(spec_params_values[param][1])
-            elif isinstance(self.spec_params_values[param][0], bool):
+                input_widget.setValue(spec_params_dict[param][0])
+                if not spec_params_dict[param][1]=='':
+                    input_widget.setSuffix(spec_params_dict[param][1])
+            elif isinstance(self.spec_params_dict[param][0], bool):
                 input_widget = QtWidgets.QCheckBox()
                 input_widget.setText('')
-                input_widget.setChecked(self.spec_params_values[param][0])
-            elif isinstance(self.spec_params_values[param][0], int):
+                input_widget.setChecked(self.spec_params_dict[param][0])
+            elif isinstance(self.spec_params_dict[param][0], int):
                 input_widget = QtWidgets.QSpinBox()
-                input_widget.setValue(spec_params_values[param][0])
+                input_widget.setValue(spec_params_dict[param][0])
             else:
                 self.log.warning("Unknown parameter type encountered!")
 
-            # TODO: mapping, with a converter
+            # mapping, with the converter
+            self.mapper.add_mapping(widget=input_widget,
+                                    model=self.microscopelogic(),
+                                    model_getter='handle_spec_params',
+                                    model_property_notifier='sigSpecParamsChanged',
+                                    model_setter='handle_spec_params',
+                                    converter=SpecParamsConverter(param))
+            
             
             self.spec_params_widgets[param] = (QtWidgets.QLabel(str(param)), input_widget)
             last_row = grid.rowCount() +1
