@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-This module contains a GUI component to crate easily a colorbar in any GUI module
+This module contains a GUI component to create easily a colorbar in any GUI module.
 
 Qudi is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -136,6 +136,8 @@ class ColorbarWidget(QtWidgets.QWidget):
         self._cb_min = 0
         self._cb_max = 100
         self.unit = unit
+        self.label = name
+        self.cmap_name = colormap_name
 
         self.cdict = cdef.colordict
         self.init_buttons()
@@ -165,15 +167,29 @@ class ColorbarWidget(QtWidgets.QWidget):
         self.color_choice.currentIndexChanged.connect(self.update_cb_range)
 
         
-    def init_colorbar(self, colormap_name):
+    def init_colorbar(self):
         """ Create the colorbar """
-        self.my_colors = self.cdict[colormap_name]()
+        self.my_colors = self.cdict[self.cmap_name]()
         self._cb = ColorBar(self.my_colors.cmap_normed, width=100,
                             cb_min=self._cb_min, cb_max=self._cb_max)
         self.colorbar.addItem(self._cb)
         self.colorbar.hideAxis('bottom')
-        self.colorbar.setLabel('left', name, units=self.unit)
+        self.colorbar.hideAxis('left')
+        self.set_label(self.label, self.unit)
         self.colorbar.setMouseEnabled(x=False, y=False)
+
+        
+    def set_label(name, unit):
+        """ Sets the the name and unit of the data."""
+        self.colorbar.setLabel('right', name, units=unit)
+
+        
+    def set_colormap(colormap_name):
+        """ Sets the colormap."""
+        if colormap_name in self.cdict.keys():
+            self.color_choice.setCurrentText(colormap_name)
+        else:
+            return
         
 
     def set_image(self, image_widget):
