@@ -7,23 +7,32 @@
     <x>0</x>
     <y>0</y>
     <width>529</width>
-    <height>451</height>
+    <height>616</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>DockWidget</string>
   </property>
   <widget class="QWidget" name="dockWidgetContents">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
    <widget class="QWidget" name="verticalLayoutWidget">
     <property name="geometry">
      <rect>
       <x>9</x>
       <y>9</y>
       <width>501</width>
-      <height>411</height>
+      <height>581</height>
      </rect>
     </property>
     <layout class="QVBoxLayout" name="verticalLayout">
+     <property name="sizeConstraint">
+      <enum>QLayout::SetNoConstraint</enum>
+     </property>
      <property name="topMargin">
       <number>10</number>
      </property>
@@ -32,17 +41,27 @@
      </property>
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">
+       <property name="sizeConstraint">
+        <enum>QLayout::SetNoConstraint</enum>
+       </property>
        <property name="topMargin">
-        <number>10</number>
+        <number>0</number>
        </property>
        <property name="rightMargin">
-        <number>10</number>
+        <number>0</number>
        </property>
        <property name="bottomMargin">
-        <number>10</number>
+        <number>0</number>
        </property>
        <item>
-        <widget class="ScanPlotWidget" name="image_widget"/>
+        <widget class="ScanPlotWidget" name="image_widget">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>350</height>
+          </size>
+         </property>
+        </widget>
        </item>
        <item>
         <widget class="ColorbarWidget" name="colorbar" native="true"/>
@@ -50,9 +69,12 @@
       </layout>
      </item>
      <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <layout class="QHBoxLayout" name="dataCorrLayout">
        <property name="topMargin">
         <number>10</number>
+       </property>
+       <property name="bottomMargin">
+        <number>5</number>
        </property>
       </layout>
      </item>
@@ -77,7 +99,7 @@
   <customwidget>
    <class>ColorbarWidget</class>
    <extends>QWidget</extends>
-   <header>qtwidgets.colorbar.colorbarwidget.h</header>
+   <header>qtwidgets.colorbar.colorbar.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

@@ -33,6 +33,7 @@ from gui.colordefs import QudiPalettePale as palette
 
 #from gui.fitsettings import FitSettingsDialog
 from qtwidgets.scientific_spinbox import ScienDSpinBox
+from qtwidgets.scanwidget.scanwidget import ScanWidget
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
@@ -133,6 +134,7 @@ class NVScanningGui(GUIBase):
 
         self.spec_params_widgets = {}
         self.create_spec_params_widgets(self.microscopelogic().spec_params_dict)
+        self.image_dockwidgets = {}
         
         # Show the main window
         self.show()
@@ -388,6 +390,21 @@ class NVScanningGui(GUIBase):
         self._mw.procedures_ComboBox.clear()
         self._mw.procedures_ComboBox.addItems(proc_list)
         return
+
+
+    def add_scan_dockwidget(self, output_channel):
+        corners = self.scan_area_corners
+        self.image_dockwidgets[output_channel["title"]] = ScanWidget(
+            output_channel["image"], output_channel["line"],
+            output_channel["title"], output_channel["name"],
+            output_channel["unit"],
+            [[np.min(corners[:,0]), np.max(corners[:,0])],[np.min(corners[:,1]), np.max(corners[:,1])]],
+            output_channel["cmap_name"], plane_fit=output_channel["plane_fit"],
+            line_correction=output_channel["line_correction"])
+        self._mw.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.image_dockwidgets[output_channel["title"]])
+        self.image_dockwidgets[output_channel["title"]].setFloating(True)
+        return
+        
     
     
     def change_max_scanner(self):

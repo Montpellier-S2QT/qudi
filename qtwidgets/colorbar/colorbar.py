@@ -26,6 +26,7 @@ import numpy as np
 from qtpy import QtWidgets
 from qtpy import uic
 import gui.colordefs as cdef
+from qtwidgets.scanwidget.scanplotwidget import ScanImageItem
 
 
 class ColorBar(pg.GraphicsObject):
@@ -52,7 +53,7 @@ class ColorBar(pg.GraphicsObject):
         # device in a platform-independent format.
         self.pic = pg.QtGui.QPicture()
 
-        self.refresh_colorbar(cb_min, cb_max)
+        self.refresh_colorbar(cb_min, cb_max, cmap)
     
 
     def refresh_colorbar(self, cb_min, cb_max, cmap=None, width = None,
@@ -70,6 +71,11 @@ class ColorBar(pg.GraphicsObject):
             width = self.width
         else:
             self.width = width
+
+        if cmap is not None:
+            # update colors if needed
+            self.stops, self.colors = cmap.getStops('float')
+            self.stops = (self.stops - self.stops.min())/self.stops.ptp()
 
 #       FIXME: Until now, if you want to refresh the colorbar, a new QPainter
 #              object has been created, but I think that it is not necassary.
@@ -143,7 +149,7 @@ class ColorbarWidget(QtWidgets.QWidget):
         self.init_buttons()
         self.init_colorbar()
 
-        self.set_image(image_widget)
+        self.set_image()
 
         self.percentile.clicked.emit()
         self.percentile.setChecked(True)
@@ -179,12 +185,12 @@ class ColorbarWidget(QtWidgets.QWidget):
         self.colorbar.setMouseEnabled(x=False, y=False)
 
         
-    def set_label(name, unit):
+    def set_label(self, name, unit):
         """ Sets the the name and unit of the data."""
         self.colorbar.setLabel('right', name, units=unit)
 
         
-    def set_colormap(colormap_name):
+    def set_colormap(self, colormap_name):
         """ Sets the colormap."""
         if colormap_name in self.cdict.keys():
             self.color_choice.setCurrentText(colormap_name)
@@ -192,23 +198,26 @@ class ColorbarWidget(QtWidgets.QWidget):
             return
         
 
-    def set_image(self, image_widget):
+    def set_image(self, image_widget=None):
         """ Set the image widget associated to the colorbar """
-        self._image = image_widget
-        self._image.setLookupTable(self.my_colors.lut)
-        self.min_manual.setValue(np.min(self._image.image))
-        self.min_percentile.setValue(0)
-        self.max_manual.setValue(np.max(self._image.image))
-        self.max_percentile.setValue(100)
-        self.refresh_colorbar()
-        
+        if image_widget is not None:
+            self._image = image_widget
+            self._image.setLookupTable(self.my_colors.lut)
+            self.min_manual.setValue(np.min(self._image.image))
+            self.min_percentile.setValue(0)
+            self.max_manual.setValue(np.max(self._image.image))
+            self.max_percentile.setValue(100)
+            self.refresh_colorbar()
+        else:  # issue on init
+            self._image = ScanImageItem(image=np.zeros((10, 10)))
+                                        
 
     def get_cb_range(self):
         """ Determines the cb_min and cb_max values for the image """
         # If "Manual" is checked, or the image data is empty (all zeros), then take manual cb range.
         if self.manual.isChecked() or np.count_nonzero(self._image.image) < 1:
-            cb_min = self._min_manual.value()
-            cb_max = self._max_manual.value()
+            cb_min = self.min_manual.value()
+            cb_max = self.max_manual.value()
 
         # Otherwise, calculate cb range from percentiles.
         else:
@@ -216,8 +225,8 @@ class ColorbarWidget(QtWidgets.QWidget):
             image_nonzero = self._image.image[np.nonzero(self._image.image)]
 
             # Read centile range
-            low_centile = self._min_percentile.value()
-            high_centile = self._max_percentile.value()
+            low_centile = self.min_percentile.value()
+            high_centile = self.max_percentile.value()
 
             cb_min = np.percentile(image_nonzero, low_centile)
             cb_max = np.percentile(image_nonzero, high_centile)

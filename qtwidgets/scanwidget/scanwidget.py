@@ -21,12 +21,13 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 """
 
 import os
+import pyqtgraph as pg
 
 from qtpy import QtWidgets
 from qtpy import uic
 
 from gui.colordefs import QudiPalettePale as palette
-from scan_plotwidget import ScanImageItem
+from qtwidgets.scanwidget.scanplotwidget import ScanImageItem
 
 
 class ScanWidget(QtWidgets.QDockWidget):
@@ -46,6 +47,8 @@ class ScanWidget(QtWidgets.QDockWidget):
         @param str cmap_name (should be in the cdict of colordefs.py
         @param bool plane_fit: display or not the plane fit correction tool
         @param line_correction: display or not the line correction combobox
+
+        TODO : Absolute/relative positions
         """
 
         # Get the path to the *.ui file
@@ -58,17 +61,19 @@ class ScanWidget(QtWidgets.QDockWidget):
 
         # sets the title
         self.setWindowTitle(title)
+        self.plane_fit_applied = False
+        self.line_correction_applied = False
         
         # creates additional buttons if needed
         if plane_fit:
             self.planeFitCheckBox = QtWidgets.QCheckBox()
             self.planeFitCheckBox.setText('Plane fit')
-            self.dataCorrLayout.addItem(self.planeFitCheckBox)
+            self.dataCorrLayout.addWidget(self.planeFitCheckBox)
             self.planeFitCheckBox.clicked.connect(self.apply_plane_fit)
         if line_correction:
             self.lineCorrComboBox = QtWidgets.QComboBox()
             self.lineCorrComboBox.addItems([' ', 'Average', 'Median', 'Median diff', 'Median div'])
-            self.dataCorrLayout.addItem(self.lineCorrComboBox)
+            self.dataCorrLayout.addWidget(self.lineCorrComboBox)
             self.lineCorrComboBox.currentIndexChanged.connect(self.apply_line_correction)
 
         self.scanline = pg.PlotDataItem(line, pen=pg.mkPen(palette.c1))
@@ -83,20 +88,62 @@ class ScanWidget(QtWidgets.QDockWidget):
         self.image_widget.setLabel('bottom', 'X position', units='m')
         self.image_widget.setLabel('left', 'Y position', units='m')
 
+        self.colorbar.set_image(self.image)
         self.colorbar.set_label(name, unit)
         self.colorbar.set_colormap(cmap_name)
-        self.colorbar.set_image(self.image_widget)
         
         
-    def apply_plane_fit(self):
-        """ Corrects the data with a plane fit (or removes the correction). """
-        pass
-    
+        
+    def apply_plane_fit(self, data):
+        """ Corrects the data with a plane fit (or removes the correction).
 
-    def apply_line_correction(self):
-        """ Corrects the data by aligning the scan lines. """
-        pass
+        @param 2d ndarray data
+        """
+        if self.planeFitCheckBox.isChecked():
+            self.plane_fit_applied = True
+            output = plane_fit(data.copy())
+            self.refresh_image(output)
+            return output
+        else:
+            self.plane_fit_applied = False
+            return data
+
+
+    def apply_line_correction(self, data):
+        """ Corrects the data by aligning the scan lines.
+
+        @param 2d ndarray data
+        """
+        if self.lineCorrComboBox.currentText() == ' ':
+            self.line_correction_applied = False
+            return data
+        else:
+            self.line_correction_applied = True
+            if self.lineCorrComboBox.currentText() == 'Average':
+                output = subtract_average(data.copy())
+            elif self.lineCorrComboBox.currentText() == 'Median':
+                output = median(data.copy())
+            elif self.lineCorrComboBox.currentText() == 'Median diff':
+                output = median_diff(data.copy())
+            elif self.lineCorrComboBox.currentText() == 'Median div':
+                output = median_div(data.copy())
+            else:
+                return data
+            self.refresh_image(output)
+            return output
+
     
+    def refresh_image(self, data):
+        """ Refresh both the image and the colorbar, applying the correction if requested."""
+        if self.plane_fit_applied:
+            new_data = self.apply_plane_fit(data)
+        if self.line_correction_applied:
+            new_data = self.apply_line_correction(data)
+        if new_data is None:
+            new_data = data
+        self.image.setImage(image=new_data)
+        self.colorbar.refresh_image()
+        return
 
 
 # A few basic data processing functions
