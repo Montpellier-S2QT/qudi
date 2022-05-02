@@ -19,6 +19,8 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 import time
+
+import lmfit
 import numpy as np
 import pandas as pd
 from qtpy import QtCore
@@ -46,7 +48,6 @@ class AlignementLogic(GenericLogic):
 
     _axis_range = StatusVar("axis_range", None)
     _scan = StatusVar("scan", np.zeros(100, 100))
-    _positions = StatusVar("positions", np.zeros(100, 100, 2))
     _alignment = StatusVar("alignment", None)
     _last_alignment = StatusVar("last_alignment", None)
 
@@ -99,7 +100,7 @@ class AlignementLogic(GenericLogic):
 
         self._axis_range[axis] = np.arange(ax_min, ax_max, ax_step)
 
-    def alignment_optimization(self, alignement_name=None, algorithm="raster", **params):
+    def alignment_optimization(self, alignement_name=None, algorithm="raster", axis_list=None):
         """
 
         :param algorithm:
@@ -107,56 +108,51 @@ class AlignementLogic(GenericLogic):
         :return:
         """
 
+        if not axis_list:
+            axis_list = self._axis_list
+
         if algorithm == "raster":
-            self.raster_scan(**params)
+            self.raster_scan(axis_list)
         elif algorithm == "spiral":
-            self.spiral_scan(**params)
+            self.spiral_scan(axis_list)
         elif algorithm == "hill_climber":
-            self.hill_climber(**params)
+            self.hill_climber(axis_list)
 
         if alignement_name:
             self._alignment = pd.concat([self._alignment, pd.DataFrame(self._last_alignment, index=[alignement_name], )])
 
-    def raster_scan(self, x_axis=None, y_axis=None, fit_max=True):
+    def raster_scan(self, axis_list):
 
-        if not x_axis:
-            x_axis = self._axis[0]
-        if not y_axis:
-            y_axis = self._axis[1]
+        pos_space = np.array(np.meshgrid(*[self._axis_range[axis].T for axis in axis_list])).T.reshape(-1, len(axis_list))
+        scan = np.zeros(pos_space.shape)
+        self._scan_pos = []
 
-        x_range = self._axis_range[x_axis]
-        y_range = self._axis_range[y_axis]
+        for i, pos in enumerate(pos_space):
+            for j, axis in enumerate(axis_list):
+                self.motor().move_abs({axis: pos[j]})
+                scan[i, j] = self.counter().get_process_value()
+            self._scan_pos.append(self.motor().get_pos(axis_list).values())
+        self._scan_pos = np.array(self._scan_pos)
 
-        self._scan = np.zeros(len(x_range), len(y_range))
-        self._positions = np.zeros(len(x_range), len(y_range), 2)
+        params = lmfit.Parameters()
+        params.add("A", min=scan.min(), max=10*scan.max(), value=scan.max())
+        params.add("B", min=scan.min(), max=scan.max(), value=scan.min())
+        for j, axis in enumerate(axis_list):
+            params.add("x{}".format(j), min=pos_space[:,j].min(), max=pos_space[:,j].max(), value=pos_space[:,j].mean())
+            params.add("w{}".format(j), min=(pos_space[2::2,j]-pos_space[::2,j]).min(),
+                       max=pos_space[0,j]-pos_space[-1,j], value=(pos_space[0,j]-pos_space[-1,j])/10)
 
-        for i in range(len(x_range)):
-            for j in range(len(y_range)):
+        fit_result = lmfit.minimize(self.gaussian_multi, params, args={"axis": axis_list})
+        return fit_result.params
 
-                self.motor.move_abs({x_axis: x_range[i], y_axis: y_range[i]})
-                self._scan[i, j] = self.counter.get_process_value()
+    def gaussian_multi(self, params, axis):
 
-                pos = self.motor.get_pos([x_axis, y_axis])
-                self._positions[i, j, 0] = pos[x_axis]
-                self._positions[i, j, 1] = pos[y_axis]
-
-        if fit_max:
-            gaussian_fit = self._fit_logic.make_twoDgaussian_fit(
-                xy_axes=self._positions,
-                data=self._scan,
-                estimator=self._fit_logic.estimate_twoDgaussian_MLE
-            )
-            if gaussian_fit.success is False:
-                self.log.error('Error: 2D Gaussian Fit was not successfull!.')
-            else:
-                if x_range.min() < gaussian_fit.best_values['center_x'] < x_range.max():
-                    self._last_alignment[x_axis] = gaussian_fit.best_values['center_x']
-                if y_range.min() < gaussian_fit.best_values['center_y'] < y_range.max():
-                    self._last_alignment[y_axis] = gaussian_fit.best_values['center_y']
-        else:
-            i_max, j_max = np.argmax(self._scan)
-            self._last_alignment[x_axis] = self._positions[i_max]
-            self._last_alignment[y_axis] = self._positions[j_max]
+        res = params["A"]
+        for i, ax in enumerate(axis):
+            res *= np.exp(-(self._scan_pos[i] - params["x{}".format(i)]) ** 2 / (2 * params["w{}".format(i)] ** 2))
+        res += params["B"]
+        res -= self._scan
+        return res
 
     def axis_by_axis(self, axis_list=None, fit_max=True):
 
