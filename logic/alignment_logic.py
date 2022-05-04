@@ -44,7 +44,6 @@ class AlignementLogic(GenericLogic):
 
     _counter = Connector(interface='ProcessInterface')
     _motor = Connector(interface='MotorInterface')
-    _fitlogic = Connector(interface='FitLogic')
 
     _axis_range = StatusVar("axis_range", None)
     _scan = StatusVar("scan", np.zeros(100, 100))
@@ -153,39 +152,5 @@ class AlignementLogic(GenericLogic):
         res += params["B"]
         res -= self._scan
         return res
-
-    def axis_by_axis(self, axis_list=None, fit_max=True):
-
-        if not axis_list:
-            axis_list = self._axis_list
-
-        self._scan = np.zeros(len(self._axis_range[axis_list[0]]), len(axis_list))
-        self._positions = np.zeros(len(self._axis_range[axis_list[0]]), len(axis_list))
-
-        i = 0
-        for axis in axis_list:
-            for j in range(len(self._axis_range[axis])):
-                ax_range = self._axis_range[axis]
-                self.motor.move_abs({axis: ax_range[j]})
-                self._scan[i, j] = self.counter.get_process_value()
-
-                pos = self.motor.get_pos([axis])
-                self._positions[i, j] = pos[axis]
-
-            if fit_max:
-                gaussian_fit = self._fit_logic.make_gaussian_fit(
-                    x_axis=ax_range,
-                    data=self._positions[i, :],
-                    estimator=self._fit_logic.estimate_gaussian_peak
-                )
-                if gaussian_fit.success is False:
-                    self.log.error('Error: 1D Gaussian Fit was not successfull!.')
-                else:
-                    if ax_range.min() < gaussian_fit.best_values['Position'] < ax_range.max():
-                        self._last_alignment[axis] = gaussian_fit.best_values['Position']["value"]
-            else:
-                i_max = np.argmax(self._scan)
-                self._last_alignment[axis] = self._positions[i_max]
-            i += 1
 
 

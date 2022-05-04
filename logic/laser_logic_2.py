@@ -63,10 +63,14 @@ class LaserLogic(GenericLogic):
         else:
             self.power_setpoint = self._power_setpoint
 
+        self._shutter_state = self.laser().get_shutter_state()
+        self._laser_state = self.laser().get_laser_state()
+
 
     def on_deactivate(self):
         """ Deactivate module.
         """
+        return
 
     @property
     def laser_state(self):
@@ -74,9 +78,8 @@ class LaserLogic(GenericLogic):
 
         @return (LaserState) laser_state: laser state (ON or OFF).
         """
-        LaserState.__members__()
-        laser_state = self.laser.getlaser_state()
-
+        self._laser_state = self.laser().get_laser_state()
+        return self._laser_state
 
     @laser_state.setter
     def laser_state(self, laser_state):
@@ -84,7 +87,15 @@ class LaserLogic(GenericLogic):
 
         @param (LaserState) laser_state: laser state (ON or OFF).
         """
-        pass
+        if self._laser_state == laser_state:
+            return
+        if isinstance(laser_state, str) and laser_state in LaserState.__members__:
+            laser_state = LaserState[laser_state]
+        if not isinstance(laser_state, LaserState):
+            self.log.error("Laser state parameter do not match with laser states of the laser.")
+            return
+        self.laser().set_laser_state(laser_state)
+        self._laser_state = self.laser().get_laser_state()
 
     @property
     def wavelength(self):
@@ -156,7 +167,11 @@ class LaserLogic(GenericLogic):
 
         @return (ShutterState) shutter_state: shutter state (OPEN/CLOSED/AUTO).
         """
-        pass
+        if not self._constraints.has_shutter:
+            self.log.error("No shutter is available in your hardware ")
+            return
+        self._shutter_state = self.laser().get_shutter_state()
+        return self._shutter_state
 
     @shutter_state.setter
     def shutter_state(self, shutter_state):
@@ -164,4 +179,15 @@ class LaserLogic(GenericLogic):
 
         @param (ShutterState) shutter_state: shutter state (OPEN/CLOSED/AUTO).
         """
-        pass
+        if not self._constraints.has_shutter:
+            self.log.error("No shutter is available in your hardware ")
+            return
+        if self._shutter_state == shutter_state:
+            return
+        if isinstance(shutter_state, str) and shutter_state in ShutterState.__members__:
+            shutter_state = ShutterState[shutter_state]
+        if not isinstance(shutter_state, ShutterState):
+            self.log.error("Shutter state parameter do not match with shutter states of the camera ")
+            return
+        self.laser().set_shutter_state(shutter_state)
+        self._shutter_state = self.laser().get_shutter_state()

@@ -26,7 +26,6 @@ from core.meta import InterfaceMetaclass
 class ShutterState(Enum):
     CLOSED = 0
     OPEN = 1
-    ALIGNMENT = 2
 
 class LaserState(Enum):
     OFF = 0
