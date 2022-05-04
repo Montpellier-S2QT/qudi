@@ -26,13 +26,11 @@ import pandas as pd
 from qtpy import QtCore
 
 from core.connector import Connector
-from core.configoption import ConfigOption
 from logic.generic_logic import GenericLogic
 from core.statusvariable import StatusVar
-from interface.motor_interface import MotorInterface
-from interface.slow_counter_interface import SlowCounterInterface, SlowCounterConstraints, CountingMode
+from core.util.mutex import RecursiveMutex
 
-class AlignementLogic(GenericLogic):
+class AlignmentLogic(GenericLogic):
     """ Logic module to control a laser.
 
     alignement_logic:
@@ -42,38 +40,52 @@ class AlignementLogic(GenericLogic):
             motor: 'mymotor'
     """
 
-    _counter = Connector(interface='ProcessInterface')
-    _motor = Connector(interface='MotorInterface')
+    counter = Connector(interface='ProcessInterface')
+    motor = Connector(interface='MotorInterface')
 
     _axis_range = StatusVar("axis_range", None)
-    _scan = StatusVar("scan", np.zeros(100, 100))
+    _optimized_axis = StatusVar("optimized_axis", None)
+    _optimization_method = StatusVar("optimization_method", 'raster')
     _alignment = StatusVar("alignment", None)
-    _last_alignment = StatusVar("last_alignment", None)
+    _last_alignment = StatusVar("last_alignment", {})
+    _scan = StatusVar("scan", None)
+    _scan_pos = StatusVar("scan_pos", None)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    _scanner_signal = QtCore.Signal()
+
+    def __init__(self, config, **kwargs):
+        """ Create SpectrumLogic object with connectors and status variables loaded.
+
+          @param dict kwargs: optional parameters
+        """
+        super().__init__(config=config, **kwargs)
+        self._thread_lock = RecursiveMutex()
 
     def on_activate(self):
         """ Activate module.
         """
 
-        self.counter = self._counter()
-        self.motor = self._motor()
-        self._fit_logic = self._fitlogic()
-
-        self._constraints = self.motor.get_constraints()
+        self._constraints = self.motor().get_constraints()
 
         self._axis_list = [axis for axis in self._constraints.keys()]
+
+        if not self._optimized_axis:
+            self._optimized_axis = self._axis_list
         
         if not self._alignment:
-            self._alignment = pd.DataFrame(columns=self._axis_list)
-
-        if not self._last_alignment:
-            self._last_alignment = {}
+            self._alignment = []
 
         if not self._axis_range:
+            self._axis_range = {}
             for axis, constraint in self._constraints.items():
                 self._axis_range[axis] = np.arange(constraint["pos_min"], constraint["pos_max"], constraint["pos_step"])
+
+        self._loop_timer = QtCore.QTimer()
+        self._loop_timer.setSingleShot(True)
+
+    def on_deactivate(self):
+        self._scanner_signal.disconnect()
+        return 0
 
     def set_axis_range(self, axis, ax_min, ax_max, ax_step):
 
@@ -86,7 +98,7 @@ class AlignementLogic(GenericLogic):
                              "the minimum is set to the hardware minimum.")
             ax_min = self._constraints[axis]["pos_min"]
 
-        if ax_max < self._constraints[axis]["pos_max"] or ax_max < self._constraints[axis]["pos_min"] or not ax_max:
+        if ax_max > self._constraints[axis]["pos_max"] or ax_max < self._constraints[axis]["pos_min"] or not ax_max:
             self.log.warning("Axis range maximum parameter is outside the hardware available range : "
                              "the maximum is set to the hardware maximum.")
             ax_max = self._constraints[axis]["pos_max"]
@@ -99,7 +111,12 @@ class AlignementLogic(GenericLogic):
 
         self._axis_range[axis] = np.arange(ax_min, ax_max, ax_step)
 
-    def alignment_optimization(self, alignement_name=None, algorithm="raster", axis_list=None):
+    def set_optimized_axis(self, axis_list):
+
+        if any(axis in self._axis_list for axis in axis_list):
+            self._optimized_axis = axis_list
+
+    def start_optimization(self, alignement_name=None):
         """
 
         :param algorithm:
@@ -107,48 +124,78 @@ class AlignementLogic(GenericLogic):
         :return:
         """
 
-        if not axis_list:
-            axis_list = self._axis_list
+        self.point_index = 0
+        if self._optimization_method == "raster":
+            self._scanner_signal.connect(self.raster_scan, QtCore.Qt.QueuedConnection)
+            self.raster_scan()
+    def stop_optimization(self):
+        """
 
-        if algorithm == "raster":
-            self.raster_scan(axis_list)
-        elif algorithm == "spiral":
-            self.spiral_scan(axis_list)
-        elif algorithm == "hill_climber":
-            self.hill_climber(axis_list)
+        :param algorithm:
+        :param algorithm_params:
+        :return:
+        """
+        self._scanner_signal.disconnect()
 
-        if alignement_name:
-            self._alignment = pd.concat([self._alignment, pd.DataFrame(self._last_alignment, index=[alignement_name], )])
+    def scan_point(self, point_index):
+        """
 
-    def raster_scan(self, axis_list):
+        :param point_index:
+        :return:
+        """
+        if self.point_index >= self._points.shape[0]:
+            self.log.info("Point index is larger than the positions length.")
+            return
+        param_dict = {}
+        for j, axis in enumerate(self._optimized_axis):
+            param_dict[axis] = self._points[point_index, j]
+        self.motor().move_abs(param_dict)
+        self._scan.append(self.counter().get_process_value())
+        self._scan_pos.append([pos for pos in self.motor().get_pos(self._optimized_axis).values()])
 
-        pos_space = np.array(np.meshgrid(*[self._axis_range[axis].T for axis in axis_list])).T.reshape(-1, len(axis_list))
-        scan = np.zeros(pos_space.shape)
-        self._scan_pos = []
+    def raster_scan(self):
 
-        for i, pos in enumerate(pos_space):
-            for j, axis in enumerate(axis_list):
-                self.motor().move_abs({axis: pos[j]})
-                scan[i, j] = self.counter().get_process_value()
-            self._scan_pos.append(self.motor().get_pos(axis_list).values())
-        self._scan_pos = np.array(self._scan_pos)
+        if not np.all([status for status in self.motor().get_status(self._optimized_axis).values()]):
 
-        params = lmfit.Parameters()
-        params.add("A", min=scan.min(), max=10*scan.max(), value=scan.max())
-        params.add("B", min=scan.min(), max=scan.max(), value=scan.min())
-        for j, axis in enumerate(axis_list):
-            params.add("x{}".format(j), min=pos_space[:,j].min(), max=pos_space[:,j].max(), value=pos_space[:,j].mean())
-            params.add("w{}".format(j), min=(pos_space[2::2,j]-pos_space[::2,j]).min(),
-                       max=pos_space[0,j]-pos_space[-1,j], value=(pos_space[0,j]-pos_space[-1,j])/10)
+            self.log.debug("The motors axis are still busy !")
 
-        fit_result = lmfit.minimize(self.gaussian_multi, params, args={"axis": axis_list})
-        return fit_result.params
+        else:
+
+            if self.point_index == 0:
+
+                self._points = np.array(np.meshgrid(*[self._axis_range[axis].T for axis in self._optimized_axis])).T.reshape(-1, len(self._optimized_axis))
+                self._scan_pos = []
+                self._scan = []
+
+            self.scan_point(self.point_index)
+            self.point_index += 1
+
+            if self.point_index >= self._points.shape[0]:
+
+                self._scan_pos = np.array(self._scan_pos)
+                self._scan = np.nan_to_num(np.array(self._scan))
+
+                max_pos = self._scan_pos[np.argmax(self._scan)]
+
+                params = lmfit.Parameters()
+                params.add("A", min=self._scan.min(), max=10*self._scan.max(), value=self._scan.max())
+                params.add("B", min=self._scan.min(), max=self._scan.max(), value=self._scan.min())
+                for j, axis in enumerate(self._optimized_axis):
+                    params.add("x{}".format(j), min=self._scan_pos[:,j].min(), max=self._scan_pos[:,j].max(), value=max_pos[j])
+                    params.add("w{}".format(j), min=(self._scan_pos[1::2,j]-self._scan_pos[::2,j]).min(),
+                               max=self._scan_pos[0,j]-self._scan_pos[-1,j], value=(self._scan_pos[0,j]-self._scan_pos[-1,j])/10)
+
+                fit_result = lmfit.minimize(self.gaussian_multi, params, kws={"axis": self._optimized_axis})
+                print(fit_result.params)
+                return fit_result.params
+
+        self._scanner_signal.emit()
 
     def gaussian_multi(self, params, axis):
 
         res = params["A"]
         for i, ax in enumerate(axis):
-            res *= np.exp(-(self._scan_pos[i] - params["x{}".format(i)]) ** 2 / (2 * params["w{}".format(i)] ** 2))
+            res *= np.exp(-(self._scan_pos[:,i] - float(params["x{}".format(i)])) ** 2 / (2 * params["w{}".format(i)] ** 2))
         res += params["B"]
         res -= self._scan
         return res

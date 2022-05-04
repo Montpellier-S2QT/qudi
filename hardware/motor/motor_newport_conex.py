@@ -28,6 +28,31 @@ from core.module import Base
 from core.configoption import ConfigOption
 from interface.motor_interface import MotorInterface
 
+STATUS_dict = {
+    '0A': "NOT REFERENCED from RESET.",
+    '0B': "NOT REFERENCED from HOMING.",
+    '0C': "NOT REFERENCED from CONFIGURATION.",
+    '0D': "NOT REFERENCED from DISABLE.",
+    '0E': "NOT REFERENCED from READY.",
+    '0F': "NOT REFERENCED from MOVING.",
+    '10': "NOT REFERENCED - NO PARAMETERS IN MEMORY.",
+    '14': "CONFIGURATION",
+    '1E': "HOMING.",
+    '28': "MOVING.",
+    '32': "READY from HOMING.",
+    '33': "READY from MOVING.",
+    '34': "READY from DISABLE.",
+    '36': "READY T from READY.",
+    '37': "READY T from TRACKING.",
+    '38': "READY T from DISABLE T.",
+    '3C': "DISABLE from READY.",
+    '3D': "DISABLE from MOVING.",
+    '3E': "DISABLE from TRACKING.",
+    '3F': "DISABLE from READY T.",
+    '46': "TRACKING from READY T.",
+    '47': "TRACKING from TRACKING",
+}
+
 
 class MotorNewportConex(Base, MotorInterface):
     """
@@ -80,14 +105,13 @@ class MotorNewportConex(Base, MotorInterface):
 
             self.write(label, 'OR')
 
-
         return 0
 
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.
         """
-        for i in range(len(self._com_ports)):
-            self._devices[i].close()
+        for label, configs in self._axis.items():
+            self._devices[label].close()
         return 0
 
     def query(self, axis_label, command):
@@ -131,15 +155,15 @@ class MotorNewportConex(Base, MotorInterface):
                 'ID': configs["adress"],
                 'unit': configs["unit"],
                 'ramp': None,
-                'pos_min': self.query(label, "SL"),
-                'pos_max': self.query(label, "SR"),
-                'pos_step': self.query(label, "SU"),
-                'vel_min': self.query(label, "VA"),
-                'vel_max': self.query(label, "VA"),
+                'pos_min': float(self.query(label, "SL"))*1e-3,
+                'pos_max': float(self.query(label, "SR"))*1e-3,
+                'pos_step': float(self.query(label, "SU"))*1e-3,
+                'vel_min': float(self.query(label, "VA"))*1e-3,
+                'vel_max': float(self.query(label, "VA"))*1e-3,
                 'vel_step': None,
 
-                'acc_min': self.query(label, "AC"),
-                'acc_max': self.query(label, "AC"),
+                'acc_min': float(self.query(label, "AC"))*1e-3,
+                'acc_max': float(self.query(label, "AC"))*1e-3,
                 'acc_step': None,
             }
 
@@ -156,9 +180,9 @@ class MotorNewportConex(Base, MotorInterface):
         """
         pos_dict = {}
         for label, pos in param_dict.items():
-            command = "PR{}".format(param_dict[label])
+            command = "PR{}".format(param_dict[label]*1e3)
             self.write(label, command)
-            pos_dict[label] = float(self.query(label, "TH"))
+            pos_dict[label] = float(self.query(label, "TH"))*1e-3
 
         return pos_dict
 
@@ -171,9 +195,9 @@ class MotorNewportConex(Base, MotorInterface):
         """
         pos_dict = {}
         for label, pos in param_dict.items():
-            command = "PA{}".format(param_dict[label])
+            command = "PA{}".format(param_dict[label]*1e3)
             self.write(label, command)
-            pos_dict[label] = float(self.query(label, "TH"))
+            pos_dict[label] = float(self.query(label, "TH"))*1e-3
 
         return pos_dict
 
@@ -197,7 +221,7 @@ class MotorNewportConex(Base, MotorInterface):
             param_list = [label for label in self._axis.keys()]
         pos_dict = {}
         for label in param_list:
-            pos_dict[label] = float(self.query(label, "TP"))
+            pos_dict[label] = float(self.query(label, "TP"))*1e-3
 
         return pos_dict
 
@@ -214,11 +238,14 @@ class MotorNewportConex(Base, MotorInterface):
         """
         if not param_list:
             param_list = [label for label in self._axis.keys()]
-        pos_dict = {}
+        status_dict = {}
         for label in param_list:
-            pos_dict[label] = float(self.query(label, "TS"))
+            idx = self.query(label, "TS")[-2:]
+            status = STATUS_dict[idx]
+            self.log.debug("Newport CONEX Hardware status [axis {}] : {}".format(label, status))
+            status_dict[label] = idx == '32' or idx == '33'
 
-        return pos_dict
+        return status_dict
 
     def calibrate(self, param_list=None):
         """ Calibrates the rotation motor
@@ -232,7 +259,7 @@ class MotorNewportConex(Base, MotorInterface):
         pos_dict = {}
         for label in param_list:
             self.write(label, "OR")
-            pos_dict[label] = float(self.query(label, "TH"))
+            pos_dict[label] = float(self.query(label, "TH"))*1e-3
 
         return pos_dict
 
@@ -247,7 +274,7 @@ class MotorNewportConex(Base, MotorInterface):
             param_list = [label for label in self._axis.keys()]
         velocity_dict = {}
         for label in param_list:
-            velocity_dict[label] = float(self.query(label, "VA"))
+            velocity_dict[label] = float(self.query(label, "VA"))*1e-3
 
         return velocity_dict
 
@@ -260,7 +287,7 @@ class MotorNewportConex(Base, MotorInterface):
         """
         velocity_dict = {}
         for label in param_dict.keys():
-            velocity_dict[label] = float(self.query(label, "VA"))
+            velocity_dict[label] = float(self.query(label, "VA"))*1e-3
 
         return velocity_dict
 
