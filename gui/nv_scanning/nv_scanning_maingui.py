@@ -127,14 +127,15 @@ class NVScanningGui(GUIBase):
         self.microscopelogic().sigProcedureChanged.connect(self.create_spec_params_widgets)
 
         self.initiate_general_params_dock()
-        self.initiate_mapping_dock()
-        self.initiate_XYscanner_dock()
+        self.initiate_XYscanner_mapping_dock()
         self.initiate_ESR_viewer_dock()
         self.initiate_AFM_zscanner_dock()
 
         self.spec_params_widgets = {}
         self.create_spec_params_widgets(self.microscopelogic().spec_params_dict)
         self.image_dockwidgets = {}
+
+        self._mw.actionView_image_plots.toggled.connect(self.hide_show_image_plots)
         
         # Show the main window
         self.show()
@@ -177,72 +178,11 @@ class NVScanningGui(GUIBase):
         return
         
     
-    def initiate_mapping_dock(self):
-        """ Connection of the input widgets in the mapping parameters dockwidget."""
+    def initiate_XYscanner_mapping_dock(self):
+        """ Connection of the input widgets in the XY scanner and mapping parameters dockwidget."""
 
         # connect the inputs
-        self.mapper.add_mapping(widget=self._mw.x_res_SpinBox,
-                                model=self.microscopelogic(),
-                                model_getter='handle_x_res',
-                                model_property_notifier='sigXResChanged',
-                                model_setter='handle_x_res')
-        
-        self.mapper.add_mapping(widget=self._mw.y_res_SpinBox,
-                                model=self.microscopelogic(),
-                                model_getter='handle_y_res',
-                                model_property_notifier='sigYResChanged',
-                                model_setter='handle_y_res')
 
-        self.mapper.add_mapping(widget=self._mw.rs_DoubleSpinBox,
-                                model=self.microscopelogic(),
-                                model_getter='handle_rs',
-                                model_property_notifier='sigRSChanged',
-                                model_setter='handle_rs')
-        self._mw.rs_DoubleSpinBox.setMinimum(10e-9)
-
-
-        # connect the starting points radiobuttons
-        self._mw.StartPointButtonGroup.buttonClicked.connect(
-            lambda button: self.microscopelogic().handle_starting_point(button.text()))
-        self.microscopelogic().sigStartPointChanged.connect(
-            lambda sp: getattr(self._mw, sp+'_radioButton').setChecked(True))
-        
-        # connect the time displays
-        self.microscopelogic().sigUpdateRemTime.connect(
-            self._mw.display_remaining_time.setText)
-        self.microscopelogic().sigUpdateDuration.connect(
-            self._mw.display_scan_duration.setText)
-
-        # creating a graph item to display the plot area
-        # get the coords
-        self.scan_area_corners = self.microscopelogic().scan_area_corners()
-        # close the loop
-        self.scan_area_corners = np.append(self.scan_area_corners,
-                                           [[self.scan_area_corners[0, 0], self.scan_area_corners[0, 1]]],
-                                           axis=0)
-        self.scan_area_plot = pg.PlotDataItem(self.scan_area_corners, pen=pg.mkPen(palette.c1), symbol='o',
-                                              symbolPen=palette.c1, symbolBrush=palette.c1, symbolSize=5)
-        self.start_plot = pg.PlotDataItem(x=np.array([self.microscopelogic().starting_point_coords()[0]]),
-                                          y=np.array([self.microscopelogic().starting_point_coords()[1]]),
-                                          pen=pg.mkPen(palette.c2), symbol='o',
-                                          symbolPen=palette.c2, symbolBrush=palette.c2, symbolSize=7)
-        # adding graph item to the view box
-        self._mw.scanAreaView.addItem(self.scan_area_plot)
-        self._mw.scanAreaView.addItem(self.start_plot)
-        self._mw.scanAreaView.setLabel('bottom', 'X position', units='m')
-        self._mw.scanAreaView.setLabel('left', 'Y position', units='m')
-        self._mw.scanAreaView.setAspectLocked(lock=True, ratio=1)
-        #self._mw.scanAreaView.setRange(xRange=(0, self.max_scanner),
-        #                               yRange=(0, self.max_scanner))
-
-        self.microscopelogic().sigRefreshScanArea.connect(self.update_scan_area_plot)
-        return
-            
-
-    def initiate_XYscanner_dock(self):
-        """ Connection of the input widgets in the XY scanner parameters dockwidget."""
-
-        # connects the inputs
         self.mapper.add_mapping(widget=self._mw.angle_DoubleSpinBox,
                                 model=self.microscopelogic(),
                                 model_getter='handle_angle',
@@ -272,14 +212,74 @@ class NVScanningGui(GUIBase):
                                 model_getter='handle_y_center',
                                 model_property_notifier='sigYCenterChanged',
                                 model_setter='handle_y_center')
+        
+        self.mapper.add_mapping(widget=self._mw.x_res_SpinBox,
+                                model=self.microscopelogic(),
+                                model_getter='handle_x_res',
+                                model_property_notifier='sigXResChanged',
+                                model_setter='handle_x_res')
+        
+        self.mapper.add_mapping(widget=self._mw.y_res_SpinBox,
+                                model=self.microscopelogic(),
+                                model_getter='handle_y_res',
+                                model_property_notifier='sigYResChanged',
+                                model_setter='handle_y_res')
+
+        self.mapper.add_mapping(widget=self._mw.rs_DoubleSpinBox,
+                                model=self.microscopelogic(),
+                                model_getter='handle_rs',
+                                model_property_notifier='sigRSChanged',
+                                model_setter='handle_rs')
+        self._mw.rs_DoubleSpinBox.setMinimum(10e-9)
+
+        self.mapper.add_mapping(widget=self._mw.movement_freq_DoubleSpinBox,
+                                model=self.microscopelogic(),
+                                model_getter='handle_mv_freq',
+                                model_property_notifier='sigMoveFreqChanged',
+                                model_setter='handle_mv_freq')
 
 
+        # connect the starting points radiobuttons
+        self._mw.StartPointButtonGroup.buttonClicked.connect(
+            lambda button: self.microscopelogic().handle_starting_point(button.text()))
+        self.microscopelogic().sigStartPointChanged.connect(
+            lambda sp: getattr(self._mw, sp+'_radioButton').setChecked(True))
+        
+        # connect the time displays
+        self.microscopelogic().sigUpdateRemTime.connect(
+            self._mw.display_remaining_time.setText)
+        self.microscopelogic().sigUpdateDuration.connect(
+            self._mw.display_scan_duration.setText)
+
+        # connect the move_to buttons
         self._mw.moveto_pushButton.clicked.connect(self.moveto)
         self._mw.moveto_start_pushButton.clicked.connect(self.moveto_start)
         self._mw.moveto_zero_pushButton.clicked.connect(self.moveto_zero)
+        
+        # creating a graph item to display the plot area
+        # get the coords
+        self.scan_area_corners = self.microscopelogic().scan_area_corners()
+        # close the loop
+        self.scan_area_corners = np.append(self.scan_area_corners,
+                                           [[self.scan_area_corners[0, 0], self.scan_area_corners[0, 1]]],
+                                           axis=0)
+        self.scan_area_plot = pg.PlotDataItem(self.scan_area_corners, pen=pg.mkPen(palette.c1), symbol='o',
+                                              symbolPen=palette.c1, symbolBrush=palette.c1, symbolSize=5)
+        self.start_plot = pg.PlotDataItem(x=np.array([self.microscopelogic().starting_point_coords()[0]]),
+                                          y=np.array([self.microscopelogic().starting_point_coords()[1]]),
+                                          pen=pg.mkPen(palette.c2), symbol='o',
+                                          symbolPen=palette.c2, symbolBrush=palette.c2, symbolSize=7)
+        # adding graph item to the view box
+        self._mw.scanAreaView.addItem(self.scan_area_plot)
+        self._mw.scanAreaView.addItem(self.start_plot)
+        self._mw.scanAreaView.setLabel('bottom', 'X position', units='m')
+        self._mw.scanAreaView.setLabel('left', 'Y position', units='m')
+        self._mw.scanAreaView.setAspectLocked(lock=True, ratio=1)
+        #self._mw.scanAreaView.setRange(xRange=(0, self.max_scanner),
+        #                               yRange=(0, self.max_scanner))
 
-        return
-
+        self.microscopelogic().sigRefreshScanArea.connect(self.update_scan_area_plot)
+        return            
     
     def initiate_ESR_viewer_dock(self):
         """ Set up the ESR plot. """
@@ -391,20 +391,42 @@ class NVScanningGui(GUIBase):
         self._mw.procedures_ComboBox.addItems(proc_list)
         return
 
-
+    
     def add_scan_dockwidget(self, output_channel):
-        corners = self.scan_area_corners
+        """ Creates an image display dockwidget to plot the output described.
+
+        @param dict output_channel: dict defined in the procedure,
+                                    the following keys are required:
+                                    - title (of the window, also used as key)
+                                    - image (2D data)
+                                    - line  (1D data)
+                                    - name  (for the colorbar label, e.g. PL)
+                                    - unit
+                                    - cmap_name (should be in the cdict of colordefs.py
+                                    - plane_fit: display or not the plane fit correction tool
+                                    - line_correction: display or not the line correction combobox
+        """
+        w = self._mw.width_DoubleSpinBox.value()
+        h = self._mw.height_DoubleSpinBox.value()
         self.image_dockwidgets[output_channel["title"]] = ScanWidget(
             output_channel["image"], output_channel["line"],
             output_channel["title"], output_channel["name"],
             output_channel["unit"],
-            [[np.min(corners[:,0]), np.max(corners[:,0])],[np.min(corners[:,1]), np.max(corners[:,1])]],
-            output_channel["cmap_name"], plane_fit=output_channel["plane_fit"],
+            [[0, w],[0, h]], output_channel["cmap_name"], plane_fit=output_channel["plane_fit"],
             line_correction=output_channel["line_correction"])
+        # extent in relative units, otherwise the display is hard to do for tilted scans
         self._mw.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.image_dockwidgets[output_channel["title"]])
         self.image_dockwidgets[output_channel["title"]].setFloating(True)
         return
         
+
+    def hide_show_image_plots(self, visible):
+        """ Hides or show the plot Dockwigets.
+        @param bool visible
+        """
+        for ch in self.image_dockwidgets.keys():
+            self.image_dockwidgets[ch].setVisible(visible)
+        return
     
     
     def change_max_scanner(self):
