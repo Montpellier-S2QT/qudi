@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>529</width>
-    <height>616</height>
+    <height>656</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -26,7 +26,7 @@
       <x>9</x>
       <y>9</y>
       <width>501</width>
-      <height>581</height>
+      <height>621</height>
      </rect>
     </property>
     <layout class="QVBoxLayout" name="verticalLayout">
@@ -58,7 +58,7 @@
          <property name="minimumSize">
           <size>
            <width>0</width>
-           <height>350</height>
+           <height>400</height>
           </size>
          </property>
         </widget>
@@ -76,6 +76,13 @@
        <property name="bottomMargin">
         <number>5</number>
        </property>
+       <item>
+        <widget class="QCheckBox" name="cursorCheckBox">
+         <property name="text">
+          <string>Activate cursor</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
      <item>

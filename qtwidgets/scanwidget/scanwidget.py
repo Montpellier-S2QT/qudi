@@ -44,11 +44,9 @@ class ScanWidget(QtWidgets.QDockWidget):
         @param str name: name of the displayed quantity (colorbar label)
         @param str unit
         @param list extent: [[x_min, x_max], [y_min, y_max]]
-        @param str cmap_name (should be in the cdict of colordefs.py
+        @param str cmap_name (should be in the cdict of colordefs.py)
         @param bool plane_fit: display or not the plane fit correction tool
-        @param line_correction: display or not the line correction combobox
-
-        TODO : Absolute/relative positions
+        @param bool line_correction: display or not the line correction combobox
         """
 
         # Get the path to the *.ui file
@@ -63,18 +61,22 @@ class ScanWidget(QtWidgets.QDockWidget):
         self.setWindowTitle(title)
         self.plane_fit_applied = False
         self.line_correction_applied = False
+        self.cursorCheckBox.clicked.connect(self.toggle_cursor)
+        self.raw_data = data
+        self.raw_line = line
+        self.line_coords = np.linspace(extent[0][0], extent[0][1], np.size(raw_data, axis=1))
         
         # creates additional buttons if needed
         if plane_fit:
             self.planeFitCheckBox = QtWidgets.QCheckBox()
             self.planeFitCheckBox.setText('Plane fit')
             self.dataCorrLayout.addWidget(self.planeFitCheckBox)
-            self.planeFitCheckBox.clicked.connect(self.apply_plane_fit)
+            self.planeFitCheckBox.clicked.connect(self.refresh_image)
         if line_correction:
             self.lineCorrComboBox = QtWidgets.QComboBox()
             self.lineCorrComboBox.addItems([' ', 'Average', 'Median', 'Median diff', 'Median div'])
             self.dataCorrLayout.addWidget(self.lineCorrComboBox)
-            self.lineCorrComboBox.currentIndexChanged.connect(self.apply_line_correction)
+            self.lineCorrComboBox.currentIndexChanged.connect(self.refresh_image)
 
         self.scanline = pg.PlotDataItem(line, pen=pg.mkPen(palette.c1))
         self.scanlineView.addItem(self.scanline)
@@ -93,7 +95,6 @@ class ScanWidget(QtWidgets.QDockWidget):
         self.colorbar.set_colormap(cmap_name)
         
         
-        
     def apply_plane_fit(self, data):
         """ Corrects the data with a plane fit (or removes the correction).
 
@@ -102,7 +103,6 @@ class ScanWidget(QtWidgets.QDockWidget):
         if self.planeFitCheckBox.isChecked():
             self.plane_fit_applied = True
             output = plane_fit(data.copy())
-            self.refresh_image(output)
             return output
         else:
             self.plane_fit_applied = False
@@ -129,21 +129,47 @@ class ScanWidget(QtWidgets.QDockWidget):
                 output = median_div(data.copy())
             else:
                 return data
-            self.refresh_image(output)
             return output
 
     
-    def refresh_image(self, data):
-        """ Refresh both the image and the colorbar, applying the correction if requested."""
+    def refresh_image(self, state=None, data=None, line=None):
+        """ Refresh both the image and the colorbar, applying the correction if requested.
+        @param int state of the clicked checkbox (not useful but passed by the signal)
+        @param 2d ndarray data
+        @param 2d ndarray line (2 columns, position and data)
+        NB: the line is not plotted corrected.
+        """
+        if data is not None:
+            self.raw_data = data.copy()
+            
+        if line is not None:
+            self.raw_line = line.copy()
+            
+        new_data = None
         if self.plane_fit_applied:
-            new_data = self.apply_plane_fit(data)
+            new_data = self.apply_plane_fit(self.raw_data)
         if self.line_correction_applied:
-            new_data = self.apply_line_correction(data)
+            new_data = self.apply_line_correction(self.raw_data)
         if new_data is None:
-            new_data = data
+            new_data = self.raw_data.copy()
+            
         self.image.setImage(image=new_data)
         self.colorbar.refresh_image()
+        self.scanline.setData(x = self.line_coords, y = self.raw_line)
         return
+
+    
+    def toggle_cursor(self, is_active):
+        """ Activates or not the ROI and the cursor. """
+        if is_active:
+            pass
+        else:
+            return
+
+        
+    def refresh_scan_area(self, extent):
+        """ Changes the XY coordinates of the scan. """
+        pass
 
 
 # A few basic data processing functions
