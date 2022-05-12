@@ -20,12 +20,15 @@ along with Qudi. If not, see <http://www.gnu.org/licenses/>.
 Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
+from qtpy import QtCore
 
 class GenericProcedure(object):
     """ Object defining a generic measurement procedure, 
     helping you to build the one you need.
     """
 
+    sigPixelReady = QtCore.Signal(OrderedDict) # to send the data back to the logic
+    
     def __init__(self, name, bricks_logic):
         """ The constructor for a scanning procedure needs the name of the 
         procedure and a NVMicroscopyBricksLogic.
@@ -34,8 +37,13 @@ class GenericProcedure(object):
         @param NVMicroscopyBricksLogic bricks_logic: logic connected to the 
                hardware and defining all the basic operations.
         """
-        parameter_dict = {} # dict of 2-tuples (value, unit)
-        outputs_list = ["Topo"] # list of the generated data channels to plot 
+        self.name = name
+        self.bricks_logic = bricks_logic
+        self.parameter_dict = {} # dict of 2-tuples (value, unit)
+        # list of the channels to plot, each element should be a dict with the same
+        # keys as the topo channel described here
+        self.outputs = [{"title": "Topography", "image": np.zeros(100, 100),
+                         "line": np.transpo}] 
         pass
 
     
@@ -47,15 +55,29 @@ class GenericProcedure(object):
         return
 
     
+    def compute_measurement_duration(self, x_res, y_res, return_slowness):
+        """ Computes the time that the scan is supposed to last.
+        
+        @return float duration: expected measurement time in seconds 
+        """
+        duration = 0
+        return duration
+    
+    
     def acquisition(self):
         """
         Function called by the main scanning logic at each pixel.
-
-        @return OrderedDict pixel_outputs: the keys should be the items 
-                of outputs_list.
         """
-        return pixel_outputs
+        sigPixelReady.emit(self.outputs)
+        return
 
+
+    def end_of_line_action(self):
+        """
+        If you need to do something at the end of each line, like an optimize or a Rabi.
+        """
+        return
+    
 
     def scan_end(self):
         """

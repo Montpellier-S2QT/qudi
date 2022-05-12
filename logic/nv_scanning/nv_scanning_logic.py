@@ -22,6 +22,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import numpy as np
 import threading
+import time
 from collections import OrderedDict
 
 from logic.generic_logic import GenericLogic
@@ -98,6 +99,7 @@ class NVMicroscopeLogic(GenericLogic):
 
     # status variables
     return_slowness = StatusVar('return_slowness', default=50e-9)
+    movement_frequency = StatusVar('movement_frequency', default=0.1)
     x_res = StatusVar('x_res', default=100)
     y_res = StatusVar('y_res', default=100)
     angle = StatusVar('y_res', default=0)
@@ -116,10 +118,12 @@ class NVMicroscopeLogic(GenericLogic):
     sigRefreshScanArea = QtCore.Signal() # connected in GUI
     sigUpdateProcedureList = QtCore.Signal(list) # connected in GUI
     sigProcedureChanged = QtCore.Signal(dict) # connected in GUI
+    sigMovetoEnded = QtCore.Signal(bool) # connected in GUI
     
     sigXResChanged = QtCore.Signal(int) # for mapper
     sigYResChanged = QtCore.Signal(int) # for mapper
     sigRSChanged = QtCore.Signal(float) # for mapper
+    sigMoveFreqChanged = QtCore.Signal(float) # for mapper
     sigAngleChanged = QtCore.Signal(float) # for mapper
     sigStartPointChanged = QtCore.Signal(str)
     sigScanWidthChanged = QtCore.Signal(float) # for mapper
@@ -129,6 +133,8 @@ class NVMicroscopeLogic(GenericLogic):
     sigFileTagChanged = QtCore.Signal(str) # for mapper
     sigLiftChanged = QtCore.Signal(float) # for mapper
     sigSpecParamsChanged = QtCore.Signal(dict) # for mapper
+    sigXPosChanged = QtCore.Signal(float) 
+    sigYPosChanged = QtCore.Signal(float) 
 
     sigStartScan = QtCore.Signal()
     sigStopScan = QtCore.Signal(bool)
@@ -149,7 +155,10 @@ class NVMicroscopeLogic(GenericLogic):
         # in this threadpool our worker thread will be run
         self.threadpool = QtCore.QThreadPool()
 
-        self.scanning_proc = self.change_current_procedure(self.curr_proc_name)
+        #self.scanning_proc = self.change_current_procedure(self.curr_proc_name)
+        self.change_current_procedure(self.curr_proc_name)
+        self.current_x = 0
+        self.current_y = 0
         
         return
     
@@ -191,6 +200,16 @@ class NVMicroscopeLogic(GenericLogic):
             return 
         else:
             return self.return_slowness
+
+
+    # movement frequency
+    def handle_mv_freq(self, value=None):
+        if value is not None:
+            self.movement_frequency = value
+            self.sigMoveFreqChanged.emit(self.movement_frequency)
+            return 
+        else:
+            return self.movement_frequency
 
         
     # scan angle
@@ -291,7 +310,48 @@ class NVMicroscopeLogic(GenericLogic):
         else:
             return self.spec_params_dict
 
+
+    # x scanner position
+    def handle_x_pos(self, value=None):
+        if value is not None:
+            self.current_x = value
+            self.sigXPosChanged.emit(self.current_x)
+            return 
+        else:
+            return self.current_x
+
+
+    # y scanner position
+    def handle_y_pos(self, value=None):
+        if value is not None:
+            self.current_y = value
+            self.sigYPosChanged.emit(self.current_y)
+            return 
+        else:
+            return self.current_y
+
         
+    ###################################
+    # Handling of the scan procedures #
+    ###################################
+
+    def change_current_procedure(self, procedure_name):
+        """ Change to another scanning procedure. """
+        #self.scanning_proc = self.proc_list[procedure_name]
+        #self.spec_params_dict = self.scanning_proc.parameter_dict
+        #self.output_channels = self.scanning_proc.outputs
+        self.spec_params_dict = {"Measurement time": (0.1, "s")} 
+        self.sigProcedureChanged.emit(self.spec_params_dict)
+        return
+
+    
+    def update_scanning_procedures(self):
+        pass
+
+    ########################
+    # Handling the scanner #
+    ########################
+
     def scan_area_corners(self):
         """ Returns the positions of the corners of the scan region."""
         x0 = self.x_center_pos
@@ -318,16 +378,100 @@ class NVMicroscopeLogic(GenericLogic):
         else:
             return coords[3, :]
 
-        
-    def change_current_procedure(self, procedure_name):
-        """ Change to another scanning procedure. """
-        #self.scanning_proc = self.proc_list[procedure_name]
-        self.spec_params_dict = {"Measurement time": (0.1, "s")} #self.scanning_proc.parameter_dict
-        self.sigProcedureChanged.emit(self.spec_params_dict)
+
+    def generate_scanning_grid(self):
+        """ Returns a grid with the x and y positions of every pixel in the scan. """
+        x0 = self.x_center_pos
+        y0 = self.y_center_pos
+        w = self.scan_width
+        h = self.scan_height
+        a = self.angle*np.pi/180
+
         return
 
+
+
+    def moveto(self, x, y):
+        """ Action when the MoveTo button is pushed.
+
+        @param float x: target x position in m
+        @param float y: target y position in m
+        """
+        rs = self.return_slowness
+        # Get the list of x positions to go through
+        lsx = np.arange(min(self.current_x, x),
+                        max(self.current_x, x)+rs, rs)
+        if len(lsx) == 0:
+            lsx = [x]
+        # Get the list of x positions to go through
+        lsy = np.arange(min(self.current_y, y + rs),
+                        max(self.current_y, y + rs), rs)
+        if len(lsy) == 0:
+            lsy = [y]
+
+        # Revert the lists of x, y positions if we go in the
+        # decreasing coordinate direction
+        if lsx[0] != self.current_x:
+            lsx = lsx[::-1]
+        if lsy[0] != self.current_y:
+            lsy = lsy[::-1]
+
+        # Padding with constant position at the end of each list to
+        # have them with the same length
+        lsx_temp = np.pad(lsx, (0, np.abs(len(lsx)-max(len(lsx), len(lsy)))),
+                     'constant', constant_values=(0, lsx[-1]))
+        lsy = np.pad(lsy, (0, np.abs(len(lsy)-max(len(lsx), len(lsy)))),
+                     'constant', constant_values=(0, lsy[-1]))
+        lsx = lsx_temp
+            
+        # Need a thread here for the movement to avoid that python freezes
+        self._worker_thread = WorkerThread(target=self.moveto_loop,
+                                           args=(lsx, lsy), name="move_to")
+        self.threadpool.start(self._worker_thread)
+        return
+
+
+    def moveto_loop(self, lsx, lsy):
+        """ Loop for the moveto thread. We move only in the x, y plane.
+
+        @params list lsx: list of the positions to go through along x
+        @params list lsy: list of the positions to go through along y
+        """
+        for i in range(len(lsx)):
+            self.confocalscanner().scanner_set_position(x=lsx[i],
+                                                        y=lsy[i])
+            self.handle_x_pos(value=lsx[i])
+            self.handle_y_pos(value=lsy[i])
+            time.sleep(1/self.movement_frequency)
+        self.sigMovetoEnded.emit(True)
+        
     
-    def update_scanning_procedures(self):
+    #########################
+    # Save and display data #
+    #########################
+
+    def update_plots(self):
+        """ Sends the signal to update the plots in the GUI. """
         pass
 
-    
+
+    def save_data(self):
+        """ Save the current data to file, full raw data with x, y, and 
+        all the channels at every pixel, as well as ESR Spectra when necessary.
+
+        A figure is also saved (only in png, we did not need the pdf output).
+        """
+        pass
+
+
+    def draw_figure(self, data, info):
+        """ Create a 2-D color map figure of the scan image.
+         @param: array data: The NxM array of count values from a scan with NxM pixels.
+         @param: dict info: contains the necessary info to plot the data. The keys are:
+                            - "cb_range": [min_value, max_value]
+                            - "extent": [xmin, xmax, ymin, ymax]
+                            - "cmap": str, colormap name
+                            - "unit": str, unit
+                            - "label": str, colorbar label
+        """
+        pass

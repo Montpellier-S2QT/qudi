@@ -25,6 +25,8 @@ import numpy as np
 
 from logic.generic_logic import GenericLogic
 from core.connector import Connector
+from core.configoption import ConfigOption
+from interface.microwave_interface import MicrowaveMode, TriggerEdge
 
 from qtpy import QtCore
 
@@ -41,6 +43,10 @@ class NVMicroscopyBricksLogic(GenericLogic):
     pulser = Connector(interface='PulserInterface', optional=True)
     pulsedlogic = Connector(interface='PulsedMasterLogic', optional=True)
 
+    # config options
+    mw_scanmode = ConfigOption('scanmode', 'LIST', missing='warn',
+                               converter=lambda x: MicrowaveMode[x.upper()])
+
     # signals
 
     def __init__(self, config, **kwargs):
@@ -50,6 +56,10 @@ class NVMicroscopyBricksLogic(GenericLogic):
     def on_activate(self):
         """ Initialization performed during activation of the module.
         """
+        # Get MW hardware constraints
+        limits = self.odmrlogic().get_hw_constraints()
+        # Further things to do about odmr?
+        
         return
 
 

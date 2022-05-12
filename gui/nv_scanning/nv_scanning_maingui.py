@@ -125,6 +125,7 @@ class NVScanningGui(GUIBase):
         # connect a few things
         self._mw.actionChange_scanner_range.triggered.connect(self.change_max_scanner)
         self.microscopelogic().sigProcedureChanged.connect(self.create_spec_params_widgets)
+        self.microscopelogic().sigMovetoEnded.connect(self.enable_disable_moveto)
 
         self.initiate_general_params_dock()
         self.initiate_XYscanner_mapping_dock()
@@ -238,6 +239,15 @@ class NVScanningGui(GUIBase):
                                 model_property_notifier='sigMoveFreqChanged',
                                 model_setter='handle_mv_freq')
 
+        # These 2 spinboxes are read-only, but we also want to disable scrolling
+        self._mw.current_x_DoubleSpinBox.wheelEvent = lambda x: None
+        self._mw.current_y_DoubleSpinBox.wheelEvent = lambda x: None
+        # Weirdly, the mapper does not work, so we do it the old way.
+        self.microscopelogic().sigXPosChanged.connect(
+            lambda x: self.update_current_pos(x, self._mw.current_x_DoubleSpinBox))
+        self.microscopelogic().sigYPosChanged.connect(
+            lambda y: self.update_current_pos(y, self._mw.current_y_DoubleSpinBox))
+                                
 
         # connect the starting points radiobuttons
         self._mw.StartPointButtonGroup.buttonClicked.connect(
@@ -280,7 +290,13 @@ class NVScanningGui(GUIBase):
 
         self.microscopelogic().sigRefreshScanArea.connect(self.update_scan_area_plot)
         return            
-    
+
+    def update_current_pos(self, val, widget):
+        """ Display the scanner position."""
+        widget.setValue(val)
+        return
+            
+
     def initiate_ESR_viewer_dock(self):
         """ Set up the ESR plot. """
         self.esr_spectrum_plot = pg.PlotDataItem(x=np.linspace(2.85e9, 2.89e9, 50), y=np.zeros(50),
@@ -453,10 +469,11 @@ class NVScanningGui(GUIBase):
 
     def moveto(self):
         """ Action when the MoveTo button is pushed.
-        NOT FINISHED
         """
         x = self._mw.x_position_DoubleSpinBox.value()
         y = self._mw.y_position_DoubleSpinBox.value()
+        self.microscopelogic().moveto(x, y)
+        self.enable_disable_moveto(False)
         return
 
 
@@ -464,10 +481,9 @@ class NVScanningGui(GUIBase):
         """ Action when the MoveTo_start button is pushed.
         NOT FINISHED
         """
-        x = self._mw.x_position_DoubleSpinBox.value()
-        y = self._mw.y_position_DoubleSpinBox.value()
-        w = self._mw.width_DoubleSpinBox.value()
-        h = self._mw.height_DoubleSpinBox.value()
+        coords = self.microscopelogic().starting_point_coords()
+        self.microscopelogic().moveto(coords[0], coords[1])
+        self.enable_disable_moveto(False)
         return
 
 
@@ -475,4 +491,21 @@ class NVScanningGui(GUIBase):
         """ Action when the MoveTo_zero button is pushed.
         NOT FINISHED
         """
+        self.microscopelogic().moveto(0, 0)
+        self.enable_disable_moveto(False)
         return
+
+    
+    def enable_disable_moveto(self, status=True):
+        """ Enable of disable the move to button.
+        """
+        self._mw.moveto_pushButton.setEnabled(status)
+        self._mw.moveto_start_pushButton.setEnabled(status)
+        self._mw.moveto_zero_pushButton.setEnabled(status)
+        if status == True:
+            test_range = self.check_scanner_position()
+        return
+        
+
+    def check_scanner_position(self):
+        return True
