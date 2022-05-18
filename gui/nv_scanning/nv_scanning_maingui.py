@@ -479,7 +479,6 @@ class NVScanningGui(GUIBase):
 
     def moveto_start(self):
         """ Action when the MoveTo_start button is pushed.
-        NOT FINISHED
         """
         coords = self.microscopelogic().starting_point_coords()
         self.microscopelogic().moveto(coords[0], coords[1])
@@ -489,7 +488,6 @@ class NVScanningGui(GUIBase):
 
     def moveto_zero(self):
         """ Action when the MoveTo_zero button is pushed.
-        NOT FINISHED
         """
         self.microscopelogic().moveto(0, 0)
         self.enable_disable_moveto(False)

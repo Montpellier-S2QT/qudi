@@ -159,6 +159,10 @@ class NVMicroscopeLogic(GenericLogic):
         self.change_current_procedure(self.curr_proc_name)
         self.current_x = 0
         self.current_y = 0
+        self.xgrid = np.zeros((self.y_res, self.x_res))
+        self.ygrid = np.zeros((self.y_res, self.x_res))
+        self.ei = 1 # for the scanning direction
+        self.ej = 1 # for the scanning direction
         
         return
     
@@ -370,25 +374,59 @@ class NVMicroscopeLogic(GenericLogic):
         """ Returns the position of the starting corner of the scan region."""
         coords = self.scan_area_corners()
         if self.starting_point == "LL":
-            return coords[0, :]
+            if self.angle <= 45:
+                self.ei = 1
+                self.ej = 1
+                return coords[0, :]
+            else:
+                self.ei = -1
+                self.ej = 1
+                return coords[3, :]
         elif self.starting_point == "LR":
-            return coords[1, :]
+            if self.angle <= 45:
+                self.ei = 1
+                self.ej = -1
+                return coords[1, :]
+            else:
+                self.ei = 1
+                self.ej = 1
+                return coords[0, :]
         elif self.starting_point == "UR":
-            return coords[2, :]
+            if self.angle <= 45:
+                self.ei = -1
+                self.ej = -1
+                return coords[2, :]
+            else:
+                self.ei = 1
+                self.ej = -1
+                return coords[1, :]
         else:
-            return coords[3, :]
+            if self.angle <= 45:
+                self.ei = -1
+                self.ej = 1
+                return coords[3, :]
+            else:
+                self.ei = -1
+                self.ej = -1
+                return coords[2, :]
 
-
+        
     def generate_scanning_grid(self):
-        """ Returns a grid with the x and y positions of every pixel in the scan. """
+        """ Compute a grid with the x and y positions of every pixel in the scan. """
         x0 = self.x_center_pos
         y0 = self.y_center_pos
         w = self.scan_width
         h = self.scan_height
         a = self.angle*np.pi/180
 
-        return
+        jj, ii = np.meshgrid(np.arange(self.x_res), np.arange(self.y_res))
 
+        start = self.starting_point_coords()
+        
+        self.xgrid = start[0] + (w/self.x_res)*(self.ej*np.cos(a)*jj - self.ei*np.sin(a)*ii)
+        self.ygrid = start[1] + (h/self.y_res)*(self.ej*np.sin(a)*jj - self.ei*np.cos(a)*ii)
+
+        return
 
 
     def moveto(self, x, y):
@@ -444,6 +482,14 @@ class NVMicroscopeLogic(GenericLogic):
             self.handle_y_pos(value=lsy[i])
             time.sleep(1/self.movement_frequency)
         self.sigMovetoEnded.emit(True)
+
+
+    ###############################
+    # Handle the data acquisition #
+    ###############################
+
+    def init_outputs(self):
+        """ Sets all the images and all the lines of the procedure outputs to zero. """
         
     
     #########################
@@ -451,7 +497,7 @@ class NVMicroscopeLogic(GenericLogic):
     #########################
 
     def update_plots(self):
-        """ Sends the signal to update the plots in the GUI. """
+        """ Send the signal to update the plots in the GUI. """
         pass
 
 
