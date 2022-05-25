@@ -31,6 +31,8 @@ from core.connector import Connector
 from core.configoption import ConfigOption
 from core.statusvariable import StatusVar
 
+from logic.nv_scanning.scanning_procedures.quenching import QuenchingProcedure
+
 from qtpy import QtCore
 
 class WorkerThread(QtCore.QRunnable):
@@ -156,7 +158,8 @@ class NVMicroscopeLogic(GenericLogic):
         self.threadpool = QtCore.QThreadPool()
 
         #self.scanning_proc = self.change_current_procedure(self.curr_proc_name)
-        self.change_current_procedure(self.curr_proc_name)
+        self.scanning_proc = QuenchingProcedure("PL Quenching", self.brickslogic())
+#        self.change_current_procedure(self.curr_proc_name)
         self.current_x = 0
         self.current_y = 0
         self.xgrid = np.zeros((self.y_res, self.x_res))

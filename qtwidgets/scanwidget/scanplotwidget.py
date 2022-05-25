@@ -46,7 +46,7 @@ class ScanImageItem(ImageItem):
         return
 
     def set_image_extent(self, extent):
-        if len(extent) != 2:
+        if len(extent) != 2:x
             raise TypeError('Image extent must be iterable of length 2.')
         if len(extent[0]) != 2 or len(extent[1]) != 2:
             raise TypeError('Image extent for each axis must be iterable of length 2.')

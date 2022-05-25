@@ -115,7 +115,8 @@ class NVMicroscopyBricksLogic(GenericLogic):
         @return float Topovalue: measured topography in m.
         @return float PLvalue: measured PL rate in cts/s. 
         """
-        return 
+        data = self.confocalscanner().get_pixel_counts(pixel_clock=True)
+        return data
 
 
     def get_PL_with_MW(self, freq_list, power_list, total_meas_time):

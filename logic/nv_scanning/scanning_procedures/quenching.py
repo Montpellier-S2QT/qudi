@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """ 
-This file defines a generic procedure object used to describe a measurement. 
-It is the basis of specific scan modes, which are either predefined in .py
-files or created on the fly in a notebook. 
+This file defines the quenching scan procedure.
 
 Qudi is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,8 +19,9 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 from qtpy import QtCore
+from logic.nv_scanning.generic_procedure import GenericProcedure
 
-class GenericProcedure(object):
+class QuenchingProcedure(GenericProcedure):
     """ Object defining a generic measurement procedure, 
     helping you to build the one you need.
     """
@@ -39,13 +38,19 @@ class GenericProcedure(object):
         """
         self.name = name
         self.bricks_logic = bricks_logic
-        self.parameter_dict = {} # dict of 2-tuples (value, unit)
+        self.parameter_dict = {"Measurement time": (0.1, "s")} # dict of 2-tuples (value, unit)
+        self.clock_frequency = 1/self.parameter_dict["Measurement time"][0]
         # list of the channels to plot, each element should be a dict with the same
         # keys as the topo channel described here
         self.outputs = OrderedDict()
         self.outputs["Topography"] = {"title": "Topography", "image": np.zeros(100, 100),
-                                      "line": np.zeros(100), "name": "z", "unit": "m",
-                                      "cmap_name": "gray", "plane_fit": True, "line_correction": True} 
+                                      "line": np.zeros(100), "name": "z",
+                                      "unit": "m", "cmap_name": "gray",
+                                      "plane_fit": True, "line_correction": True}
+        self.outputs["PL Quenching"] = {"title": "PL Quenching", "image": np.zeros(100, 100),
+                                        "line": np.zeros(100), "name": "PL",
+                                        "unit": "cts/s", "cmap_name": "copper",
+                                        "plane_fit": False, "line_correction": True}
         return
 
     
@@ -54,23 +59,32 @@ class GenericProcedure(object):
         The initial steps to perform before starting the scan itself.
         For example, starting the MW, setting up the AWG trigger, etc.
         """
+        # to set up the scanner in the logic
+        self.clock_frequency = 1/self.parameter_dict["Measurement time"][0]
         return
 
     
     def compute_measurement_duration(self, x_res, y_res, width, return_slowness, move_time):
         """ Computes the time that the scan is supposed to last.
         
-        @return float duration: expected measurement time in seconds 
+        @return str displaystr: str showing the expected measurement time
         """
-        duration = 0
-        return duration
+        fwd = x_res*y_res*self.parameter_dict["Measurement time"][0]
+        bwd = y_res*(width/return_slowness)*move_time
+            
+        self.duration = fwd+bwd
+        displaystr = self.format_time(self.duration)
+        return displaystr
     
     
     def acquisition(self, px_position):
         """
         Function called by the main scanning logic at each pixel.
-        @param tuple of ints px_position: indices of the current pixel.
+        @param tuple px_position: x index, y index, position of the current px
         """
+        counts = self.bricks_logic.get_PL(self.parameter_dict["Measurement time"][0])
+        self.outputs["Topography"]["image"][px_position[1], px_position[0]] = counts[0]
+        self.outputs["PL"]["image"][px_position[1], px_position[0]] = counts[1]
         sigPixelReady.emit(self.outputs)
         return
 
@@ -89,16 +103,3 @@ class GenericProcedure(object):
         """
         return
     
-
-    def format_time(self, duration):
-        """ Convert a nb a seconds in a nice str to display """
-        minutes = int(np.floor(duration/60))
-        if minutes == 0:
-            displaystr = "{:d} s".format(int(duration))
-        else:
-            hours = int(np.floor(minutes/60))
-            if hours == 0:
-                displaystr = "{:d} min, {:d} s".format(minutes, int(duration-minutes*60))
-            else:
-                displaystr = "{:d} h, {:d} min".format(hours, minutes-hours*60)
-        return displaystr
