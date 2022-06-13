@@ -90,14 +90,20 @@ class Chameleon(Base, LaserInterface):
 
         @param (LaserState|int) laser_state: laser state (ON or OFF).
         """
-        self._device.query('L={}'.format(laser_state))
+        conversion_dict = {LaserState.ON: 1, LaserState.OFF: 0}
+        state = conversion_dict[laser_state]
+        self._device.query('L={}'.format(state))
 
     def get_laser_state(self):
         """Getter method to know the laser state (ON or OFF).
 
         @return (LaserState|int) laser_state: laser state (ON or OFF).
         """
-        laser_state = int(self._device.query('?L'))
+        state = int(self._device.query('?L'))
+        if state == 1:
+            laser_state = LaserState.ON
+        elif state == 0:
+            laser_state = LaserState.OFF
         return laser_state
 
     def set_wavelength(self, wavelength):
@@ -142,14 +148,26 @@ class Chameleon(Base, LaserInterface):
 
         @param (ShutterState) shutter_state: shutter state (OPEN/CLOSE/AUTO).
         """
-        self._device.query('S={}'.format(shutter_state))
+        if not self.get_constraints().has_shutter:
+            self.log.info('No shutter is installed on your laser.')
+
+        conversion_dict = {ShutterState.OPEN: 1, ShutterState.CLOSED: 0}
+        state = conversion_dict[shutter_state]
+        self._device.query('S={}'.format(state))
 
     def get_shutter_state(self):
         """Getter method to control the laser shutter if available.
 
         @return (ShutterState) shutter_state: shutter state (OPEN/CLOSE/AUTO).
         """
-        shutter_state = int(self._device.query('?S'))
+        if not self.get_constraints().has_shutter:
+            self.log.info('No shutter is installed on your laser.')
+            return
+        state = int(self._device.query('?S'))
+        if state == 1:
+            shutter_state = ShutterState.OPEN
+        elif state == 0:
+            shutter_state = ShutterState.CLOSED
         return shutter_state
 
     def _get_wavelength_range(self):

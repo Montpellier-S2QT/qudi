@@ -51,11 +51,10 @@ class Harmonixx(Base, MotorInterface):
 
         self._device = self._rm.open_resource(self._port)
         self._device.baud_rate = 38400
+        self._device.timeout = 20000
         self._device.write_termination = ","
         self._device.read_termination = "\n"
         self._device.clear()
-
-        time.sleep(2)
 
         self._cmd_from_axis = {
             "SHG": "SMS",
@@ -73,8 +72,7 @@ class Harmonixx(Base, MotorInterface):
         }
 
         self._axis = ["SHG", "WP", "DC", "THG", "WAVELENGTH"]
-        self._axis_pos = self.get_pos(["SHG", "WP", "DC", "THG"])
-        self._axis_pos["WAVELENGTH"] = None
+        self._axis_pos = self.get_pos(["SHG", "WP", "DC", "THG", "WAVELENGTH"])
 
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.
@@ -111,7 +109,7 @@ class Harmonixx(Base, MotorInterface):
             'acc_step': None,
         }
         constraints["DC"] = {
-            'label': "SHG",
+            'label': "DC",
             'ID': None,
             'unit': "step",
             'ramp': None,
@@ -127,7 +125,7 @@ class Harmonixx(Base, MotorInterface):
             'acc_step': None,
         }
         constraints["WP"] = {
-            'label': "SHG",
+            'label': "WP",
             'ID': None,
             'unit': "step",
             'ramp': None,
@@ -143,7 +141,7 @@ class Harmonixx(Base, MotorInterface):
             'acc_step': None,
         }
         constraints["THG"] = {
-            'label': "SHG",
+            'label': "THG",
             'ID': None,
             'unit': "step",
             'ramp': None,
@@ -194,19 +192,9 @@ class Harmonixx(Base, MotorInterface):
                 sign = "+" if rel_pos>0 else "-"
                 pos = abs(int(rel_pos))
                 param = sign+(3-len(str(pos)))*'0'+"{}".format(pos)
-            self._device.write("{}{}".format(cmd, param))
-            time.sleep(0.5)
-            self._device.read()
-            if label == "WAVELENGTH":
-                time.sleep(2)
-                self._device.read()
-                time.sleep(0.5)
-                pos = float(self._device.read()[3:])*1e-9
-                pos_dict[label] = pos
-            else:
-                time.sleep(0.5)
-                pos = float(self._device.read()[3:].split(" ")[self._axis_index[label]])
-                pos_dict[label] = pos
+            self._device.query("{}{}".format(cmd, param))
+            pos = float(self._device.read_bytes(15)[-4:])*1e-9 if label == "WAVELENGTH" else float(self._device.read()[3:].split(" ")[self._axis_index[label]])
+            pos_dict[label] = pos
             self._axis_pos[label] = pos
         return pos_dict
 
@@ -227,19 +215,9 @@ class Harmonixx(Base, MotorInterface):
                 sign = "+" if rel_pos>0 else "-"
                 pos = abs(int(rel_pos))
                 param = sign+(3-len(str(pos)))*'0'+"{}".format(pos)
-            self._device.write("{}{}".format(cmd, param))
-            time.sleep(0.5)
-            self._device.read()
-            if label == "WAVELENGTH":
-                time.sleep(2)
-                self._device.read()
-                time.sleep(0.5)
-                pos = float(self._device.read()[3:])*1e-9
-                pos_dict[label] = pos
-            else:
-                time.sleep(0.5)
-                pos = float(self._device.read()[3:].split(" ")[self._axis_index[label]])
-                pos_dict[label] = pos
+            self._device.query("{}{}".format(cmd, param))
+            pos = float(self._device.read_bytes(15)[-4:])*1e-9 if label == "WAVELENGTH" else float(self._device.read()[3:].split(" ")[self._axis_index[label]])
+            pos_dict[label] = pos
             self._axis_pos[label] = pos
         return pos_dict
 
@@ -248,7 +226,7 @@ class Harmonixx(Base, MotorInterface):
 
         @return int: error code (0:OK, -1:error)
         """
-        self._device.write("BRK")
+        self._device.query("BRK")
         return 0
 
     def get_pos(self, param_list=None):
@@ -262,16 +240,9 @@ class Harmonixx(Base, MotorInterface):
             param_list = [label for label in self._axis]
         pos_dict = {}
         for label in param_list:
-            if label == "WAVELENGTH":
-                pos_dict[label] = self._axis_pos[label]
-            else:
-                cmd = self._cmd_from_axis[label]
-                self._device.write("{}+000".format(cmd))
-                time.sleep(1)
-                self._device.read()
-                time.sleep(1)
-                pos_dict[label] = float(self._device.read()[3:].split(" ")[self._axis_index[label]])
-
+            pos = float(self._device.query("GWL")[3:])*1e-9 if label == "WAVELENGTH" \
+                else float(self._device.query("GPS")[3:].split(" ")[self._axis_index[label]])
+            pos_dict[label] = pos
         return pos_dict
 
     def get_status(self, param_list=None):
@@ -304,16 +275,14 @@ class Harmonixx(Base, MotorInterface):
             param_list = [label for label in self._axis]
         pos_dict = {}
         for label in param_list:
+            cmd = self._cmd_from_axis[label]
             if label == "WAVELENGTH":
-                self._device.write("{}".format(label))
-                time.sleep(2)
-                self._device.read()
-                pos_dict[label] = float(self._device.read()[3:])*1e-9
+                self._device.query("{}0800".format(cmd))
         else:
-                self._device.write("{}+0".format(label))
-                self._device.read()
-                pos_dict[label] = float(self._device.read()[3:].split(" ")[self._axis_index[label]])
-
+                self._device.query("{}+0".format(cmd))
+        pos = float(self._device.read_bytes(15)[-4:])*1e-9 if label == "WAVELENGTH" else float(self._device.read()[3:].split(" ")[self._axis_index[label]])
+        pos_dict[label] = pos
+        self._axis_pos[label] = pos
         return pos_dict
 
     def get_velocity(self, param_list=None):
