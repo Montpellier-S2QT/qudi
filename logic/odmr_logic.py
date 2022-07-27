@@ -118,6 +118,10 @@ class ODMRLogic(GenericLogic):
         self.frequency_lists = []
         self.final_freq_list = []
 
+        self.random_list = False
+        self.permutation = None
+        self.permutation_inverse = None
+
         # Set flags
         # for stopping a measurement
         self._stopRequested = False
@@ -513,8 +517,15 @@ class ODMRLogic(GenericLogic):
                 mode, is_running = self._mw_device.get_status()
                 self.sigOutputStateUpdated.emit(mode, is_running)
                 return mode, is_running
-            freq_list, self.sweep_mw_power, mode = self._mw_device.set_list(final_freq_list,
-                                                                            self.sweep_mw_power)
+
+            self.permutation = np.arange(len(final_freq_list)) # no permutation
+            if self.random_list:
+                np.random.shuffle(self.permutation)
+            self.permutation_inverse = np.argsort(self.permutation)
+            final_freq_list = final_freq_list[self.permutation]
+
+            freq_list, self.sweep_mw_power, mode = self._mw_device.set_list(final_freq_list, self.sweep_mw_power)
+            freq_list = freq_list[self.permutation_inverse]
 
             self.final_freq_list = np.array(freq_list)
             self.mw_starts = used_starts
@@ -759,6 +770,8 @@ class ODMRLogic(GenericLogic):
 
             # Acquire count data
             error, new_counts = self._odmr_counter.count_odmr(length=self.odmr_plot_x.size)
+            if self.random_list:
+                new_counts = new_counts[:, self.permutation_inverse]
 
             if error:
                 self.stopRequested = True
