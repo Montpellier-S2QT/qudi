@@ -104,7 +104,7 @@ class ODMRLogic(GenericLogic):
 
         # Set the trigger polarity (RISING/FALLING) of the mw-source input trigger
         # theoretically this can be changed, but the current counting scheme will not support that
-        self.mw_trigger_pol = TriggerEdge.RISING
+        self.mw_trigger_pol = TriggerEdge.FALLING
         self.set_trigger(self.mw_trigger_pol, self.clock_frequency)
 
         # Elapsed measurement time and number of sweeps
