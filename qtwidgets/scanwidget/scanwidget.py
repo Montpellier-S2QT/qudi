@@ -22,6 +22,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import os
 import pyqtgraph as pg
+import numpy as np
 
 from qtpy import QtWidgets
 from qtpy import uic
@@ -64,7 +65,7 @@ class ScanWidget(QtWidgets.QDockWidget):
         self.cursorCheckBox.clicked.connect(self.toggle_cursor)
         self.raw_data = data
         self.raw_line = line
-        self.line_coords = np.linspace(extent[0][0], extent[0][1], np.size(raw_data, axis=1))
+        self.line_coords = np.linspace(extent[0][0], extent[0][1], np.size(self.raw_data, axis=1))
         
         # creates additional buttons if needed
         if plane_fit:
