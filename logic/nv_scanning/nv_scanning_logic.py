@@ -121,6 +121,7 @@ class NVMicroscopeLogic(GenericLogic):
     sigUpdateProcedureList = QtCore.Signal(list) # connected in GUI
     sigProcedureChanged = QtCore.Signal(dict) # connected in GUI
     sigMovetoEnded = QtCore.Signal(bool) # connected in GUI
+    sigUpdatePlots = QtCore.Signal() # connected in GUI
     
     sigXResChanged = QtCore.Signal(int) # for mapper
     sigYResChanged = QtCore.Signal(int) # for mapper
@@ -136,13 +137,9 @@ class NVMicroscopeLogic(GenericLogic):
     sigLiftChanged = QtCore.Signal(float) # for mapper
     sigSpecParamsChanged = QtCore.Signal(dict) # for mapper
     sigXPosChanged = QtCore.Signal(float) 
-    sigYPosChanged = QtCore.Signal(float) 
+    sigYPosChanged = QtCore.Signal(float)
 
-    sigStartScan = QtCore.Signal()
-    sigStopScan = QtCore.Signal(bool)
-    sigResumeScan = QtCore.Signal()
-   
-
+    sigNextPixel = QtCore.Signal()
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -157,13 +154,17 @@ class NVMicroscopeLogic(GenericLogic):
         # in this threadpool our worker thread will be run
         self.threadpool = QtCore.QThreadPool()
 
+        # connect signals
+        self.sigNextPixel.connect(self.scan_pixel, QtCore.Qt.QueuedConnection)
+
         #self.scanning_proc = self.change_current_procedure(self.curr_proc_name)
         self.scanning_proc = QuenchingProcedure("PL Quenching", self.brickslogic())
-#        self.change_current_procedure(self.curr_proc_name)
+        self.curr_proc_name = "PL Quenching"
+        self.change_current_procedure(self.curr_proc_name)
         self.current_x = 0
         self.current_y = 0
-        self.xgrid = np.zeros((self.y_res, self.x_res))
-        self.ygrid = np.zeros((self.y_res, self.x_res))
+        self.xgrid = np.zeros((int(self.y_res), int(self.x_res)))
+        self.ygrid = np.zeros((int(self.y_res), int(self.x_res)))
         self.ei = 1 # for the scanning direction
         self.ej = 1 # for the scanning direction
         
@@ -182,7 +183,7 @@ class NVMicroscopeLogic(GenericLogic):
     # x resolution
     def handle_x_res(self, value=None):
         if value is not None:
-            self.x_res = value
+            self.x_res = int(value)
             self.sigXResChanged.emit(self.x_res)
             return 
         else:
@@ -192,7 +193,7 @@ class NVMicroscopeLogic(GenericLogic):
     # y resolution
     def handle_y_res(self, value=None):
         if value is not None:
-            self.y_res = value
+            self.y_res = int(value)
             self.sigYResChanged.emit(self.y_res)
             return 
         else:
@@ -344,10 +345,17 @@ class NVMicroscopeLogic(GenericLogic):
 
     def change_current_procedure(self, procedure_name):
         """ Change to another scanning procedure. """
+        # first disconnect the old one
+        try:
+            self.scanning_proc.sigPixelReady.disconnect()
+        except:
+            pass
+
+        # change the procedure
         #self.scanning_proc = self.proc_list[procedure_name]
-        #self.spec_params_dict = self.scanning_proc.parameter_dict
-        #self.output_channels = self.scanning_proc.outputs
-        self.spec_params_dict = {"Measurement time": (0.1, "s")} 
+        self.spec_params_dict = self.scanning_proc.parameter_dict
+        self.output_channels = self.scanning_proc.outputs
+        self.scanning_proc.sigPixelReady.connect(self.prepare_new_pixel)
         self.sigProcedureChanged.emit(self.spec_params_dict)
         return
 
@@ -431,6 +439,20 @@ class NVMicroscopeLogic(GenericLogic):
 
         return
 
+    
+    def shift_indices(self):
+        """ Bring back the indices to the correct position at the end of the scan.
+        """ 
+        # at the end, the indices go too far, shift them
+        if self.line_position[1] == np.size(self.xgrid, axis=0):
+            self.line_position[1] = self.line_position[1] -1
+        if self.line_position[0] == np.size(self.xgrid, axis=1):
+            self.line_position[0] = self.line_position[0] -1
+        # recall last position
+        self.current_position[0] = self.xgrid[self.line_position[1], self.line_position[0]]
+        self.current_position[1] = self.xgrid[self.line_position[1], self.line_position[0]]
+        return
+    
 
     def moveto(self, x, y):
         """ Action when the MoveTo button is pushed.
@@ -487,12 +509,254 @@ class NVMicroscopeLogic(GenericLogic):
         self.sigMovetoEnded.emit(True)
 
 
+    def start_scanner(self):
+        """ Setting up the scanner device and starts the scanning procedure.
+        
+        @return bool: True if OK, False if error.
+        """
+        self.log.info("Starting the scanner")
+        
+        self.stopRequested = False
+         
+        with self.threadlock:
+            if self.module_state() == 'locked':
+                self.log.error('Cannot start a scan. Logic is already locked.')
+                return False
+            self.module_state.lock()
+             
+        clock_status = self.confocalscanner().set_up_scanner_clock(
+            clock_frequency=self.movement_frequency)
+
+        if clock_status < 0:
+            self.module_state.unlock()
+            return False
+    
+        scanner_status = self.confocalscanner().set_up_scanner(
+            scanner_ao_channels=self.confocalscanner()._scanner_ao_channels)
+    
+        if scanner_status < 0:
+            self.confocalscanner().close_scanner_clock()
+            self.module_state.unlock()
+            return False
+
+        self.sigNextPixel.emit()
+        return True
+    
+
+    def kill_scanner(self):
+        """ Closing the scanner device. """
+        
+        self.log.info("Killing the scanner")
+        try:
+            self.module_state.unlock()
+        except Exception as e:
+            self.log.exception('Could not unlock the scanning logic.')
+        try:
+            self.confocalscanner().close_scanner()
+        except Exception as e:
+            self.log.exception('Could not close the scanner.')
+        try:
+            self.confocalscanner().close_scanner_clock()
+        except Exception as e:
+            self.log.exception('Could not close the scanner clock.')
+
+        self.scanning_proc.scan_end()
+            
+        self.current_position = self.confocalscanner().get_scanner_position()[:2]
+        
+        return
+
+
+    def reset_position(self):
+        """ Bring the scanner to the initial position of the scan, otherwise does nothing
+        """
+        try:
+            rs = self.return_slowness
+                
+            if self.line_position[0] == 0 and self.line_position[1] == 0:
+                # make a line from the current cursor position to
+                # the starting position of the first scan line of the scan
+                
+                if self.current_position != [self.xgrid[0, 0], self.ygrid[0, 0]]:
+                    lsx = np.arange(min(self.current_position[0], self.xgrid[0, 0]),
+                                    max(self.current_position[0], self.xgrid[0, 0]), rs)
+                    if len(lsx) == 0:
+                        lsx = [self.xgrid[0,0]]
+                    lsy = np.arange(min(self.current_position[1], self.ygrid[0, 0]),
+                                    max(self.current_position[1], self.ygrid[0, 0]), rs)
+                    if len(lsy) == 0:
+                        lsy = [self.ygrid[0,0]]
+
+                    if lsx[0] != self.current_position[0]:
+                        lsx = lsx[::-1]
+                    if lsy[0] != self.current_position[1]:
+                        lsy = lsy[::-1]
+                                   
+                    lsx_temp = np.pad(lsx, (0, np.abs(len(lsx)-max(len(lsx), len(lsy)))),
+                                      'constant', constant_values=(0, lsx[-1]))
+                    lsy = np.pad(lsy, (0, np.abs(len(lsy)-max(len(lsx), len(lsy)))),
+                                 'constant', constant_values=(0, lsy[-1]))
+                    lsx = lsx_temp
+                    start_line = np.vstack([lsx, lsy])
+                   
+                    # move to the initial position of the scan, counts are thrown away
+                    start_line_counts = self.confocalscanner().scan_line(start_line)
+                    if np.any(start_line_counts == -1):
+                        self.stopRequested = True
+                        self.sigNextPixel.emit()
+                        self.log.warning("Issue with the counter when moving to initial position!")
+                        return False
+                    self.log.info("Bringing the scanner to initial position")
+        except Exception as e:
+            print(e)
+            return False
+        return True
+    
+
+    def get_new_pixel_position(self):
+        """ Find position of the next pixel."""
+        try:              
+            # return scanner to the start of the next line or stop the scan if we reach the limit
+            self.line_position[0] += 1
+            if self.line_position[0] >= np.size(self.xgrid, axis=1):
+                # end of line
+                self.scanning_proc.end_of_line_action()
+                # increment counters
+                self.line_position[0] = 0
+                self.line_position[1] += 1 
+                # we reach the limits, stop the scan
+                if self.line_position[1] >= np.size(self.xgrid, axis=0):
+                    self.stop_scanning(end=True)
+                    self.log.info("Reached end of scan")
+                    self.line_position = [0, 0]
+                    self.sigNextPixel.emit()
+                    return True
+                self.return_line()
+            self.sigNextPixel.emit()
+        except:
+            self.log.exception('The scan went wrong, killing the scanner.')
+            self.stop_scanning()
+            self.sigNextPixel.emit()
+        return True
+
+
+    def move_to_next_pixel(self):
+        """ Move the scanner to the pixel defined in self.line_position.
+        """
+        # write the next positions
+        self.current_position[0] = self.xgrid[self.line_position[1], self.line_position[0]]
+        self.current_position[1] = self.ygrid[self.line_position[1], self.line_position[0]]
+            
+        position = np.vstack(self.current_position)
+        # send the position to the hardware
+        try:
+            self.confocalscanner()._write_scanner_ao(
+                    voltages=self.confocalscanner()._scanner_position_to_volt(position),
+                    start=True)
+        except:
+            return False
+
+        return True
+    
     ###############################
     # Handle the data acquisition #
     ###############################
 
     def init_outputs(self):
-        """ Sets all the images and all the lines of the procedure outputs to zero. """
+        """ Sets all the images and all the lines of the procedure outputs to zero,
+        with the proper sizes."""
+        for ch in self.output_channels.keys():
+            output_ch = self.output_channels[ch]
+            output_ch["image"] = np.zeros((self.y_res, self.x_res))
+            output_ch["line"] = np.zeros(self.x_res)
+        return
+
+
+    def start_scanning(self):
+        """ Launch the scanning process. """
+        self.init_outputs()
+        self.generate_scanning_grid()
+        self.scanning_proc.scan_init()
+        self.line_position = [0, 0]
+        self.start_scanner()
+        return
+
+
+    def stop_scanning(self):
+        """ Stops the scan.
+        """ 
+        self.log.info("Stopping the scan.")
+        with self.threadlock:
+            if self.module_state() == 'locked':
+                self.stopRequested = True
+        # at the end, the indices go too far, shift them
+        self.shift_indices()
+        self.sigStopScan.emit(end)
+        return
+
+
+    def resume_scanning(self):
+        pass
+
+    def scan_pixel(self):
+        """ Gets the data from a pixel. """
+        # stops scanning if requested
+        if self.stopRequested:
+            with self.threadlock:
+                self.kill_scanner()
+                self.stopRequested = False
+                return True
+        try:
+            if not self.reset_position():
+                self.log.exception('Resetting position failed. The scan went wrong, killing the scanner.')
+                self.stop_scanning()
+                self.sigNextPixel.emit()
+
+            if not self.move_to_next_pixel:
+                return False
+
+            if self.launch_data_acquisition() is None: # important test, does the scanning
+                self.log.exception('Scanning failed. The scan went wrong, killing the scanner.')
+                self.stop_scanning()
+                self.sigNextPixel.emit()                
+                
+        except Exception as e:
+            self.log.exception('The scan went wrong, killing the scanner.')
+            self.stop_scanning()
+            return False
+
+        return True
+
+
+    
+    def launch_data_acquisition(self):
+        """ Will run the method from the scanning procedure."""
+        try:
+            # need a thread here to avoid that python freezes
+            self._worker_thread = WorkerThread(target=self.scanning_proc.acquisition(),
+                                               args=(self.line_position),
+                                               name = "get_pixel_data")
+            self.threadpool.start(self._worker_thread)
+            
+        except:
+            self.log.exception('The scan went wrong, killing the scanner.')
+            self.stop_scanning()
+            self.sigNextLine.emit()
+            return False
+        return True
+
+
+    def prepare_new_pixel(self, outputs):
+        """ Update the data arrays and find next pixel position. """
+        for k in outputs.keys():
+            self.output_channels[k]["image"] = outputs[k]["image"]
+        self.update_plots()
+        
+        self._worker_thread = WorkerThread(target=self.get_new_pixel_position,
+                                           name="new_pixel_position")
+        self.threadpool.start(self._worker_thread)
+        return
+        
         
     
     #########################
@@ -501,7 +765,10 @@ class NVMicroscopeLogic(GenericLogic):
 
     def update_plots(self):
         """ Send the signal to update the plots in the GUI. """
-        pass
+        # compute lines TODO
+        
+        self.sigUpdatePlots.emit()
+        return
 
 
     def save_data(self):

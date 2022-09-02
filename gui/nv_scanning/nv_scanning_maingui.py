@@ -105,6 +105,11 @@ class NVScanningGui(GUIBase):
     # status variables
     max_scanner = StatusVar('max_scanner', default=30e-6)
 
+    # declare signals
+    sigStartScan = QtCore.Signal()
+    sigResumeScan = QtCore.Signal()
+    sigStopScan = QtCore.Signal()
+
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
 
@@ -124,8 +129,9 @@ class NVScanningGui(GUIBase):
 
         # connect a few things
         self._mw.actionChange_scanner_range.triggered.connect(self.change_max_scanner)
-        self.microscopelogic().sigProcedureChanged.connect(self.create_spec_params_widgets)
+        self.microscopelogic().sigProcedureChanged.connect(self.update_scan_proc_display)
         self.microscopelogic().sigMovetoEnded.connect(self.enable_disable_moveto)
+        self.microscopelogic().sigUpdatePlots.connect(self.update_plots)
 
         self.initiate_general_params_dock()
         self.initiate_XYscanner_mapping_dock()
@@ -136,8 +142,22 @@ class NVScanningGui(GUIBase):
         self.create_spec_params_widgets(self.microscopelogic().spec_params_dict)
         self.image_dockwidgets = {}
 
+         # Internal signals
         self._mw.actionView_image_plots.toggled.connect(self.hide_show_image_plots)
-        
+        self._mw.actionStart.triggered.connect(self.start_scanning)
+        self._mw.actionPause.triggered.connect(self.pause_scanning)
+        self._mw.actionResume.triggered.connect(self.resume_scanning)
+        self._mw.actionSave.triggered.connect(self.save_routine)
+
+        # Send signals to logic
+        self.sigStartScan.connect(self.microscopelogic().start_scanning,
+                                  QtCore.Qt.QueuedConnection)
+        self.sigStopScan.connect(self.microscopelogic().stop_scanning,
+                                 QtCore.Qt.QueuedConnection)
+        self.sigResumeScan.connect(self.microscopelogic().resume_scanning,
+                                   QtCore.Qt.QueuedConnection)
+
+        self.update_scan_proc_display(self.microscopelogic().spec_params_dict)
         # Show the main window
         self.show()
         return
@@ -291,6 +311,7 @@ class NVScanningGui(GUIBase):
         self.microscopelogic().sigRefreshScanArea.connect(self.update_scan_area_plot)
         return            
 
+
     def update_current_pos(self, val, widget):
         """ Display the scanner position."""
         widget.setValue(val)
@@ -382,7 +403,15 @@ class NVScanningGui(GUIBase):
             grid.addWidget(self.spec_params_widgets[param][1], last_row, 2)
 
         return
+    
 
+    def update_scan_proc_display(self, spec_params_dict):
+        """ Create the param widgets and the scan dockwidgets. """
+        self.create_spec_params_widgets(spec_params_dict)
+        for ch in self.microscopelogic().output_channels.keys():
+            self.add_scan_dockwidget(self.microscopelogic().output_channels[ch])
+        return
+    
 
     def update_scan_area_plot(self):
         """ Update the sketch of the scan region."""
@@ -397,7 +426,7 @@ class NVScanningGui(GUIBase):
         self.scan_area_plot.setData(self.scan_area_corners)
         self.start_plot.setData(x=np.array([self.microscopelogic().starting_point_coords()[0]]),
                                 y=np.array([self.microscopelogic().starting_point_coords()[1]]))
-        print(self.scan_area_corners*1e6)
+        #print(self.scan_area_corners*1e6)
         return
 
 
@@ -495,7 +524,7 @@ class NVScanningGui(GUIBase):
 
     
     def enable_disable_moveto(self, status=True):
-        """ Enable of disable the move to button.
+        """ Enable of disable the move to buttons.
         """
         self._mw.moveto_pushButton.setEnabled(status)
         self._mw.moveto_start_pushButton.setEnabled(status)
@@ -507,3 +536,48 @@ class NVScanningGui(GUIBase):
 
     def check_scanner_position(self):
         return True
+
+    def global_check(self):
+        # check scanner position
+        # check scan range
+        # check aspect ratio
+        return True
+    
+    def enable_disable_action(self, status):
+        return
+
+    
+    def start_scanning(self):
+        """ Prepare the GUI for the scan.
+        """
+        test = self.global_check()
+        if test:
+            self.enable_disable_action(False)
+            self.sigStartScan.emit()
+            self.log.info("Scanning...")
+        else:
+            self.log.warning("Did not start scanning. Change the scan range or the resolution.")
+        return
+
+
+    def pause_scanning(self):
+        """ Stop the scan.
+        """
+        self.enable_disable_action(True)
+        self.sigStopScan.emit()
+        self._mw.actionResume.setEnabled(True)
+        self.log.info("Scanning stopped.")
+        return
+
+
+
+    def resume_scanning(self):
+        return
+
+
+    def update_plots(self):
+        return
+    
+
+    def save_routine(self):
+        return

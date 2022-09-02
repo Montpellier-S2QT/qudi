@@ -112,8 +112,7 @@ class NVMicroscopyBricksLogic(GenericLogic):
 
         @param float meas_time: duration of the PL measurement, in s.
 
-        @return float Topovalue: measured topography in m.
-        @return float PLvalue: measured PL rate in cts/s. 
+        @return list data: measured topography in m, measured PL rate in cts/s. 
         """
         data = self.confocalscanner().get_pixel_counts(pixel_clock=True)
         return data
@@ -130,8 +129,7 @@ class NVMicroscopyBricksLogic(GenericLogic):
                                       frequency is accumulated during a this time 
                                       divided by the number of frequencies.
 
-        @return float topo_value: measured topography in m.
-        @return list PL_list: measured PL rates in cts/s. 
+        @return list data: measured topography in m, measured PL rates in cts/s.  
         """
         return
 

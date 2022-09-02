@@ -20,10 +20,11 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 """
 from qtpy import QtCore
 from logic.nv_scanning.generic_procedure import GenericProcedure
+from collections import OrderedDict
+import numpy as np
 
 class QuenchingProcedure(GenericProcedure):
-    """ Object defining a generic measurement procedure, 
-    helping you to build the one you need.
+    """ Object defining the quenching measurement procedure.
     """
 
     sigPixelReady = QtCore.Signal(OrderedDict) # to send the data back to the logic
@@ -36,6 +37,7 @@ class QuenchingProcedure(GenericProcedure):
         @param NVMicroscopyBricksLogic bricks_logic: logic connected to the 
                hardware and defining all the basic operations.
         """
+        super().__init__(name, bricks_logic)
         self.name = name
         self.bricks_logic = bricks_logic
         self.parameter_dict = {"Measurement time": (0.1, "s")} # dict of 2-tuples (value, unit)
@@ -43,11 +45,11 @@ class QuenchingProcedure(GenericProcedure):
         # list of the channels to plot, each element should be a dict with the same
         # keys as the topo channel described here
         self.outputs = OrderedDict()
-        self.outputs["Topography"] = {"title": "Topography", "image": np.zeros(100, 100),
+        self.outputs["Topography"] = {"title": "Topography", "image": np.zeros((100, 100)),
                                       "line": np.zeros(100), "name": "z",
                                       "unit": "m", "cmap_name": "gray",
                                       "plane_fit": True, "line_correction": True}
-        self.outputs["PL Quenching"] = {"title": "PL Quenching", "image": np.zeros(100, 100),
+        self.outputs["PL Quenching"] = {"title": "PL Quenching", "image": np.zeros((100, 100)),
                                         "line": np.zeros(100), "name": "PL",
                                         "unit": "cts/s", "cmap_name": "copper",
                                         "plane_fit": False, "line_correction": True}

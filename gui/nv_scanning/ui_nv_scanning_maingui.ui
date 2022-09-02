@@ -80,7 +80,7 @@
    <addaction name="actionPause"/>
    <addaction name="actionResume"/>
    <addaction name="separator"/>
-   <addaction name="actionSAve"/>
+   <addaction name="actionSave"/>
   </widget>
   <widget class="QDockWidget" name="XYScannerDockWidget">
    <property name="font">
@@ -939,7 +939,7 @@
          <rect>
           <x>0</x>
           <y>0</y>
-          <width>412</width>
+          <width>396</width>
           <height>70</height>
          </rect>
         </property>
@@ -1149,7 +1149,7 @@
     </layout>
    </widget>
   </widget>
-  <action name="actionSAve">
+  <action name="actionSave">
    <property name="icon">
     <iconset>
      <normaloff>../../artwork/icons/oxygen/22x22/document-save.png</normaloff>../../artwork/icons/oxygen/22x22/document-save.png</iconset>
@@ -1171,12 +1171,18 @@
    <property name="checkable">
     <bool>true</bool>
    </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>View general parameters</string>
    </property>
   </action>
   <action name="actionView_XY_scanner_parameters">
    <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
     <bool>true</bool>
    </property>
    <property name="text">
@@ -1187,12 +1193,18 @@
    <property name="checkable">
     <bool>true</bool>
    </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>View AFM Z scanner</string>
    </property>
   </action>
   <action name="actionView_Procedure_specific_parameters">
    <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
     <bool>true</bool>
    </property>
    <property name="text">
@@ -1203,12 +1215,18 @@
    <property name="checkable">
     <bool>true</bool>
    </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>View ESR spectra</string>
    </property>
   </action>
   <action name="actionView_image_plots">
    <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
     <bool>true</bool>
    </property>
    <property name="text">
