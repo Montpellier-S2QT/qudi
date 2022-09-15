@@ -689,7 +689,7 @@ class Main(GUIBase):
             if tab_index < 2:
                 btn = self._input_port_buttons[i]
                 if i == tab_index:
-                    self.spectrumlogic().input_port = self.spectrumlogic().spectro_constraints.ports[i].type
+                    self.spectrumlogic().input_port = self._input_ports[i].type
                     btn.setChecked(True)
                     btn.setDown(True)
                 else:
@@ -698,7 +698,7 @@ class Main(GUIBase):
             elif tab_index > 1:
                 btn = self._output_port_buttons[i]
                 if i+2 == tab_index:
-                    self.spectrumlogic().output_port = self.spectrumlogic().spectro_constraints.ports[i+2].type
+                    self.spectrumlogic().output_port = self._output_ports[i].type
                     btn.setChecked(True)
                     btn.setDown(True)
                 else:
