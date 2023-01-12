@@ -1318,7 +1318,7 @@ class PulseBlasterESRPRO(Base, PulserInterface):
         # Minimum instruction time in clock cycles specified in the config,
         # translates for 6 clock cycles to 12ns at 500MHz.
         constraints.waveform_length.min = self._min_instr_len
-        constraints.waveform_length.max = 2**20-1
+        constraints.waveform_length.max = 2**30-1
         constraints.waveform_length.step = 1
         constraints.waveform_length.default = 128
 
