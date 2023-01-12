@@ -111,6 +111,7 @@ class PulseBlasterESRPRO(Base, PulserInterface):
     _debug_mode = ConfigOption('debug_mode', default=False)
 
     _use_smart_pulse_creation = ConfigOption('use_smart_pulse_creation', default=False)
+    _use_short_pulses = ConfigOption('use_short_pulses', default=False)
 
     _channel_delays = ConfigOption('channel_delays', default=[])
 
@@ -708,6 +709,7 @@ class PulseBlasterESRPRO(Base, PulserInterface):
                                           immediate_start=False)
 
         self.start_programming()
+        self._next_pulse_pad = 0 # only used for short pulse feature
         start_pulse = self._convert_pulse_to_inst(
                             sequence_list[0]['active_channels'],
                             sequence_list[0]['length'])
@@ -860,7 +862,60 @@ class PulseBlasterESRPRO(Base, PulserInterface):
                         break
                     i = i+1
                     length = remaining_time - i*self.GRAN_MIN
-        else:
+                    
+        elif self._use_short_pulses:
+            # In this mode we try to support pulses smaller that the minimum 5 or 6 instructions by using the short pulse feature of the pulseblaster
+        
+            length_in_clock_cycle = np.round(length/self.GRAN_MIN)
+            
+            if length_in_clock_cycle == 0:
+                self.log.warning("Instruction of duration zero detected, it should be ignored this time but avoid this to prevent problems.")
+                return 0 # No need to do anything, the zero 
+        
+            elif length_in_clock_cycle < self._min_instr_len: # we need to do something
+            
+                if self._next_pulse_pad>0:
+                    return self.log.error('Can not have two consecutive short instructions in short pulse mode.')  
+                
+                if len(active_channels) == 0:
+                    return self.log.error('Short instructions can not be every channel down.')  
+                
+                flags = [self.ONE_PERIOD, self.TWO_PERIOD, self.THREE_PERIOD, self.FOUR_PERIOD, self.FIVE_PERIOD, self.FIVE_PERIOD][length_in_clock_cycle-1]
+                
+                num = self._write_pulse(flags=flags | channel_bitmask,
+                                    inst=self.CONTINUE,
+                                    inst_data=None,
+                                    length=self.GRAN_MIN*self._min_instr_len)
+                                    
+                self._next_pulse_pad = self.GRAN_MIN*self._min_instr_len - length
+                return num
+                
+            else:
+                
+                if self._next_pulse_pad > 0: # This is a normal instructiuion but we have to remove a few clock cycles
+                
+                    new_length = length - self._next_pulse_pad
+                    
+                    if new_length < self.GRAN_MIN*self._min_instr_len:
+                        return self.log.error('Can not have two consecutive short instructions in short pulse mode.')  
+                        
+                    if len(active_channels) != 0:
+                        return self.log.error('Short instructions have to be followed by every channel down.')  
+                    
+                    num = self._write_pulse(flags=self.ON | channel_bitmask,
+                                    inst=self.CONTINUE,
+                                    inst_data=None,
+                                    length=new_length)
+                    
+                    self._next_pulse_pad = 0
+                
+                else: # normal operation
+                    num = self._write_pulse(flags=self.ON | channel_bitmask,
+                                    inst=self.CONTINUE,
+                                    inst_data=None,
+                                    length=length)
+                
+        else:  # no fancy pulse stuff, no bug :)
             num = self._write_pulse(flags=self.ON | channel_bitmask,
                                     inst=self.CONTINUE,
                                     inst_data=None,
