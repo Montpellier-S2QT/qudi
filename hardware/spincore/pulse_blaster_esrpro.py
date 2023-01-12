@@ -880,7 +880,7 @@ class PulseBlasterESRPRO(Base, PulserInterface):
                 if len(active_channels) == 0:
                     return self.log.error('Short instructions can not be every channel down.')  
                 
-                flags = [self.ONE_PERIOD, self.TWO_PERIOD, self.THREE_PERIOD, self.FOUR_PERIOD, self.FIVE_PERIOD, self.FIVE_PERIOD][length_in_clock_cycle-1]
+                flags = [self.ONE_PERIOD, self.TWO_PERIOD, self.THREE_PERIOD, self.FOUR_PERIOD, self.FIVE_PERIOD, self.FIVE_PERIOD][int(length_in_clock_cycle-1)]
                 
                 num = self._write_pulse(flags=flags | channel_bitmask,
                                     inst=self.CONTINUE,
@@ -1372,7 +1372,7 @@ class PulseBlasterESRPRO(Base, PulserInterface):
 
         # Minimum instruction time in clock cycles specified in the config,
         # translates for 6 clock cycles to 12ns at 500MHz.
-        constraints.waveform_length.min = self._min_instr_len
+        constraints.waveform_length.min = 1
         constraints.waveform_length.max = 2**30-1
         constraints.waveform_length.step = 1
         constraints.waveform_length.default = 128
@@ -1942,7 +1942,7 @@ class PulseBlasterESRPRO(Base, PulserInterface):
                 else:
                     # increase length by 1%, to remove the ambiguity for the
                     # comparison
-                    if last_sequence_dict['length']*1.01 < self.LEN_MIN:
+                    if last_sequence_dict['length']*1.01 < self.LEN_MIN and not self._use_short_pulses:
                         self.log.warning('Current waveform contains a pulse of '
                                          'length {0:.2f}ns, which is smaller '
                                          'than the minimal allowed length of '
