@@ -508,16 +508,10 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         @return float [samples]: array with entries as photon counts per second
         """
         if len(self._counter_channels) > 0 and len(self._counter_daq_tasks) < 1:
-            self.log.error(
-                'No counter running, call set_up_counter before reading it.')
-            # in case of error return a lot of -1
-            return np.ones((len(self.get_counter_channels()), samples), dtype=np.uint32) * -1
+            return self.log.error('No counter running, call set_up_counter before reading it.')
 
         if len(self._counter_ai_channels) > 0 and self._counter_analog_daq_task is None:
-            self.log.error(
-                'No counter analog input task running, call set_up_counter before reading it.')
-            # in case of error return a lot of -1
-            return np.ones((len(self.get_counter_channels()), samples), dtype=np.uint32) * -1
+            return self.log.error('No counter analog input task running, call set_up_counter before reading it.')
 
         if samples is None:
             samples = int(self._samples_number)
