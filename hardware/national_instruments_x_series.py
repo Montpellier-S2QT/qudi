@@ -96,7 +96,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
     # slow counter
     _clock_channel = ConfigOption('clock_channel', missing='error')
     _default_clock_frequency = ConfigOption('default_clock_frequency', 100, missing='info')
-    _counter_channels = ConfigOption('counter_channels', missing='error')
+    _counter_channels = ConfigOption('counter_channels', list(), missing='info')
     _counter_ai_channels = ConfigOption('counter_ai_channels', list(), missing='info')
     _counter_voltage_range = ConfigOption('counter_voltage_range', [-10, 10], missing='info')
 
@@ -104,11 +104,11 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
     _default_scanner_clock_frequency = ConfigOption('default_scanner_clock_frequency', 100, missing='info')
     _scanner_clock_channel = ConfigOption('scanner_clock_channel', missing='warn')
     _pixel_clock_channel = ConfigOption('pixel_clock_channel', None)
-    _scanner_ao_channels = ConfigOption('scanner_ao_channels', missing='error')
+    _scanner_ao_channels = ConfigOption('scanner_ao_channels', list(), missing='info')
     _scanner_ai_channels = ConfigOption('scanner_ai_channels', list(), missing='info')
     _scanner_counter_channels = ConfigOption('scanner_counter_channels', list(), missing='warn')
-    _scanner_voltage_ranges = ConfigOption('scanner_voltage_ranges', missing='error')
-    _scanner_position_ranges = ConfigOption('scanner_position_ranges', missing='error')
+    _scanner_voltage_ranges = ConfigOption('scanner_voltage_ranges', list(), missing='info')
+    _scanner_position_ranges = ConfigOption('scanner_position_ranges', list(), missing='info')
 
     # odmr
     _odmr_trigger_channel = ConfigOption('odmr_trigger_channel', missing='error')
@@ -442,31 +442,31 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
                 self._counter_daq_tasks.append(task)
 
                 # Counter analog input task
-                if len(self._counter_ai_channels) > 0:
-                    atask = daq.TaskHandle()
+            if len(self._counter_ai_channels) > 0:
+                atask = daq.TaskHandle()
 
-                    daq.DAQmxCreateTask('CounterAnalogIn', daq.byref(atask))
+                daq.DAQmxCreateTask('CounterAnalogIn', daq.byref(atask))
 
-                    daq.DAQmxCreateAIVoltageChan(
-                        atask,
-                        ', '.join(self._counter_ai_channels),
-                        'Counter Analog In',
-                        daq.DAQmx_Val_RSE,
-                        self._counter_voltage_range[0],
-                        self._counter_voltage_range[1],
-                        daq.DAQmx_Val_Volts,
-                        ''
-                    )
-                    # Analog in channel timebase
-                    daq.DAQmxCfgSampClkTiming(
-                        atask,
-                        my_clock_channel + 'InternalOutput',
-                        self._clock_frequency,
-                        daq.DAQmx_Val_Rising,
-                        daq.DAQmx_Val_ContSamps,
-                        int(self._clock_frequency * 5)
-                    )
-                    self._counter_analog_daq_task = atask
+                daq.DAQmxCreateAIVoltageChan(
+                    atask,
+                    ', '.join(self._counter_ai_channels),
+                    'Counter Analog In',
+                    daq.DAQmx_Val_RSE,
+                    self._counter_voltage_range[0],
+                    self._counter_voltage_range[1],
+                    daq.DAQmx_Val_Volts,
+                    ''
+                )
+                # Analog in channel timebase
+                daq.DAQmxCfgSampClkTiming(
+                    atask,
+                    my_clock_channel + 'InternalOutput',
+                    self._clock_frequency,
+                    daq.DAQmx_Val_Rising,
+                    daq.DAQmx_Val_ContSamps,
+                    int(self._clock_frequency * 5)
+                )
+                self._counter_analog_daq_task = atask
         except:
             self.log.exception('Error while setting up counting task.')
             return -1
@@ -507,7 +507,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
         @return float [samples]: array with entries as photon counts per second
         """
-        if len(self._counter_daq_tasks) < 1:
+        if len(self._counter_channels) > 0 and len(self._counter_daq_tasks) < 1:
             self.log.error(
                 'No counter running, call set_up_counter before reading it.')
             # in case of error return a lot of -1
