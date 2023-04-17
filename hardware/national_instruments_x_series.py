@@ -457,11 +457,15 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
                     daq.DAQmx_Val_Volts,
                     ''
                 )
+                max_sampling_rate = daq.c_double()
+                daq.DAQmxGetAIConvMaxRate(atask, daq.byref(max_sampling_rate))
+                self.ai_max_sampling_rate = max_sampling_rate.value
                 # Analog in channel timebase
                 daq.DAQmxCfgSampClkTiming(
                     atask,
-                    my_clock_channel + 'InternalOutput',
-                    self._clock_frequency,
+                    'OnboardClock',
+                    max_sampling_rate,
+                    # self._clock_frequency,
                     daq.DAQmx_Val_Rising,
                     daq.DAQmx_Val_ContSamps,
                     int(self._clock_frequency * 5)
@@ -544,21 +548,23 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
             # Analog channels
             if len(self._counter_ai_channels) > 0:
-                analog_data = np.full(
-                    (len(self._counter_ai_channels), samples), 111, dtype=np.float64)
+                hardware_averaging_n = int(self.ai_max_sampling_rate / self._clock_frequency*0.90)
+                buffer_shape = (len(self._counter_ai_channels), samples, hardware_averaging_n)
+                analog_data = np.full(buffer_shape, 111, dtype=np.float64)
 
                 analog_read_samples = daq.int32()
 
                 daq.DAQmxReadAnalogF64(
                     self._counter_analog_daq_task,
-                    samples,
+                    -1,
                     self._RWTimeout,
                     daq.DAQmx_Val_GroupByChannel,
                     analog_data,
-                    len(self._counter_ai_channels) * samples,
+                    analog_data.size,
                     daq.byref(analog_read_samples),
                     None
                 )
+                analog_data = analog_data.mean(axis=2)
         except:
             self.log.exception(
                 'Getting samples from counter failed.')
