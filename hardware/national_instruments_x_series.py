@@ -95,13 +95,13 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
     # slow counter
     _clock_channel = ConfigOption('clock_channel', missing='error')
-    _default_clock_frequency = ConfigOption('default_clock_frequency', 100, missing='info')
+    _default_clock_frequency = ConfigOption('default_clock_frequency', 100, missing='info') # ignored now
     _counter_channels = ConfigOption('counter_channels', list(), missing='info')
     _counter_ai_channels = ConfigOption('counter_ai_channels', list(), missing='info')
     _counter_voltage_range = ConfigOption('counter_voltage_range', [-10, 10], missing='info')
 
     # confocal scanner
-    _default_scanner_clock_frequency = ConfigOption('default_scanner_clock_frequency', 100, missing='info')
+    _default_scanner_clock_frequency = ConfigOption('default_scanner_clock_frequency', 100, missing='info') # ignored now
     _scanner_clock_channel = ConfigOption('scanner_clock_channel', missing='warn')
     _pixel_clock_channel = ConfigOption('pixel_clock_channel', None)
     _scanner_ao_channels = ConfigOption('scanner_ao_channels', list(), missing='info')
@@ -117,7 +117,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
     _gate_in_channel = ConfigOption('gate_in_channel', missing='error')
     # number of readout samples, mainly used for gated counter
-    _default_samples_number = ConfigOption('default_samples_number', 50, missing='info')
+    _default_samples_number = ConfigOption('default_samples_number', 50, missing='info') # ignored
     # used as a default for expected maximum counts
     _max_counts = ConfigOption('max_counts', default=3e7)
     # timeout for the Read or/and write process in s
@@ -165,24 +165,17 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
     def on_deactivate(self):
         """ Shut down the NI card. """
         self._stop_analog_output()
-        # clear the task
         try:
             daq.DAQmxClearTask(self._scanner_ao_task)
             self._scanner_ao_task = None
         except:
             self.log.exception('Could not clear AO Out Task.')
-
         self.reset_hardware()
 
     # =================== SlowCounterInterface Commands ========================
 
     def get_constraints(self):
-        """ Get hardware limits of NI device.
-
-        @return SlowCounterConstraints: constraints class for slow counter
-
-        FIXME: ask hardware for limits when module is loaded
-        """
+        """ Get hardware limits of NI device.  """
         constraints = SlowCounterConstraints()
         constraints.max_detectors = 4
         constraints.min_count_frequency = 1e-3
@@ -215,100 +208,49 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
             self._clock_frequency = clock_frequency
         my_clock_frequency = clock_frequency*2
 
-
         # assign the clock channel, if given
         if clock_channel is not None:
             if not scanner:
                 self._clock_channel = clock_channel
             else:
                 self._scanner_clock_channel = clock_channel
+        my_clock_channel = self._scanner_clock_channel if scanner else self._clock_channel
 
-        # use the correct clock channel in this method
-        if scanner:
-            my_clock_channel = self._scanner_clock_channel
-        else:
-            my_clock_channel = self._clock_channel
-
-        # check whether only one clock pair is available, since some NI cards
-        # only one clock channel pair.
+        # check whether only one clock pair is available, since some NI cards only one clock channel pair.
         if self._scanner_clock_channel == self._clock_channel:
-            if not ((self._clock_daq_task is None) and (self._scanner_clock_daq_task is None)):
-                self.log.error(
-                    'Only one clock channel is available!\n'
-                    'Another clock is already running, close this one first '
-                    'in order to use it for your purpose!')
+            if self._clock_daq_task is not None or self._scanner_clock_daq_task is not None:
+                self.log.error('Only one clock channel is available and already in use.')
                 return -1
 
         # Adjust the idle state if necessary
         my_idle = daq.DAQmx_Val_High if idle else daq.DAQmx_Val_Low
         try:
-            # create task for clock
             task_name = 'ScannerClock' if scanner else 'CounterClock'
-            daq.DAQmxCreateTask(task_name, daq.byref(my_clock_daq_task))
-
+            daq.DAQmxCreateTask(task_name, daq.byref(my_clock_daq_task))  # create task for clock
             # create a digital clock channel with specific clock frequency:
-            daq.DAQmxCreateCOPulseChanFreq(
-                # The task to which to add the channels
-                my_clock_daq_task,
-                # which channel is used?
-                my_clock_channel,
-                # Name to assign to task (NIDAQ uses by # default the physical channel name as
-                # the virtual channel name. If name is specified, then you must use the name
-                # when you refer to that channel in other NIDAQ functions)
-                'Clock Producer',
-                # units, Hertz in our case
-                daq.DAQmx_Val_Hz,
-                # idle state
-                my_idle,
-                # initial delay
-                0,
-                # pulse frequency, divide by 2 such that length of semi period = count_interval
-                my_clock_frequency / 2,
-                # duty cycle of pulses, 0.5 such that high and low duration are both
-                # equal to count_interval
-                0.5)
-
+            daq.DAQmxCreateCOPulseChanFreq(my_clock_daq_task, my_clock_channel, 'Clock Producer', daq.DAQmx_Val_Hz,
+                my_idle, 0, clock_frequency*2/2, 0.5)
             # Configure Implicit Timing.
-            # Set timing to continuous, i.e. set only the number of samples to
-            # acquire or generate without specifying timing:
-            daq.DAQmxCfgImplicitTiming(
-                # Define task
-                my_clock_daq_task,
-                # Sample Mode: set the task to generate a continuous amount of running samples
-                daq.DAQmx_Val_ContSamps,
-                # buffer length which stores temporarily the number of generated samples
-                1000)
-
+            daq.DAQmxCfgImplicitTiming(my_clock_daq_task, daq.DAQmx_Val_ContSamps, 1000)  # circular buffer size
             if scanner:
                 self._scanner_clock_daq_task = my_clock_daq_task
             else:
-                # actually start the preconfigured clock task
-                daq.DAQmxStartTask(my_clock_daq_task)
                 self._clock_daq_task = my_clock_daq_task
+            if not scanner:
+                daq.DAQmxStartTask(my_clock_daq_task)  # actually start the preconfigured clock task
         except:
             self.log.exception('Error while setting up clock.')
             return -1
         return 0
 
-    def set_up_counter(self,
-                       counter_channels=None,
-                       sources=None,
-                       clock_channel=None,
-                       counter_buffer=None):
+    def set_up_counter(self, counter_channels=None, sources=None, clock_channel=None, counter_buffer=None):
         """ Configures the actual counter with a given clock.
-
-        @param list(str) counter_channels: optional, physical channel of the counter
-        @param list(str) sources: optional, physical channel where the photons
-                                  are to count from
-        @param str clock_channel: optional, specifies the clock channel for the
-                                  counter
-        @param int counter_buffer: optional, a buffer of specified integer
-                                   length, where in each bin the count numbers
-                                   are saved.
-
+        @param list(str) counter_channels: optional, physical channel of the counter                 # ignored
+        @param list(str) sources: optional, physical channel where the photons are to count from     # ignored
+        @param str clock_channel: optional, specifies the clock channel for the counter              # ignored
+        @param int counter_buffer: optional, a buffer of specified integer length
         @return int: error code (0:OK, -1:error)
         """
-
         if self._clock_daq_task is None and clock_channel is None:
             self.log.error('No clock running, call set_up_clock before starting the counter.')
             return -1
@@ -317,9 +259,9 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
             self.log.error('Another counter is already running, close this one first.')
             return -1
 
-        my_counter_channels = counter_channels if counter_channels else self._counter_channels
-        my_photon_sources = sources if sources else self._photon_sources
-        my_clock_channel = clock_channel if clock_channel else self._clock_channel
+        my_counter_channels = self._counter_channels
+        my_photon_sources = self._photon_sources
+        my_clock_channel = self._clock_channel
 
         if len(my_photon_sources) < len(my_counter_channels):
             self.log.error('You have given {0} sources but {1} counting channels.'
@@ -329,9 +271,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
         try:
             for i, ch in enumerate(my_counter_channels):
-                # This task will count photons with binning defined by the clock_channel
-                task = daq.TaskHandle()  # Initialize a Task
-                # Create task for the counter
+                task = daq.TaskHandle()  # This task will count photons with binning defined by the clock_channel
                 daq.DAQmxCreateTask('Counter{0}'.format(i), daq.byref(task))
                 # Create a Counter Input which samples with Semi-Periodes the Channel.
                 # set up semi period width measurement in photon ticks, i.e. the width
@@ -340,116 +280,59 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
                 #   (this task creates a channel to measure the time between state
                 #    transitions of a digital signal and adds the channel to the task
                 #    you choose)
-                daq.DAQmxCreateCISemiPeriodChan(
-                    # define to which task to connect this function
-                    task,
-                    # use this counter channel
-                    ch,
-                    # name to assign to it
-                    'Counter Channel {0}'.format(i),
-                    # expected minimum count value
-                    0,
-                    # Expected maximum count value
-                    self._max_counts / 2 / self._clock_frequency,
-                    # units of width measurement, here photon ticks
-                    daq.DAQmx_Val_Ticks,
-                    # empty extra argument
-                    '')
+                daq.DAQmxCreateCISemiPeriodChan(task, ch, 'Counter Channel {0}'.format(i),
+                    0, self._max_counts / 2 / self._clock_frequency,  # Expected min/max count value
+                    daq.DAQmx_Val_Ticks,  # units of width measurement, here photon ticks
+                    '')  # empty extra argument
 
                 # Set the Counter Input to a Semi Period input Terminal.
                 # Connect the pulses from the counter clock to the counter channel
-                daq.DAQmxSetCISemiPeriodTerm(
-                        # The task to which to add the counter channel.
-                        task,
-                        # use this counter channel
-                        ch,
-                        # assign a named Terminal
-                        my_clock_channel + 'InternalOutput')
+                daq.DAQmxSetCISemiPeriodTerm(task, ch, my_clock_channel + 'InternalOutput')
 
                 # Set a Counter Input Control Timebase Source.
                 # Specify the terminal of the timebase which is used for the counter:
                 # Define the source of ticks for the counter as self._photon_source for
                 # the Scanner Task.
-                daq.DAQmxSetCICtrTimebaseSrc(
-                    # define to which task to connect this function
-                    task,
-                    # counter channel
-                    ch,
-                    # counter channel to output the counting results
-                    my_photon_sources[i])
+                daq.DAQmxSetCICtrTimebaseSrc(task, ch, my_photon_sources[i])
 
                 # Configure Implicit Timing.
                 # Set timing to continuous, i.e. set only the number of samples to
                 # acquire or generate without specifying timing:
-                daq.DAQmxCfgImplicitTiming(
-                    # define to which task to connect this function
-                    task,
-                    # Sample Mode: Acquire or generate samples until you stop the task.
-                    daq.DAQmx_Val_ContSamps,
-                    # buffer length which stores  temporarily the number of generated samples
-                    1000)
+                daq.DAQmxCfgImplicitTiming(task, daq.DAQmx_Val_ContSamps, 1000)  # circular buffer length
 
-                # Set the Read point Relative To an operation.
-                # Specifies the point in the buffer at which to begin a read operation.
-                # Here we read most recent recorded samples:
-                daq.DAQmxSetReadRelativeTo(
-                    # define to which task to connect this function
-                    task,
-                    # Start reading samples relative to the last sample returned by the previously.
-                    daq.DAQmx_Val_CurrReadPos)
+                # Start reading samples relative to the last sample returned by the previously.
+                daq.DAQmxSetReadRelativeTo(task, daq.DAQmx_Val_CurrReadPos)
 
-                # Set the Read Offset.
-                # Specifies an offset in samples per channel at which to begin a read
-                # operation. This offset is relative to the location you specify with
-                # RelativeTo. Here we set the Offset to 0 for multiple samples:
+                # Set the Read Offset to 0 compared to last readout
                 daq.DAQmxSetReadOffset(task, 0)
 
-                # Set Read OverWrite Mode.
-                # Specifies whether to overwrite samples in the buffer that you have
-                # not yet read. Unread data in buffer will be overwritten:
-                daq.DAQmxSetReadOverWrite(
-                    task,
-                    daq.DAQmx_Val_DoNotOverwriteUnreadSamps)
-                # add task to counter task list
+                # Set Read OverWrite Mode to "don't !"
+                daq.DAQmxSetReadOverWrite(task, daq.DAQmx_Val_DoNotOverwriteUnreadSamps)
+
                 self._counter_daq_tasks.append(task)
 
                 # Counter analog input task
             if len(self._counter_ai_channels) > 0:
                 atask = daq.TaskHandle()
-
                 daq.DAQmxCreateTask('CounterAnalogIn', daq.byref(atask))
-
-                daq.DAQmxCreateAIVoltageChan(
-                    atask,
-                    ', '.join(self._counter_ai_channels),
-                    'Counter Analog In',
-                    daq.DAQmx_Val_RSE,
-                    self._counter_voltage_range[0],
-                    self._counter_voltage_range[1],
-                    daq.DAQmx_Val_Volts,
-                    ''
-                )
+                daq.DAQmxCreateAIVoltageChan(atask, ', '.join(self._counter_ai_channels), 'Counter Analog In',
+                    daq.DAQmx_Val_RSE, self._counter_voltage_range[0], self._counter_voltage_range[1],
+                    daq.DAQmx_Val_Volts, '')
                 max_sampling_rate = daq.c_double()
                 daq.DAQmxGetAIConvMaxRate(atask, daq.byref(max_sampling_rate))
                 self.ai_max_sampling_rate = max_sampling_rate.value
                 # Analog in channel timebase
-                daq.DAQmxCfgSampClkTiming(
-                    atask,
-                    'OnboardClock',
-                    max_sampling_rate,
-                    # self._clock_frequency,
-                    daq.DAQmx_Val_Rising,
-                    daq.DAQmx_Val_ContSamps,
-                    int(self._clock_frequency * 5)
-                )
+                daq.DAQmxCfgSampClkTiming(atask,'OnboardClock',
+                    max_sampling_rate, # self._clock_frequency,
+                    daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, int(self._clock_frequency * 5))
                 self._counter_analog_daq_task = atask
         except:
             self.log.exception('Error while setting up counting task.')
             return -1
 
         try:
+            # Start the preconfigured counter task
             for i, task in enumerate(self._counter_daq_tasks):
-                # Actually start the preconfigured counter task
                 daq.DAQmxStartTask(task)
             if len(self._counter_ai_channels) > 0:
                 daq.DAQmxStartTask(self._counter_analog_daq_task)
@@ -463,12 +346,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         return 0
 
     def get_counter_channels(self):
-        """ Returns the list of counter channel names.
-
-        @return tuple(str): channel names
-
-        Most methods calling this might just care about the number of channels, though.
-        """
+        """ Returns the list of counter channel names. """
         ch = self._counter_channels[:]
         ch.extend(self._counter_ai_channels)
         return ch
@@ -489,65 +367,33 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         if len(self._counter_ai_channels) > 0 and self._counter_analog_daq_task is None:
             return self.log.error('No counter analog input task running, call set_up_counter before reading it.')
 
-        if samples is None:
-            samples = int(self._samples_number)
-        else:
-            samples = int(samples)
+        samples = int(samples)
         try:
             # count data will be written here in the NumPy array of length samples
             count_data = np.empty((len(self._counter_daq_tasks), 2 * samples), dtype=np.uint32)
-
-            # number of samples which were actually read, will be stored here
-            n_read_samples = daq.int32()
+            n_read_samples = daq.int32() # number of samples which were actually read, will be stored here
             for i, task in enumerate(self._counter_daq_tasks):
-                # read the counter value: This function is blocking and waits for the
-                # counts to be all filled:
-                daq.DAQmxReadCounterU32(
-                    # read from this task
-                    task,
-                    # number of samples to read
-                    2 * samples,
-                    # maximal timeout for the read process
-                    self._RWTimeout,
-                    # write the readout into this array
-                    count_data[i],
-                    # length of array to write into
-                    2 * samples,
-                    # number of samples which were read
-                    daq.byref(n_read_samples),
-                    # Reserved for future use. Pass NULL (here None) to this parameter
-                    None)
+                # read the counter value: This function is blocking and waits for the counts to be all filled
+                # taskHandle, numSampsPerChan, timeout, readArray, arraySizeInSamps, sampsPerChanRead, reserved)
+                daq.DAQmxReadCounterU32(task, 2 * samples, self._RWTimeout, count_data[i], 2 * samples,
+                    daq.byref(n_read_samples), None)
 
             # Analog channels
             if len(self._counter_ai_channels) > 0:
                 hardware_averaging_n = int(self.ai_max_sampling_rate / self._clock_frequency*0.90)
                 buffer_shape = (len(self._counter_ai_channels), samples, hardware_averaging_n)
                 analog_data = np.full(buffer_shape, 111, dtype=np.float64)
-
                 analog_read_samples = daq.int32()
-
-                daq.DAQmxReadAnalogF64(
-                    self._counter_analog_daq_task,
-                    -1,
-                    self._RWTimeout,
-                    daq.DAQmx_Val_GroupByChannel,
-                    analog_data,
-                    analog_data.size,
-                    daq.byref(analog_read_samples),
-                    None
-                )
+                daq.DAQmxReadAnalogF64(self._counter_analog_daq_task, -1, self._RWTimeout, daq.DAQmx_Val_GroupByChannel,
+                    analog_data, analog_data.size, daq.byref(analog_read_samples), None)
                 analog_data = analog_data.mean(axis=2)
         except:
-            self.log.exception(
-                'Getting samples from counter failed.')
+            self.log.exception('Getting samples from counter failed.')
             # in case of error return a lot of -1
             return np.ones((len(self.get_counter_channels()), samples), dtype=np.uint32) * -1
 
         real_data = np.empty((len(self._counter_channels), samples), dtype=np.uint32)
-
-        # add up adjoint pixels to also get the counts from the low time of
-        # the clock:
-        real_data = count_data[:, ::2]
+        real_data = count_data[:, ::2]  # add up adjoint pixels to also get the counts from the low time of the clock:
         real_data += count_data[:, 1::2]
 
         all_data = np.full((len(self.get_counter_channels()), samples), 222, dtype=np.float64)
@@ -561,74 +407,37 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
     def close_counter(self, scanner=False):
         """ Closes the counter or scanner and cleans up afterwards.
-
-        @param bool scanner: specifies if the counter- or scanner- function
-                             will be excecuted to close the device.
-                                True = scanner
-                                False = counter
-
+        @param bool scanner: specifies if the counter- or scanner- function will be excecuted to close the device.
         @return int: error code (0:OK, -1:error)
         """
         error = 0
+        tasks = self._scanner_counter_daq_tasks if scanner else self._counter_daq_tasks
+        if not scanner and self._counter_analog_daq_task is not None:
+            tasks.append(self._counter_analog_daq_task)
+
+        for i, task in enumerate(tasks):
+            try:
+                daq.DAQmxStopTask(task)
+                daq.DAQmxClearTask(task)
+            except:
+                self.log.exception('Could not close counter.')
+                error = -1
         if scanner:
-            for i, task in enumerate(self._scanner_counter_daq_tasks):
-                try:
-                    # stop the counter task
-                    daq.DAQmxStopTask(task)
-                    # after stopping delete all the configuration of the counter
-                    daq.DAQmxClearTask(task)
-                except:
-                    self.log.exception('Could not close scanner counter.')
-                    error = -1
             self._scanner_counter_daq_tasks = []
         else:
-            for i, task in enumerate(self._counter_daq_tasks):
-                try:
-                    # stop the counter task
-                    daq.DAQmxStopTask(task)
-                    # after stopping delete all the configuration of the counter
-                    daq.DAQmxClearTask(task)
-                    # set the task handle to None as a safety
-                except:
-                    self.log.exception('Could not close counter.')
-                    error = -1
             self._counter_daq_tasks = []
-
-            if len(self._counter_ai_channels) > 0:
-                try:
-                    # stop the counter task
-                    daq.DAQmxStopTask(self._counter_analog_daq_task)
-                    # after stopping delete all the configuration of the counter
-                    daq.DAQmxClearTask(self._counter_analog_daq_task)
-                    # set the task handle to None as a safety
-                except:
-                    self.log.exception('Could not close counter analog channels.')
-                    error = -1
-                self._counter_analog_daq_task = None
+            self._counter_analog_daq_task = None
         return error
 
     def close_clock(self, scanner=False):
         """ Closes the clock and cleans up afterwards.
-
-        @param bool scanner: specifies if the counter- or scanner- function
-                             should be used to close the device.
-                                True = scanner
-                                False = counter
-
+        @param bool scanner: specifies if the counter- or scanner- function should be used to close the device.
         @return int: error code (0:OK, -1:error)
         """
-        if scanner:
-            my_task = self._scanner_clock_daq_task
-        else:
-            my_task = self._clock_daq_task
+        my_task = self._scanner_clock_daq_task if scanner else self._clock_daq_task
         try:
-            # Stop the clock task:
             daq.DAQmxStopTask(my_task)
-
-            # After stopping delete all the configuration of the clock:
             daq.DAQmxClearTask(my_task)
-
-            # Set the task handle to None as a safety
             if scanner:
                 self._scanner_clock_daq_task = None
             else:
