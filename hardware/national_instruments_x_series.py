@@ -150,16 +150,11 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         self._current_position = np.zeros(len(self._scanner_ao_channels))
 
         if len(self._scanner_ao_channels) < len(self._scanner_voltage_ranges):
-            self.log.error(
-                'Specify at least as many scanner_voltage_ranges as scanner_ao_channels!')
-
+            self.log.error('Specify at least as many scanner_voltage_ranges as scanner_ao_channels!')
         if len(self._scanner_ao_channels) < len(self._scanner_position_ranges):
-            self.log.error(
-                'Specify at least as many scanner_position_ranges as scanner_ao_channels!')
-
+            self.log.error('Specify at least as many scanner_position_ranges as scanner_ao_channels!')
         if len(self._scanner_counter_channels) + len(self._scanner_ai_channels) < 1:
-            self.log.error(
-                'Specify at least one counter or analog input channel for the scanner!')
+            self.log.error('Specify at least one counter or analog input channel for the scanner!')
 
         # Analog output is always needed and it does not interfere with the
         # rest, so start it always and leave it running
@@ -168,8 +163,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
             raise Exception('Failed to start NI Card module due to analog output failure.')
 
     def on_deactivate(self):
-        """ Shut down the NI card.
-        """
+        """ Shut down the NI card. """
         self._stop_analog_output()
         # clear the task
         try:
@@ -197,52 +191,30 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         return constraints
 
     def set_up_clock(self, clock_frequency=None, clock_channel=None, scanner=False, idle=False):
-        """ Configures the hardware clock of the NiDAQ card to give the timing.
+        """ Configures the hardware clock for the photon counting of the Slow counter or scanning
 
-        @param float clock_frequency: if defined, this sets the frequency of
-                                      the clock in Hz
-        @param string clock_channel: if defined, this is the physical channel
-                                     of the clock within the NI card.
-        @param bool scanner: if set to True method will set up a clock function
-                             for the scanner, otherwise a clock function for a
-                             counter will be set.
-        @param bool idle: set whether idle situation of the counter (where
-                          counter is doing nothing) is defined as
+        @param float clock_frequency: if defined, this sets the frequency of the clock in Hz
+        @param string clock_channel: if defined, this is the physical channel of the clock within the NI card.
+        @param bool scanner: if set to True method will set up a clock function for the scanner, otherwise a clock
+                                function for a counter will be set.
+        @param bool idle: set whether idle situation of the counter (where counter is doing nothing) is defined as
                                 True  = 'Voltage High/Rising Edge'
                                 False = 'Voltage Low/Falling Edge'
 
         @return int: error code (0:OK, -1:error)
         """
-
-        if not scanner and self._clock_daq_task is not None:
-            self.log.error('Another counter clock is already running, close this one first.')
-            return -1
-
-        if scanner and self._scanner_clock_daq_task is not None:
+        if (scanner and self._scanner_clock_daq_task is not None) or (not scanner and self._clock_daq_task is not None):
             self.log.error('Another scanner clock is already running, close this one first.')
             return -1
 
-        # Create handle for task, this task will generate pulse signal for
-        # photon counting
         my_clock_daq_task = daq.TaskHandle()
-
-        # assign the clock frequency, if given
-        if clock_frequency is not None:
-            if not scanner:
-                self._clock_frequency = float(clock_frequency)
-            else:
-                self._scanner_clock_frequency = float(clock_frequency)
-        else:
-            if not scanner:
-                self._clock_frequency = self._default_clock_frequency
-            else:
-                self._scanner_clock_frequency = self._default_scanner_clock_frequency
-
-        # use the correct clock in this method
+        clock_frequency = float(clock_frequency)
         if scanner:
-            my_clock_frequency = self._scanner_clock_frequency * 2
+            self._scanner_clock_frequency = clock_frequency
         else:
-            my_clock_frequency = self._clock_frequency * 2
+            self._clock_frequency = clock_frequency
+        my_clock_frequency = clock_frequency*2
+
 
         # assign the clock channel, if given
         if clock_channel is not None:
