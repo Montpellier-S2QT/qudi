@@ -341,6 +341,8 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
             # in case of error return a lot of -1
             return np.ones((len(self.get_counter_channels()), samples), dtype=np.uint32) * -1
 
+        if count_data < self._last_count:  # because the counter never decreases, it goes back to zero after ~4e9
+            self._last_count -= 2**32
         all_data = (count_data-self._last_count).astype(np.float64) * self._clock_frequency
         self._last_count = count_data
 
