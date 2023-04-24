@@ -99,6 +99,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
     _counter_channels = ConfigOption('counter_channels', list(), missing='info')
     _counter_ai_channels = ConfigOption('counter_ai_channels', list(), missing='info')
     _counter_voltage_range = ConfigOption('counter_voltage_range', [-10, 10], missing='info')
+    _use_ai_fast_clock = ConfigOption('counter_voltage_range', True, missing='info')
 
     # confocal scanner
     _default_scanner_clock_frequency = ConfigOption('default_scanner_clock_frequency', 100, missing='info') # ignored now
@@ -233,7 +234,6 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
             # create a digital clock channel with specific clock frequency:
             daq.DAQmxCreateCOPulseChanFreq(my_clock_daq_task, my_clock_channel, 'Clock Producer', daq.DAQmx_Val_Hz,
                 my_idle, 0, clock_frequency*2/2, 0.5)
-            # Configure Implicit Timing.
             daq.DAQmxCfgImplicitTiming(my_clock_daq_task, daq.DAQmx_Val_ContSamps, 1000)  # circular buffer size
             if scanner:
                 self._scanner_clock_daq_task = my_clock_daq_task
@@ -263,10 +263,8 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
                 daq.DAQmxCreateTask('Counter{0}'.format(i), daq.byref(task))
                 daq.DAQmxCreateCICountEdgesChan(task, ch,'Counter Channel {0}'.format(i), daq.DAQmx_Val_Rising, 0, daq.DAQmx_Val_CountUp)
                 daq.DAQmxSetCICountEdgesTerm(task, ch, my_photon_sources[i])
-
                 daq.DAQmxCfgSampClkTiming(task, my_clock_channel + 'InternalOutput', 10000, daq.DAQmx_Val_Rising,
                     daq.DAQmx_Val_ContSamps, 1000)  # circular buffer length
-
                 daq.DAQmxSetReadRelativeTo(task, daq.DAQmx_Val_CurrReadPos)
                 daq.DAQmxSetReadOffset(task, 0)
                 daq.DAQmxSetReadOverWrite(task, daq.DAQmx_Val_DoNotOverwriteUnreadSamps)
@@ -282,10 +280,26 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
                 max_sampling_rate = daq.c_double()
                 daq.DAQmxGetAIConvMaxRate(atask, daq.byref(max_sampling_rate))
                 self.ai_max_sampling_rate = max_sampling_rate.value
-                # Analog in channel timebase
-                daq.DAQmxCfgSampClkTiming(atask,'OnboardClock',
-                    max_sampling_rate, # self._clock_frequency,
-                    daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, int(self._clock_frequency * 5))
+
+                if self._use_ai_fast_clock:
+                    ai_fast_clock_task = daq.TaskHandle()
+                    daq.DAQmxCreateTask('ai_fast_clock', daq.byref(ai_fast_clock_task))
+                    daq.DAQmxCreateCOPulseChanFreq(ai_fast_clock_task, 'Dev1/ctr3', 'Clock2 Channel', daq.DAQmx_Val_Hz,
+                                                   daq.DAQmx_Val_Low, 0, self.ai_max_sampling_rate, 0.5)
+                    daq.DAQmxCfgDigEdgeStartTrig(ai_fast_clock_task, 'PFI13',
+                                                 daq.DAQmx_Val_Rising)  # Synchronize the second clock with the first one using a trigger signal
+                    daq.DAQmxCfgImplicitTiming(ai_fast_clock_task, daq.DAQmx_Val_ContSamps, 1000)
+                    daq.DAQmxStartTask(ai_fast_clock_task)
+
+                    daq.DAQmxCfgSampClkTiming(atask, 'PFI15',
+                                              self.ai_max_sampling_rate,  # self._clock_frequency,
+                                              daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps,
+                                              int(self._clock_frequency * 5))
+
+                else:
+                    daq.DAQmxCfgSampClkTiming(atask,'OnboardClock',
+                        self._clock_frequency,
+                        daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, 1000000)
                 self._counter_analog_daq_task = atask
         except:
             self.log.exception('Error while setting up counting task.')
@@ -329,7 +343,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
             # Analog channels
             if len(self._counter_ai_channels) > 0:
-                hardware_averaging_n = int(self.ai_max_sampling_rate / self._clock_frequency*0.90)
+                hardware_averaging_n = int(self.ai_max_sampling_rate / self._clock_frequency)
                 buffer_shape = (len(self._counter_ai_channels), samples, hardware_averaging_n)
                 analog_data = np.full(buffer_shape, 111, dtype=np.float64)
                 analog_read_samples = daq.int32()
@@ -349,7 +363,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         self._last_count['slow_counter'] = raw_count_data[:, -1]
 
         if len(self._counter_ai_channels) > 0:
-            all_data[-len(self._counter_ai_channels):] = analog_data
+            all_data = np.vstack((all_data, analog_data))
 
         return all_data
 
