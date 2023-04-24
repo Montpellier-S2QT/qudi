@@ -143,7 +143,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         self._oversampling = 0
         self._lock_in_active = False
 
-        self._last_count = 0
+        self._last_count = {'slow_counter': [], 'scanner_counter':[], 'odmr_counter': []}
 
         self._photon_sources = self._photon_sources if self._photon_sources is not None else list()
         self._scanner_counter_channels = self._scanner_counter_channels if self._scanner_counter_channels is not None else list()
@@ -293,8 +293,8 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
         try:
             # Start the preconfigured counter task
+            self._last_count['slow_counter'] = np.zeros(len(self._counter_daq_tasks))
             for i, task in enumerate(self._counter_daq_tasks):
-                self._last_count = 0
                 daq.DAQmxStartTask(task)
             if len(self._counter_ai_channels) > 0:
                 daq.DAQmxStartTask(self._counter_analog_daq_task)
@@ -320,11 +320,11 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         """
         samples = int(samples)
         try:
-            count_data = np.empty((len(self._counter_daq_tasks), samples), dtype=np.uint32)
+            raw_count_data = np.empty((len(self._counter_daq_tasks), samples), dtype=np.uint32)
             n_read_samples = daq.int32()  # number of samples which were actually read, will be stored here
             for i, task in enumerate(self._counter_daq_tasks):
                 # read the counter value: This function is blocking and waits for the counts to be all filled
-                daq.DAQmxReadCounterU32(task, samples, self._RWTimeout, count_data[i], samples,
+                daq.DAQmxReadCounterU32(task, samples, self._RWTimeout, raw_count_data[i], samples,
                                         daq.byref(n_read_samples), None)
 
             # Analog channels
@@ -341,10 +341,12 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
             # in case of error return a lot of -1
             return np.ones((len(self.get_counter_channels()), samples), dtype=np.uint32) * -1
 
-        if count_data < self._last_count:  # because the counter never decreases, it goes back to zero after ~4e9
-            self._last_count -= 2**32
-        all_data = (count_data-self._last_count).astype(np.float64) * self._clock_frequency
-        self._last_count = count_data
+        overflow_indices = np.where(raw_count_data[:, 0] < self._last_count['slow_counter'])
+        self._last_count['slow_counter'][overflow_indices] -= 2 ** 32
+        count_data = raw_count_data - self._last_count['slow_counter']
+        diff_data = np.diff(count_data, axis=1)
+        all_data = np.hstack((count_data[:, [0]], diff_data)).astype(np.float64) * self._clock_frequency
+        self._last_count['slow_counter'] = raw_count_data[:, -1]
 
         if len(self._counter_ai_channels) > 0:
             all_data[-len(self._counter_ai_channels):] = analog_data
