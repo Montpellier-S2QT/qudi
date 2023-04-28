@@ -145,6 +145,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         self._lock_in_active = False
 
         self._last_count = {'slow_counter': [], 'scanner_counter':[], 'odmr_counter': []}
+        self._ai_fast_clock_task = None
 
         self._photon_sources = self._photon_sources if self._photon_sources is not None else list()
         self._scanner_counter_channels = self._scanner_counter_channels if self._scanner_counter_channels is not None else list()
@@ -295,6 +296,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
                                               self.ai_max_sampling_rate,  # self._clock_frequency,
                                               daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps,
                                               int(self._clock_frequency * 5))
+                    self._ai_fast_clock_task = ai_fast_clock_task
 
                 else:
                     daq.DAQmxCfgSampClkTiming(atask,'OnboardClock',
@@ -376,6 +378,8 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         tasks = self._scanner_counter_daq_tasks if scanner else self._counter_daq_tasks
         if not scanner and self._counter_analog_daq_task is not None:
             tasks.append(self._counter_analog_daq_task)
+        if not scanner and self._ai_fast_clock_task is not None:
+            tasks.append(self._ai_fast_clock_task)
 
         for i, task in enumerate(tasks):
             try:
