@@ -68,10 +68,12 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
     _ai_channels = ConfigOption('ai_channels', [], missing='info')
     _min_voltage = ConfigOption('min_voltage', -10)  # The NI doc states this can help  PYDAQmx choose better settings
     _max_voltage = ConfigOption('max_votlage', 10)
+    _use_fast_ai = ConfigOption('use_fast_ai', False) # Use an internal clock to measure analog input at max frequency
 
     _buffer_length = ConfigOption('buffer_length', int(1e5)) # size of buffer for counter and AI
 
     _timeout = ConfigOption('timeout', default=30)
+
 
     def on_activate(self):
         """ Starts up the NI Card at activation. """
