@@ -34,7 +34,7 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
     The way this module is working is by setting up a clock at the acquisition frequency and with the number of pulses
     corresponding to the number of samples to acquire.
     The counting task and analog input task measure samples at clock cycles, in continuous mode.
-    At the end of the line, all the available samples are read. If number of sample available is different from therocial
+    At the end of the line, all the available samples are read. If number of sample available is different from theoretical
      value, there is a problem in the counting triggering.
     The clock also serve as trigger for the MW generator to switch to the next frequency.
 
@@ -68,17 +68,18 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
     _ai_channels = ConfigOption('ai_channels', [], missing='info')
     _min_voltage = ConfigOption('min_voltage', -10)  # The NI doc states this can help  PYDAQmx choose better settings
     _max_voltage = ConfigOption('max_votlage', 10)
-    _use_fast_ai = ConfigOption('use_fast_ai', False) # Use an internal clock to measure analog input at max frequency
+    # Advanced analog feature:
+    _use_max_sample_rate = ConfigOption('use_max_sample_rate', False) # Use an internal clock to measure analog input at max frequency
+    _fast_clock_channel = ConfigOption('fast_clock_channel', None)  # If previous is true, specify a clock channel
 
-    _buffer_length = ConfigOption('buffer_length', int(1e5)) # size of buffer for counter and AI
-
+    _buffer_length = ConfigOption('buffer_length', int(1e5))  # size of buffer for counter and AI
     _timeout = ConfigOption('timeout', default=30)
-
 
     def on_activate(self):
         """ Starts up the NI Card at activation. """
         self._clock_task = None # Can not create clock task before knowing the frequency, this is done later
         self._counter_tasks = []
+        self._ai_tasks = []
         self._clock_frequency = 1  # Not None so that there is no bug if set_odmr_length is first called
         self._odmr_length = 1 # Not None so that there is no bug if set_up_odmr_clock is first called
 
@@ -101,6 +102,20 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
             daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', 6666,daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, self._buffer_size)
             self._ai_tasks.append(task)
 
+        # If this feature is on, we create a second clock at the AI max sampling rate
+        if self._use_max_sample_rate and len(self._ai_tasks) :
+            max_sampling_rate = daq.c_double()
+            daq.DAQmxGetAIConvMaxRate(self._ai_tasks[0], daq.byref(max_sampling_rate))
+            self.ai_max_sampling_rate = max_sampling_rate.value
+            self._fast_clock_task = daq.TaskHandle()
+            daq.DAQmxCreateTask('odmr_fast_clock', daq.byref(self._fast_clock_task))
+            daq.DAQmxCreateCOPulseChanFreq(self._fast_clock_task, self._fast_clock_channel, 'odmr fast clock producer',
+                                           daq.DAQmx_Val_Hz, daq.DAQmx_Val_Low, 0, self.ai_max_sampling_rate, 0.5)
+            daq.DAQmxCfgDigEdgeStartTrig(self._fast_clock_task, self._clock_channel + 'InternalOutput', daq.DAQmx_Val_Rising)  # Synchronize the second clock with the first one
+
+            for i, task in enumerate(self._ai_tasks):
+                daq.DAQmxCfgSampClkTiming(task, self._fast_clock_channel + 'InternalOutput', 6666, daq.DAQmx_Val_Rising,
+                                          daq.DAQmx_Val_ContSamps, self._buffer_size)
 
     def on_deactivate(self):
         """ Shut down the NI card.  """
@@ -133,11 +148,19 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
                                        daq.DAQmx_Val_Hz, daq.DAQmx_Val_Low, 0, clock_frequency, 0.5)
         daq.DAQmxCfgImplicitTiming(self._clock_task, daq.DAQmx_Val_FiniteSamps,  self._odmr_length)
 
+        if self._use_max_sample_rate:
+            oversampling = int(self.ai_max_sampling_rate / self._clock_frequency * 0.95)  # 5% margin for safety
+            daq.DAQmxCfgImplicitTiming(self._fast_clock_task, daq.DAQmx_Val_FiniteSamps, oversampling)
+            self._oversampling_ai = oversampling
+
     def close_odmr_clock(self):
         """ Closes the clock and cleans up afterward. """
         if self._clock_task is not None:
             daq.DAQmxStopTask(self._clock_task)
             daq.DAQmxClearTask(self._clock_task)
+        if self._use_max_sample_rate:
+            daq.DAQmxStopTask(self._fast_clock_task)
+            daq.DAQmxClearTask(self._fast_clock_task)
 
     def set_up_odmr(self, counter_channel=None, photon_source=None, clock_channel=None, odmr_trigger_channel=None):
         """ Configures the counter task
@@ -186,10 +209,18 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
         for i, task in enumerate(self._ai_tasks):
             raw_data = np.zeros(self._buffer_size, dtype=np.float64)
             n_read_samples = daq.int32()
-            daq.DAQmxReadAnalogF64(task, -1, self._timeout, daq.DAQmx_Val_GroupByChannel, raw_data, raw_data.size, daq.byref(read_samples), None)
-            ai_data[i] = raw_data[:length]
-            if n_read_samples != length:
-                self.log.warning(f'In ADC {i}, {n_read_samples} were read instead of {length}')
+            daq.DAQmxReadAnalogF64(task, -1, self._timeout, daq.DAQmx_Val_GroupByChannel, raw_data, raw_data.size, daq.byref(n_read_samples), None)
+
+            if self._use_max_sample_rate:
+                oversamples_length = length*self._oversampling_ai
+                raw_data = raw_data[:oversamples_length]
+                if n_read_samples != oversamples_length:
+                    self.log.warning(f'In ADC {i}, {n_read_samples} were read instead of {oversamples_length}')
+                ai_data[i] = raw_data.reshape((length, self._oversampling_ai)).mean(axis=1)
+            else:
+                if n_read_samples != length:
+                    self.log.warning(f'In ADC {i}, {n_read_samples} were read instead of {length}')
+                ai_data[i] = raw_data[:length]
 
         all_data = np.hstack((count_data, ai_data))
 
