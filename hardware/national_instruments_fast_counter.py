@@ -18,9 +18,9 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
 
     """
 
-    _trigger_channel = ConfigOption('analog_input', 'Dev1/PFI13', missing='error')
-    _analog_input_channel = ConfigOption('analog_input', 'Dev1/AI8', missing='error')
-    _clock_channel = ConfigOption('clock_channel', 'Dev1/Ctr3', missing='error')
+    _trigger_channel = ConfigOption('trigger_channel', '/Dev1/PFI13', missing='error')
+    _analog_input_channel = ConfigOption('analog_input', '/Dev1/AI8', missing='error')
+    _clock_channel = ConfigOption('clock_channel', '/Dev1/Ctr3', missing='error')
 
     _min_voltage = ConfigOption('min_voltage', -10)  # The NI doc states this can help  PYDAQmx choose better settings
     _max_voltage = ConfigOption('max_votlage', 10)
@@ -35,7 +35,6 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
         """ Initialisation performed during activation of the module. """
         self._status = 0
 
-        self._bin_width_s = None
         self._record_length_s = None
         self._number_of_gates = None
 
@@ -57,10 +56,11 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
                                        daq.DAQmx_Val_Low, 0, self._sampling_rate, 0.5)
         # Connect the clock task start to the external trigger
         daq.DAQmxCfgDigEdgeStartTrig(self._clock_task, self._trigger_channel, daq.DAQmx_Val_Rising)
+        daq.SetStartTrigRetriggerable(self._clock_task, True)
 
         # start the AI ADC on clock ticks
         daq.DAQmxCfgSampClkTiming(self._ai_task, self._clock_channel+'InternalOutput', self._sampling_rate,
-                                  daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, self._buffer_size)
+                                  daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, int(self._buffer_size))
 
 
     def on_deactivate(self):
@@ -119,12 +119,12 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
         of next loop.
         """
         try:
-            raw_data = np.full(self._buffer_size, 0, dtype=np.float64)
+            raw_data = np.full(int(self._buffer_size), 0, dtype=np.float64)
             read_samples = daq.int32()
             daq.DAQmxReadAnalogF64(self._ai_task, -1, 10, daq.DAQmx_Val_GroupByChannel,
                                    raw_data, raw_data.size, daq.byref(read_samples), None)
-            if read_samples > 0:
-                raw_data = raw_data[:read_samples]
+            if read_samples.value > 0:
+                raw_data = raw_data[:read_samples.value]
                 raw_data = np.concatenate((self._buffer_incomplete_sweep, raw_data))
                 number_of_new_full_sweep = len(raw_data) // self._full_bin_size
                 if number_of_new_full_sweep > 0:
