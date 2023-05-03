@@ -20,12 +20,8 @@ Copyright (c) the Qudi Developers. See the COPYRIGHT.txt file at the
 top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi/>
 """
 
-from core.util.modules import get_home_dir
 import numpy as np
-import ctypes
-import os
-
-import PyDAQmx as daq
+import nidaqmx
 
 from core.module import Base
 from core.configoption import ConfigOption
@@ -40,34 +36,37 @@ class NationalInstrumentsPulser(Base, PulserInterface):
 
     ni_pulser:
         module.Class: 'national_instruments_pulser.NationalInstrumentsPulser'
-        device: '/Dev1/'
+        device: 'Dev1'
         digital_outputs: ['PFI1', 'PFI2', 'PFI3', 'PFI4']
     """
 
-    digital_outputs = ConfigOption('digital_outputs', missing='error')
-    analog_outputs = ConfigOption('analog_outputs', missing='error')
+    # digital_outputs = ConfigOption('digital_outputs', missing='error')
+    # analog_outputs = ConfigOption('analog_outputs', missing='error')
     device = ConfigOption('Device', missing='error')
 
     def on_activate(self):
         """ Activate module """
-        self._task = daq.TaskHandle()
-        daq.DAQmxCreateTask('NI Pulser', daq.byref(self._task))
+        self._task = nidaqmx.Task()
+        self._task.do_channels.add_do_chan(
+            lines=f'{self.device}/port0/line0:7',
+            line_grouping=nidaqmx.constants.LineGrouping.CHAN_FOR_ALL_LINES)
+
         self._build_constraints()
+
+        self._current_waveform = None
+        self._current_waveform_name = None
 
     def on_deactivate(self):
         """ Deactivate module """
-
-        daq.DAQmxClearTask(self.pulser_task)
+        self._task.close()
 
     def init_constraints(self):
         """ Build a pulser constraints dictionary with information from the NI card. """
 
         constraints = PulserConstraints()
 
-        do_max_freq = daq.float64()
-        daq.DAQmxGetDevDOMaxRate(self.device, daq.byref(do_max_freq))
-        constraints.sample_rate.min = 1
-        constraints.sample_rate.max = do_max_freq.value
+        constraints.sample_rate.min = 0
+        constraints.sample_rate.max = self._task.timing.samp_clk_max_rate
         constraints.step = 0.0
         constraints.unit = 'Hz'
 
@@ -84,266 +83,97 @@ class NationalInstrumentsPulser(Base, PulserInterface):
         constraints.d_ch_high.unit = 'V'
 
         # Minimum instruction time in clock cycles specified in the config,
-        constraints.waveform_length.min = self._min_instr_len
-        constraints.waveform_length.max = 2 ** 20 - 1
+        constraints.waveform_length.min = 1
+        constraints.waveform_length.max = 2 ** 30  # here the computer memory is the limit
         constraints.waveform_length.step = 1
         constraints.waveform_length.default = 128
 
         activation_config = OrderedDict()
-        activation_config['4_ch'] = frozenset({'d_ch1', 'd_ch2', 'd_ch3', 'd_ch4'})
-        activation_config['all'] = frozenset({'d_ch1', 'd_ch2', 'd_ch3', 'd_ch4',
-                                              'd_ch5', 'd_ch6', 'd_ch7', 'd_ch8',
-                                              'd_ch9', 'd_ch10', 'd_ch11', 'd_ch12',
-                                              'd_ch13', 'd_ch14', 'd_ch15', 'd_ch16',
-                                              'd_ch17', 'd_ch18', 'd_ch19', 'd_ch20',
-                                              'd_ch21'})
-
+        activation_config['port0/line0:7'] = frozenset([f'/port0/line{i}' for i in range(8)])
         constraints.activation_config = activation_config
 
-
-
-        constraints = {}
-        ch_map = OrderedDict()
-
-        n = 2048
-
-        ao_min_freq = daq.float64()
-        ao_physical_chans = ctypes.create_string_buffer(n)
-        ao_voltage_ranges = np.zeros(16, dtype=np.float64)
-        ao_clock_support = daq.bool32()
-        do_max_freq = daq.float64()
-        do_lines = ctypes.create_string_buffer(n)
-        do_ports = ctypes.create_string_buffer(n)
-        product_dev_type = ctypes.create_string_buffer(n)
-        product_cat = daq.int32()
-        serial_num = daq.uInt32()
-        product_num = daq.uInt32()
-
-
-
-        daq.DAQmxGetDevAOSampClkSupported(device, daq.byref(ao_clock_support))
-        self.log.debug('Analog supports clock: {0}'.format(ao_clock_support.value))
-        daq.DAQmxGetDevAOPhysicalChans(device, ao_physical_chans, n)
-        analog_channels = str(ao_physical_chans.value, encoding='utf-8').split(', ')
-        self.log.debug('Analog channels: {0}'.format(analog_channels))
-        daq.DAQmxGetDevAOVoltageRngs(
-            device,
-            ao_voltage_ranges.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-            len(ao_voltage_ranges))
-        self.log.debug('Analog voltage range: {0}'.format(ao_voltage_ranges[0:2]))
-
-        daq.DAQmxGetDevDOMaxRate(self.device, daq.byref(do_max_freq))
-        self.log.debug('Digital max freq: {0}'.format(do_max_freq.value))
-        daq.DAQmxGetDevDOLines(device, do_lines, n)
-        digital_channels = str(do_lines.value, encoding='utf-8').split(', ')
-        self.log.debug('Digital channels: {0}'.format(digital_channels))
-        daq.DAQmxGetDevDOPorts(device, do_ports, n)
-        digital_bundles = str(do_ports.value, encoding='utf-8').split(', ')
-        self.log.debug('Digital ports: {0}'.format(digital_bundles))
-
-        daq.DAQmxGetDevSerialNum(device, daq.byref(serial_num))
-        self.log.debug('Card serial number: {0}'.format(serial_num.value))
-        daq.DAQmxGetDevProductNum(device, daq.byref(product_num))
-        self.log.debug('Product number: {0}'.format(product_num.value))
-        daq.DAQmxGetDevProductType(device, product_dev_type, n)
-        product = str(product_dev_type.value, encoding='utf-8')
-        self.log.debug('Product name: {0}'.format(product))
-        daq.DAQmxGetDevProductCategory(device, daq.byref(product_cat))
-        self.log.debug(product_cat.value)
-
-        for n, ch in enumerate(analog_channels):
-            ch_map['a_ch{0:d}'.format(n+1)] = ch
-
-        for n, ch in enumerate(digital_channels):
-            ch_map['d_ch{0:d}'.format(n+1)] = ch
-
-        constraints['sample_rate'] = {
-            'min': ao_min_freq.value,
-            'max': ao_max_freq.value,
-            'step': 0.0,
-            'unit': 'Samples/s'}
-
-        # The file formats are hardware specific. The sequence_generator_logic will need this
-        # information to choose the proper output format for waveform and sequence files.
-        constraints['waveform_format'] = 'ndarray'
-        constraints['sequence_format'] = None
-
-        # the stepsize will be determined by the DAC in combination with the
-        # maximal output amplitude (in Vpp):
-        constraints['a_ch_amplitude'] = {
-            'min': 0,
-            'max': ao_voltage_ranges[1],
-            'step': 0.0,
-            'unit': 'Vpp'}
-        constraints['a_ch_offset'] = {
-            'min': ao_voltage_ranges[0],
-            'max': ao_voltage_ranges[1],
-            'step': 0.0,
-            'unit': 'V'}
-        constraints['d_ch_low'] = {
-            'min': 0.0,
-            'max': 0.0,
-            'step': 0.0,
-            'unit': 'V'}
-        constraints['d_ch_high'] = {
-            'min': 5.0,
-            'max': 5.0,
-            'step': 0.0,
-            'unit': 'V'}
-        constraints['sampled_file_length'] = {
-            'min': 2,
-            'max': 1e12,
-            'step': 0,
-            'unit': 'Samples'}
-        constraints['digital_bin_num'] = {
-            'min': 2,
-            'max': 1e12,
-            'step': 0,
-            'unit': '#'}
-        constraints['waveform_num'] = {
-            'min': 1,
-            'max': 1,
-            'step': 0,
-            'unit': '#'}
-        constraints['sequence_num'] = {
-            'min': 0,
-            'max': 0,
-            'step': 0,
-            'unit': '#'}
-        constraints['subsequence_num'] = {
-            'min': 0,
-            'max': 0,
-            'step': 0,
-            'unit': '#'}
-
-        # If sequencer mode is enable than sequence_param should be not just an
-        # empty dictionary.
-        sequence_param = OrderedDict()
-        constraints['sequence_param'] = sequence_param
-
-        activation_config = OrderedDict()
-        activation_config['analog_only'] = [k for k in ch_map.keys() if k.startswith('a')]
-        activation_config['digital_only'] = [k for k in ch_map.keys() if k.startswith('d')]
-        activation_config['stuff'] = ['a_ch4', 'd_ch1', 'd_ch2', 'd_ch3', 'd_ch4']
-        constraints['activation_config'] = activation_config
-
-        self.channel_map = ch_map
-        self.constraints = constraints
-
-    def configure_pulser_task(self):
-        """ Clear pulser task and set to current settings.
-
-        @return:
-        """
-        a_channels = [self.channel_map[k] for k in self.a_names]
-        d_channels = [self.channel_map[k] for k in self.d_names]
-
-        # clear task
-        daq.DAQmxClearTask(self.pulser_task)
-
-        # add channels
-        if len(a_channels) > 0:
-            daq.DAQmxCreateAOVoltageChan(
-                self.pulser_task,
-                ', '.join(a_channels),
-                ', '.join(self.a_names),
-                self.min_volts,
-                self.max_volts,
-                daq.DAQmx_Val_Volts,
-                '')
-
-        if len(d_channels) > 0:
-            daq.DAQmxCreateDOChan(
-                self.pulser_task,
-                ', '.join(d_channels),
-                ', '.join(self.d_names),
-                daq.DAQmx_Val_ChanForAllLines)
-
-        # set sampling frequency
-            daq.DAQmxCfgSampClkTiming(
-                self.pulser_task,
-                'OnboardClock',
-                self.sample_rate,
-                daq.DAQmx_Val_Rising,
-                daq.DAQmx_Val_ContSamps,
-                10 * self.sample_rate)
-
-        # write assets
+        self._constraints = constraints
 
     def get_constraints(self):
         """ Retrieve the hardware constrains from the Pulsing device. """
-        return self.constraints
+        return self._constraints
 
     def pulser_on(self):
         """ Switches the pulsing device on. """
-        daq.DAQmxStartTask(self.pulser_task)
+        self._task.start()
 
     def pulser_off(self):
         """ Switches the pulsing device off. """
-        daq.DAQmxStopTask(self.pulser_task)
+        self._task.stop()
 
-    def load_asset(self, asset_name, load_dict=None):
-        """ Loads a sequence or waveform to the specified channel of the pulsing device. """
+    def load_waveform(self, load_dict):
+        """ Loads a waveform to the specified channel of the pulsing device."""
+        pass
+
+    def load_sequence(self, sequence_name):
+        """ Loads a sequence to the channels of the device in order to be ready for playback. """
+        self.log.warning('NI card has no sequencing capabilities, load_sequence call ignored.')
+        return {}
+
+    def get_loaded_assets(self):
+        """ Retrieve the currently loaded asset names for each active channel of the device."""
+        asset_type = 'waveform' if self._current_waveform else None
+        asset_dict = {}
+        for index, entry in enumerate(self._constraints.activation_config):
+            asset_dict[index+1] = self._current_waveform_name
+        return asset_dict, asset_type
+
 
     def clear_all(self):
         """ Clears all loaded waveforms from the pulse generators RAM/workspace. """
         pass
 
-    def get_status(self):
-        """ Retrieves the status of the pulsing hardware """
+    def get_status(pulser_task):
+        """Retrieves the status of the pulsing hardware."""
         status_dict = {
             -1: 'Failed Request or Communication',
             0: 'Device has stopped, but can receive commands.',
             1: 'Device is active and running.'
         }
-        task_done = daq.bool32
+
         try:
-            daq.DAQmxIsTaskDone(self.pulser_task, daq.byref(task_done))
-            current_status = 0 if task_done.value else 1
-        except:
-            self.log.exception('Error while getting pulser state.')
+            task_done = pulser_task.is_task_done()
+            current_status = 0 if task_done else 1
+        except nidaqmx.errors.DaqError as e:
+            print(f"Error while getting pulser state: {e}")
             current_status = -1
-        return current_status, status_dict
+
+        return current_status, status_dict[current_status]
 
     def get_sample_rate(self):
         """ Get the sample rate of the pulse generator hardware """
-        rate = daq.float64()
-        daq.DAQmxGetSampClkRate(self.pulser_task, daq.byref(rate))
-        return rate.value
+        return self._task.timing.samp_clk_rate
 
     def set_sample_rate(self, sample_rate):
-        """ Set the sample rate of the pulse generator hardware. """
-        task = self.pulser_task
-        source = 'OnboardClock'
-        rate = sample_rate
-        edge = daq.DAQmx_Val_Rising
-        mode = daq.DAQmx_Val_ContSamps
-        samples = 10000
-        daq.DAQmxCfgSampClkTiming(task, source, rate, edge, mode, samples)
-        self.sample_rate = self.get_sample_rate()
-        return self.sample_rate
+        """Set the sample rate of the pulse generator hardware."""
+        self._task.timing.cfg_samp_clk_timing(rate=sample_rate, source='OnboardClock',
+                                              active_edge=nidaqmx.constants.Edge.RISING,
+                                              sample_mode=nidaqmx.constants.AcquisitionType.CONTINUOUS,
+                                              samps_per_chan=1000)
+
+        return self.get_sample_rate()
+
 
     def get_analog_level(self, amplitude=None, offset=None):
         """ Retrieve the analog amplitude and offset of the provided channels. """
-        amp_dict = {}
-        off_dict = {}
-
-        return amp_dict, off_dict
+        return dict(), dict()
 
     def set_analog_level(self, amplitude=None, offset=None):
         """ Set amplitude and/or offset value of the provided analog channel(s). """
-        return self.get_analog_level(amplitude, offset)
+        return dict(), dict()
 
     def get_digital_level(self, low=None, high=None):
         """ Retrieve the digital low and high level of the provided/all channels. """
-        # all digital levels are 5V or whatever the hardware provides and is not changeable
         channels = self.get_active_channels()
-
         if low is None:
             low_dict = {ch: 0 for ch, v in channels.items() if v}
         else:
             low_dict = {ch: 0 for ch in low}
-
         if high is None:
             high_dict = {ch: 5 for ch, v in channels.items() if v}
         else:
@@ -358,25 +188,11 @@ class NationalInstrumentsPulser(Base, PulserInterface):
 
     def get_active_channels(self, ch=None):
         """ Get the active channels of the pulse generator hardware. """
-        buffer_size = 2048
-        buf = ctypes.create_string_buffer(buffer_size)
-        daq.DAQmxGetTaskChannels(self.pulser_task, buf, buffer_size)
-        ni_ch = str(buf.value, encoding='utf-8').split(', ')
-
-        if ch is None:
-            return {k: k in ni_ch for k, v in self.channel_map.items()}
-        else:
-            return {k: k in ni_ch for k in ch}
+        ni_ch = [channel.name for channel in self._task.do_channels]
+        return {k:True for k in ni_ch}
 
     def set_active_channels(self, ch=None):
         """ Set the active/inactive channels for the pulse generator hardware. """
-        self.a_names = [k for k, v in ch.items() if k.startswith('a') and v]
-        self.a_names.sort()
-
-        self.d_names = [k for k, v in ch.items() if k.startswith('d') and v]
-        self.d_names.sort()
-
-        self.configure_pulser_task()  # apply changed channels
         return self.get_active_channels()
 
     def get_interleave(self):
@@ -389,4 +205,62 @@ class NationalInstrumentsPulser(Base, PulserInterface):
 
     def reset(self):
         """ Reset the device. """
-        daq.DAQmxResetDevice(self.device)
+        pass
+
+    def write_sequence(self, name, sequence_parameters):
+        """ Write a new sequence on the device memory. """
+        self.log.warning('No card has no sequencing capabilities write_sequence call ignored.')
+        return -1
+
+    def get_waveform_names(self):
+        """ Retrieve the names of all uploaded waveforms on the device. """
+
+        return [self._current_waveform_name]
+
+    def get_sequence_names(self):
+        """ Retrieve the names of all uploaded sequence on the device. """
+        return list()
+
+    def delete_waveform(self, waveform_name):
+        """Delete the waveform with name "waveform_name" from the device memory ."""
+        return list()
+
+    def delete_sequence(self, sequence_name):
+        """ Delete the sequence with name "sequence_name" from the device memory. """
+        return list()
+
+
+
+    def write_waveform(self, name, analog_samples, digital_samples, is_first_chunk, is_last_chunk, total_number_of_samples):
+        """ Write a new waveform or append samples to an already existing waveform on the device memory.   """
+
+
+        self._current_waveform_name = name
+
+        if is_first_chunk:
+            self._current_waveform = []
+
+
+
+
+            pb_waveform_temp = self._convert_sample_to_pb_sequence(digital_samples)
+
+            # check if last of existing waveform is the same as the first one of
+            # the coming one, then combine them,
+            if self._current_pb_waveform_theoretical[-1]['active_channels'] == pb_waveform_temp[0]['active_channels']:
+                self._current_pb_waveform_theoretical[-1]['length'] += pb_waveform_temp[0]['length']
+                pb_waveform_temp.pop(0)
+
+            self._current_pb_waveform_theoretical.extend(pb_waveform_temp)
+
+        # convert at first the separate waveforms for each channel to a matrix
+
+        if is_last_chunk:
+            self._current_pb_waveform = self._correct_sequence_for_delays(self._current_pb_waveform_theoretical)
+            self.write_pulse_form(self._current_pb_waveform)
+            self.log.debug('Waveform written in PulseBlaster with name "{0}" '
+                           'and a total length of {1} sequence '
+                           'entries.'.format(self._current_pb_waveform_name,
+                                              len(self._current_pb_waveform) ))
+
+        return chunk_length, [self._current_pb_waveform_name]
