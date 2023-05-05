@@ -21,7 +21,8 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 import numpy as np
 import PyDAQmx as daq
 
-from core.module import Base, ConfigOption
+from core.module import Base
+from core.configoption import ConfigOption
 from interface.odmr_counter_interface import ODMRCounterInterface
 
 
@@ -72,7 +73,7 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
     _use_max_sample_rate = ConfigOption('use_max_sample_rate', False) # Use an internal clock to measure analog input at max frequency
     _fast_clock_channel = ConfigOption('fast_clock_channel', None)  # If previous is true, specify a clock channel
 
-    _buffer_length = ConfigOption('buffer_length', int(1e5))  # size of buffer for counter and AI
+    _buffer_size_margin = ConfigOption('buffer_size_margin', int(1e3))  # size of buffer for counter and AI
     _timeout = ConfigOption('timeout', default=30)
 
     def on_activate(self):
@@ -81,14 +82,16 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
         self._counter_tasks = []
         self._ai_tasks = []
         self._clock_frequency = 1  # Not None so that there is no bug if set_odmr_length is first called
-        self._odmr_length = 1 # Not None so that there is no bug if set_up_odmr_clock is first called
+        self._odmr_length = 1  # Not None so that there is no bug if set_up_odmr_clock is first called
+        self._fast_clock_task = None
+        self._oversampling_ai = 1
 
         for i, channel in enumerate(self._counter_channels):
             task = daq.TaskHandle()
             daq.DAQmxCreateTask(f'odmr counter {i}', daq.byref(task))
             daq.DAQmxCreateCICountEdgesChan(task, channel, f'odmr counter channel {i}', daq.DAQmx_Val_Rising, 0, daq.DAQmx_Val_CountUp)
             daq.DAQmxSetCICountEdgesTerm(task, channel, self._photon_sources[i])
-            daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', 6666, daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, self._buffer_length)
+            daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', 6666, daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, 0)
             daq.DAQmxSetReadRelativeTo(task, daq.DAQmx_Val_CurrReadPos)
             daq.DAQmxSetReadOffset(task, 0)
             daq.DAQmxSetReadOverWrite(task, daq.DAQmx_Val_DoNotOverwriteUnreadSamps)
@@ -96,10 +99,10 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
 
         for i, channel in enumerate(self._ai_channels):
             task = daq.TaskHandle()
-            daq.DAQmxCreateTask(f'odmr ai {i}', daq.byref(self._ai_task))
-            daq.DAQmxCreateAIVoltageChan(self._ai_task, self._analog_input_channel, f'odmr ai channel {i}',
+            daq.DAQmxCreateTask(f'odmr ai {i}', daq.byref(task))
+            daq.DAQmxCreateAIVoltageChan(task, self._ai_channels[i], f'odmr ai channel {i}',
                                          daq.DAQmx_Val_RSE, self._min_voltage, self._max_voltage, daq.DAQmx_Val_Volts, '')
-            daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', 6666,daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, self._buffer_size)
+            daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', 6666,daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, 0)
             self._ai_tasks.append(task)
 
         # If this feature is on, we create a second clock at the AI max sampling rate
@@ -112,10 +115,7 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
             daq.DAQmxCreateCOPulseChanFreq(self._fast_clock_task, self._fast_clock_channel, 'odmr fast clock producer',
                                            daq.DAQmx_Val_Hz, daq.DAQmx_Val_Low, 0, self.ai_max_sampling_rate, 0.5)
             daq.DAQmxCfgDigEdgeStartTrig(self._fast_clock_task, self._clock_channel + 'InternalOutput', daq.DAQmx_Val_Rising)  # Synchronize the second clock with the first one
-
-            for i, task in enumerate(self._ai_tasks):
-                daq.DAQmxCfgSampClkTiming(task, self._fast_clock_channel + 'InternalOutput', 6666, daq.DAQmx_Val_Rising,
-                                          daq.DAQmx_Val_ContSamps, self._buffer_size)
+            daq.SetStartTrigRetriggerable(self._fast_clock_task, True)
 
     def on_deactivate(self):
         """ Shut down the NI card.  """
@@ -129,6 +129,13 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
                 daq.DAQmxClearTask(task)
             except:
                 self.log.warning('Could not close one odmr counter / ai task.')
+        if self._use_max_sample_rate:
+            try:
+                daq.DAQmxStopTask(self._fast_clock_task)
+                daq.DAQmxClearTask(self._fast_clock_task)
+                self._fast_clock_task = None
+            except:
+                pass
 
         self._counter_tasks = []
         self._ai_tasks = []
@@ -146,21 +153,28 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
         daq.DAQmxCreateTask('odmr_clock', daq.byref(self._clock_task))
         daq.DAQmxCreateCOPulseChanFreq(self._clock_task, self._clock_channel, 'odmr clock producer',
                                        daq.DAQmx_Val_Hz, daq.DAQmx_Val_Low, 0, clock_frequency, 0.5)
-        daq.DAQmxCfgImplicitTiming(self._clock_task, daq.DAQmx_Val_FiniteSamps,  self._odmr_length)
+        daq.DAQmxCfgImplicitTiming(self._clock_task, daq.DAQmx_Val_FiniteSamps,  self._odmr_length+1)
 
         if self._use_max_sample_rate:
             oversampling = int(self.ai_max_sampling_rate / self._clock_frequency * 0.95)  # 5% margin for safety
             daq.DAQmxCfgImplicitTiming(self._fast_clock_task, daq.DAQmx_Val_FiniteSamps, oversampling)
             self._oversampling_ai = oversampling
 
+        # set the AI buffer length otherwise we have an error
+        for i, task in enumerate(self._ai_tasks):
+            daq.DAQmxCfgSampClkTiming(task, self._fast_clock_channel + 'InternalOutput', 6666, daq.DAQmx_Val_Rising,
+                                      daq.DAQmx_Val_ContSamps, (self._odmr_length+1)*self._oversampling_ai+self._buffer_size_margin)
+        return 0
+
     def close_odmr_clock(self):
         """ Closes the clock and cleans up afterward. """
         if self._clock_task is not None:
             daq.DAQmxStopTask(self._clock_task)
             daq.DAQmxClearTask(self._clock_task)
+            self._clock_task = None
         if self._use_max_sample_rate:
             daq.DAQmxStopTask(self._fast_clock_task)
-            daq.DAQmxClearTask(self._fast_clock_task)
+        return 0
 
     def set_up_odmr(self, counter_channel=None, photon_source=None, clock_channel=None, odmr_trigger_channel=None):
         """ Configures the counter task
@@ -190,41 +204,46 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
         @return float[]: the photon counts per second
         """
         self.set_odmr_length(length)
-        for task in self._counter_tasks + self._ai_tasks + [self._clock_task]:
+        task_list = self._counter_tasks + self._ai_tasks + [self._clock_task]
+        task_list = [self._fast_clock_task] + task_list if self._fast_clock_task is not None else task_list
+        for task in task_list:
             daq.DAQmxStartTask(task)
         daq.DAQmxWaitUntilTaskDone(self._clock_task, self._timeout)
 
-        count_data = np.zeros((len(self._counter_tasks), length))
+        count_data = np.zeros((len(self._counter_tasks), length+1))
         for i, task in enumerate(self._counter_tasks):
-            raw_data = np.zeros(self._buffer_length, dtype=np.uint32)
+            raw_data = np.zeros(length+1+self._buffer_size_margin, dtype=np.uint32)
             n_read_samples = daq.int32()  # number of samples which were actually read, will be stored here
             daq.DAQmxReadCounterU32(task, -1, self._timeout, raw_data, raw_data.size, daq.byref(n_read_samples), None)
-            count_data[i] = raw_data[:length]
-            if n_read_samples != length:
-                self.log.warning(f'In counter {i}, {n_read_samples} were read instead of {length}')
-        diff_data = np.diff(count_data, axis=1)
-        count_data = np.hstack((count_data[:, [0]], diff_data)).astype(np.float64) * self._clock_frequency
+            count_data[i] = raw_data[:length+1]
+            if n_read_samples.value != length+1:
+                self.log.warning(f'In counter {i}, {n_read_samples.value} were read instead of {length+1}')
+        count_data = np.diff(count_data, axis=1).astype(np.float64) * self._clock_frequency  # drop first value
 
-        ai_data = np.zeros((len(self._ai_tasks), length))
+        ai_data = np.zeros((len(self._ai_tasks), length+1))
         for i, task in enumerate(self._ai_tasks):
-            raw_data = np.zeros(self._buffer_size, dtype=np.float64)
+            raw_data = np.zeros((length+1)*self._oversampling_ai+self._buffer_size_margin, dtype=np.float64)
             n_read_samples = daq.int32()
             daq.DAQmxReadAnalogF64(task, -1, self._timeout, daq.DAQmx_Val_GroupByChannel, raw_data, raw_data.size, daq.byref(n_read_samples), None)
 
             if self._use_max_sample_rate:
-                oversamples_length = length*self._oversampling_ai
+                oversamples_length = (length+1)*self._oversampling_ai
                 raw_data = raw_data[:oversamples_length]
-                if n_read_samples != oversamples_length:
-                    self.log.warning(f'In ADC {i}, {n_read_samples} were read instead of {oversamples_length}')
-                ai_data[i] = raw_data.reshape((length, self._oversampling_ai)).mean(axis=1)
+                if n_read_samples.value != oversamples_length:
+                    self.log.warning(f'In ADC {i}, {n_read_samples.value} were read instead of {oversamples_length}')
+                ai_data[i] = raw_data.reshape((length+1, self._oversampling_ai)).mean(axis=1)
             else:
-                if n_read_samples != length:
-                    self.log.warning(f'In ADC {i}, {n_read_samples} were read instead of {length}')
-                ai_data[i] = raw_data[:length]
+                if n_read_samples.value != length+1:
+                    self.log.warning(f'In ADC {i}, {n_read_samples.value} were read instead of {length+1}')
+                ai_data[i] = raw_data[:length+1]
+            ai_data = ai_data[:, :-1]  # drop last point
 
-        all_data = np.hstack((count_data, ai_data))
+        if len(ai_data) == 0 or len(count_data) == 0:
+            all_data = count_data if len(ai_data) == 0 else ai_data
+        else:
+            all_data = np.vstack((count_data, ai_data))
 
-        for task in self._counter_tasks + self._ai_tasks + [self._clock_task]:
+        for task in task_list:
             daq.DAQmxStopTask(task)
         return False, all_data
 

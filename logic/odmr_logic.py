@@ -45,6 +45,10 @@ class ODMRLogic(GenericLogic):
     microwave1 = Connector(interface='MicrowaveInterface')
     savelogic = Connector(interface='SaveLogic')
 
+    # Some hardware like the NI card send a first trigger to start the acquisition, if the mw generator jump to the next
+    # frequency right away it can be a cause of trouble, so implement trick the generator to generator a dummy first pulse.
+    ignore_first_trigger_pulse = ConfigOption('ignore_first_trigger_pulse', False)
+
     # config option
     mw_scanmode = ConfigOption(
         'scanmode',
@@ -104,7 +108,7 @@ class ODMRLogic(GenericLogic):
 
         # Set the trigger polarity (RISING/FALLING) of the mw-source input trigger
         # theoretically this can be changed, but the current counting scheme will not support that
-        self.mw_trigger_pol = TriggerEdge.FALLING
+        self.mw_trigger_pol = TriggerEdge.RISING
         self.set_trigger(self.mw_trigger_pol, self.clock_frequency)
 
         # Elapsed measurement time and number of sweeps
@@ -523,8 +527,12 @@ class ODMRLogic(GenericLogic):
                 np.random.shuffle(self.permutation)
             self.permutation_inverse = np.argsort(self.permutation)
             final_freq_list = final_freq_list[self.permutation]
+            if self.ignore_first_trigger_pulse:
+                final_freq_list = np.insert(final_freq_list, 0, final_freq_list[0])  # double the first pulse
 
             freq_list, self.sweep_mw_power, mode = self._mw_device.set_list(final_freq_list, self.sweep_mw_power)
+            if self.ignore_first_trigger_pulse:
+                freq_list = freq_list[1:]  # hide to the rest of the code
             freq_list = freq_list[self.permutation_inverse]
 
             self.final_freq_list = np.array(freq_list)
