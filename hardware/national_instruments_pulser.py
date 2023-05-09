@@ -42,16 +42,18 @@ class NationalInstrumentsPulser(Base, PulserInterface):
 
     # digital_outputs = ConfigOption('digital_outputs', missing='error')
     # analog_outputs = ConfigOption('analog_outputs', missing='error')
-    device = ConfigOption('Device', missing='error')
+    device = ConfigOption('device', missing='error')
+    digital_outputs = ConfigOption('digital_outputs', 'Dev1/port0/line0,Dev1/port0/line1,Dev1/port0/line2,Dev1/port0/line3')
 
     def on_activate(self):
         """ Activate module """
         self._task = nidaqmx.Task()
         self._task.do_channels.add_do_chan(
-            lines=f'{self.device}/port0/line0:7',
+            lines=self.digital_outputs,
             line_grouping=nidaqmx.constants.LineGrouping.CHAN_FOR_ALL_LINES)
 
         self._build_constraints()
+        self.set_sample_rate(self.get_constraints().sample_rate.max)
 
         self._current_waveform = None
         self._current_waveform_name = None
@@ -60,7 +62,7 @@ class NationalInstrumentsPulser(Base, PulserInterface):
         """ Deactivate module """
         self._task.close()
 
-    def init_constraints(self):
+    def _build_constraints(self):
         """ Build a pulser constraints dictionary with information from the NI card. """
 
         constraints = PulserConstraints()
@@ -89,7 +91,8 @@ class NationalInstrumentsPulser(Base, PulserInterface):
         constraints.waveform_length.default = 128
 
         activation_config = OrderedDict()
-        activation_config['port0/line0:7'] = frozenset([f'/port0/line{i}' for i in range(8)])
+        number_output_channels = len(self.digital_outputs.split(','))
+        activation_config['config_file'] = frozenset([f'd_ch{i}' for i in range(number_output_channels)])
         constraints.activation_config = activation_config
 
         self._constraints = constraints
@@ -101,10 +104,12 @@ class NationalInstrumentsPulser(Base, PulserInterface):
     def pulser_on(self):
         """ Switches the pulsing device on. """
         self._task.start()
+        return 0
 
     def pulser_off(self):
         """ Switches the pulsing device off. """
         self._task.stop()
+        return 0
 
     def load_waveform(self, load_dict):
         """ Loads a waveform to the specified channel of the pulsing device."""
@@ -128,7 +133,7 @@ class NationalInstrumentsPulser(Base, PulserInterface):
         """ Clears all loaded waveforms from the pulse generators RAM/workspace. """
         pass
 
-    def get_status(pulser_task):
+    def get_status(self):
         """Retrieves the status of the pulsing hardware."""
         status_dict = {
             -1: 'Failed Request or Communication',
@@ -137,7 +142,7 @@ class NationalInstrumentsPulser(Base, PulserInterface):
         }
 
         try:
-            task_done = pulser_task.is_task_done()
+            task_done = self._task.is_task_done()
             current_status = 0 if task_done else 1
         except nidaqmx.errors.DaqError as e:
             print(f"Error while getting pulser state: {e}")
@@ -188,7 +193,8 @@ class NationalInstrumentsPulser(Base, PulserInterface):
 
     def get_active_channels(self, ch=None):
         """ Get the active channels of the pulse generator hardware. """
-        ni_ch = [channel.name for channel in self._task.do_channels]
+        number_output_channels = len(self.digital_outputs.split(','))
+        ni_ch = [f'd_ch{i}' for i in range(number_output_channels)]
         return {k:True for k in ni_ch}
 
     def set_active_channels(self, ch=None):
@@ -215,7 +221,7 @@ class NationalInstrumentsPulser(Base, PulserInterface):
     def get_waveform_names(self):
         """ Retrieve the names of all uploaded waveforms on the device. """
 
-        return [self._current_waveform_name]
+        return [self._current_waveform_name] if self._current_waveform_name is not None else []
 
     def get_sequence_names(self):
         """ Retrieve the names of all uploaded sequence on the device. """
@@ -234,33 +240,14 @@ class NationalInstrumentsPulser(Base, PulserInterface):
     def write_waveform(self, name, analog_samples, digital_samples, is_first_chunk, is_last_chunk, total_number_of_samples):
         """ Write a new waveform or append samples to an already existing waveform on the device memory.   """
 
-
         self._current_waveform_name = name
+        if not is_first_chunk or not is_last_chunk:
+            self.log.error('This device does not support writing waveforms in chunks.')
 
-        if is_first_chunk:
-            self._current_waveform = []
+        sample_2d_array = np.empty((len(self.get_active_channels()), total_number_of_samples), dtype=bool)
+        for i, key in enumerate(self.get_active_channels().keys()):
+            sample_2d_array[i] = digital_samples[key]
 
+        samples_written = self._task.write(sample_2d_array, auto_start=False)
 
-
-
-            pb_waveform_temp = self._convert_sample_to_pb_sequence(digital_samples)
-
-            # check if last of existing waveform is the same as the first one of
-            # the coming one, then combine them,
-            if self._current_pb_waveform_theoretical[-1]['active_channels'] == pb_waveform_temp[0]['active_channels']:
-                self._current_pb_waveform_theoretical[-1]['length'] += pb_waveform_temp[0]['length']
-                pb_waveform_temp.pop(0)
-
-            self._current_pb_waveform_theoretical.extend(pb_waveform_temp)
-
-        # convert at first the separate waveforms for each channel to a matrix
-
-        if is_last_chunk:
-            self._current_pb_waveform = self._correct_sequence_for_delays(self._current_pb_waveform_theoretical)
-            self.write_pulse_form(self._current_pb_waveform)
-            self.log.debug('Waveform written in PulseBlaster with name "{0}" '
-                           'and a total length of {1} sequence '
-                           'entries.'.format(self._current_pb_waveform_name,
-                                              len(self._current_pb_waveform) ))
-
-        return chunk_length, [self._current_pb_waveform_name]
+        return samples_written, [name]
