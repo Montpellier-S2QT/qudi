@@ -16,6 +16,13 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
     rising edge on a trigger channel. To acquire the multiple points of the time window at max speed, an "internal clock"
     is started, this is a series of N digital pulses at this frequency, with N being such that the "record_length" is acquired.
 
+    Example config for copy-paste:
+
+    nicard_fast_counter_analog:
+        module.Class: 'national_instruments_fast_counter_analog.NationalInstrumentsFastCounter'
+        trigger_channel: '/Dev1/PFI13'
+        analog_input: '/Dev1/AI8'
+        clock_channel: '/Dev1/Ctr3'
     """
 
     _trigger_channel = ConfigOption('trigger_channel', '/Dev1/PFI13', missing='error')
