@@ -68,6 +68,8 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
         daq.DAQmxSetReadOffset(self._counter_task, 0)
         daq.DAQmxSetReadOverWrite(self._counter_task, daq.DAQmx_Val_DoNotOverwriteUnreadSamps)
 
+        self._last_count = 0
+
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.  """
         daq.DAQmxClearTask(self._counter_task)
@@ -81,11 +83,9 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
         self._gate_bin_size = int(record_length_s / bin_width_s)
         self._number_of_gates = number_of_gates
         self._full_bin_size = (self._gate_bin_size+1) * self._number_of_gates  # we need a first point to get new counter reference
-        self._sum_counts = np.zeros(self._full_bin_size)
         self._number_of_sweeps = 0
-        self._buffer_incomplete_sweep = np.array([])
 
-        daq.DAQmxCfgImplicitTiming(self._clock_task, daq.DAQmx_Val_FiniteSamps, self._gate_bin_size)
+        daq.DAQmxCfgImplicitTiming(self._clock_task, daq.DAQmx_Val_FiniteSamps, self._gate_bin_size+1)
 
         self._status = 1  # idle
         return bin_width_s, self._gate_bin_size*bin_width_s, number_of_gates
@@ -97,8 +97,9 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
         daq.DAQmxStartTask(self._counter_task)
         daq.DAQmxStartTask(self._clock_task)
         self._status = 2
-        self._last_count = 0
         self._number_of_sweeps = 0
+        self._sum_counts = np.zeros(self._full_bin_size)
+        self._buffer_incomplete_sweep = np.array([])
 
     def stop_measure(self):
         daq.DAQmxStopTask(self._counter_task)
