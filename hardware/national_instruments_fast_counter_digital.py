@@ -80,8 +80,8 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
 
         self._gate_bin_size = int(record_length_s / bin_width_s)
         self._number_of_gates = number_of_gates
-        self._full_bin_size = self._gate_bin_size * self._number_of_gates
-        self._sum_voltages = np.zeros(self._full_bin_size)
+        self._full_bin_size = (self._gate_bin_size+1) * self._number_of_gates  # we need a first point to get new counter reference
+        self._sum_counts = np.zeros(self._full_bin_size)
         self._number_of_sweeps = 0
         self._buffer_incomplete_sweep = np.array([])
 
@@ -98,6 +98,7 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
         daq.DAQmxStartTask(self._clock_task)
         self._status = 2
         self._last_count = 0
+        self._number_of_sweeps = 0
 
     def stop_measure(self):
         daq.DAQmxStopTask(self._counter_task)
@@ -127,7 +128,7 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
         try:
             raw_data = np.full(int(self._buffer_size), 0, dtype=np.uint32)
             read_samples = daq.int32()
-            daq.DAQmxReadCounterU32(self._counter_channel, -1, self._timeout, raw_data, raw_data.size,
+            daq.DAQmxReadCounterU32(self._counter_task, -1, self._timeout, raw_data, raw_data.size,
                                     daq.byref(read_samples), None)
             if read_samples.value > 0:
                 raw_data = raw_data[:read_samples.value]
@@ -149,7 +150,8 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
                 self._buffer_incomplete_sweep = count_data[number_of_new_full_sweep*self._full_bin_size:]
 
             final_data = self._sum_counts
-            final_data = final_data.reshape((self._number_of_gates, self._gate_bin_size))
+            final_data = final_data.reshape((self._number_of_gates, self._gate_bin_size+1))
+            final_data = final_data[:, 1:]  # we throw away the first point, which is just used for referencing
             info_dict = {'elapsed_sweeps': self._number_of_sweeps, 'elapsed_time': None}
             return final_data, info_dict
 
