@@ -110,6 +110,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
     _scanner_counter_channels = ConfigOption('scanner_counter_channels', list(), missing='warn')
     _scanner_voltage_ranges = ConfigOption('scanner_voltage_ranges', list(), missing='info')
     _scanner_position_ranges = ConfigOption('scanner_position_ranges', list(), missing='info')
+    _scanner_connect_clock = ConfigOption('scanner_connect_clock', True)  # To connect the counter and AO clocks.
 
     # odmr
     _odmr_trigger_channel = ConfigOption('odmr_trigger_channel', missing='error')
@@ -909,11 +910,12 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
                 # being scanned (i.e. that you go through each voltage, which
                 # corresponds to a position. How fast the voltages are being
                 # changed is combined with obtaining the counts per voltage peak).
+                clock = self._my_scanner_clock_channel + 'InternalOutput' if self._scanner_connect_clock else 'OnboardClock'
                 daq.DAQmxCfgSampClkTiming(
                     # add to this task
                     self._scanner_ao_task,
                     # use this channel as clock
-                    self._my_scanner_clock_channel + 'InternalOutput',
+                    clock,
                     # Maximum expected clock frequency
                     self._scanner_clock_frequency,
                     # Generate sample on falling edge
@@ -1064,6 +1066,9 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
                 # maximal timeout for the counter times the positions
                 self._RWTimeout * 2 * self._line_length)
 
+            if not self._scanner_connect_clock:
+                daq.DAQmxWaitUntilTaskDone(self._scanner_ao_task, self._RWTimeout * 2 * self._line_length)
+
             # count data will be written here
             self._scan_data = np.empty(
                 (len(self.get_scanner_count_channels()), 2 * self._line_length),
@@ -1119,6 +1124,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
 
             # stop the analog output task
             self._stop_analog_output()
+            self._start_analog_output()
 
             if pixel_clock and self._pixel_clock_channel is not None:
                 daq.DAQmxDisconnectTerms(
