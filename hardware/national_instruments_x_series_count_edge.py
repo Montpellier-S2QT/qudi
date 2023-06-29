@@ -362,7 +362,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
         count_data = raw_count_data - self._last_count['slow_counter']
         diff_data = np.diff(count_data, axis=1)
         all_data = np.hstack((count_data[:, [0]], diff_data)).astype(np.float64) * self._clock_frequency
-        self._last_count['slow_counter'] = raw_count_data[:, -1]
+        self._last_count['slow_counter'] = raw_count_data[:, -1].reshape(-1,1)
 
         if len(self._counter_ai_channels) > 0:
             all_data = np.vstack((all_data, analog_data))
