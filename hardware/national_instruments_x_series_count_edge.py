@@ -99,7 +99,7 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
     _counter_channels = ConfigOption('counter_channels', list(), missing='info')
     _counter_ai_channels = ConfigOption('counter_ai_channels', list(), missing='info')
     _counter_voltage_range = ConfigOption('counter_voltage_range', [-10, 10], missing='info')
-    _use_ai_fast_clock = ConfigOption('counter_voltage_range', True, missing='info')
+    _use_ai_fast_clock = ConfigOption('use_ai_fast_clock', False, missing='info')
 
     # confocal scanner
     _default_scanner_clock_frequency = ConfigOption('default_scanner_clock_frequency', 100, missing='info') # ignored now
@@ -358,8 +358,8 @@ class NationalInstrumentsXSeries(Base, SlowCounterInterface, ConfocalScannerInte
             # in case of error return a lot of -1
             return np.ones((len(self.get_counter_channels()), samples), dtype=np.uint32) * -1
 
-        overflow_indices = np.where(raw_count_data[:, 0] < self._last_count['slow_counter'])
-        self._last_count['slow_counter'][overflow_indices] -= 2 ** 32
+        overflow_mask = raw_count_data[:, 0] < self._last_count['slow_counter'].flatten()
+        self._last_count['slow_counter'][overflow_mask] -= 2 ** 32
         count_data = raw_count_data - self._last_count['slow_counter']
         diff_data = np.diff(count_data, axis=1)
         all_data = np.hstack((count_data[:, [0]], diff_data)).astype(np.float64) * self._clock_frequency
