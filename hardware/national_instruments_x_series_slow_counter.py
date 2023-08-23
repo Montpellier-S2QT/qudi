@@ -58,7 +58,7 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
         """ Starts up the NI Card at activation. """
         self._clock_task = None  # Can not create clock task before knowing the frequency, this is done later
         self._counter_tasks = []
-        self._ai_tasks = []
+        self._ai_tasks = []  # we use an array but there will be 0 or 1, as 1 analog task can handle multiple channels
         self._clock_frequency = None
         self._last_counts = []  # The card just increment counters, we have to remember last values to find the diff
 
@@ -73,12 +73,14 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
             daq.DAQmxSetReadOverWrite(task, daq.DAQmx_Val_DoNotOverwriteUnreadSamps)
             self._counter_tasks.append(task)
 
-        for i, channel in enumerate(self._ai_channels):
+        if len(self._ai_channels) > 0:
             task = daq.TaskHandle()
-            daq.DAQmxCreateTask(f'slow counter ai {i}', daq.byref(task))
-            daq.DAQmxCreateAIVoltageChan(task, self._ai_channels[i], f'slow counter ai channel {i}',
-                                         daq.DAQmx_Val_RSE, self._min_voltage, self._max_voltage, daq.DAQmx_Val_Volts, '')
-            daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', 6666,daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, 0)
+            daq.DAQmxCreateTask(f'slow counter ai', daq.byref(task))
+            for i, channel in enumerate(self._ai_channels):
+                daq.DAQmxCreateAIVoltageChan(task, self._ai_channels[i], f'slow counter ai channel {i}',
+                                             daq.DAQmx_Val_RSE, self._min_voltage, self._max_voltage, daq.DAQmx_Val_Volts, '')
+                daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', 6666,
+                                          daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, 0)
             self._ai_tasks.append(task)
 
     def on_deactivate(self):
@@ -130,7 +132,7 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
     def close_counter(self):
         task_list = self._counter_tasks + self._ai_tasks
         for task in task_list:
-            daq.DAQmxStopTask(task)
+             daq.DAQmxStopTask(task)
         return 0
 
     def set_up_counter(self, counter_channels=None, sources=None, clock_channel=None, counter_buffer=None):
@@ -166,7 +168,7 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
             self._last_counts = raw_count_data[:, -1].reshape(-1, 1)
 
         if len(self._ai_tasks) > 0:
-            analog_data = np.empty((len(self._ai_tasks), samples), dtype=np.float64)
+            analog_data = np.empty((len(self._ai_channels), samples), dtype=np.float64)
             n_read_samples = daq.int32()
             for i, task in enumerate(self._ai_tasks):
                 daq.DAQmxReadAnalogF64(task, -1, self._timeout, daq.DAQmx_Val_GroupByChannel, analog_data, analog_data.size,
