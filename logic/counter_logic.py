@@ -422,6 +422,7 @@ class CounterLogic(GenericLogic):
                 self._counting_device.close_clock()
                 self.module_state.unlock()
                 self.sigCountStatusChanged.emit(False)
+                self.sigCounterUpdated.emit()
                 return -1
 
             # initialising the data arrays

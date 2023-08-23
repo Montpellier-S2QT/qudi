@@ -140,7 +140,12 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
         """
         task_list = self._counter_tasks + self._ai_tasks + [self._clock_task]
         for task in task_list:
-            daq.DAQmxStartTask(task)
+            try:
+                daq.DAQmxStartTask(task)
+            except daq.DAQmxFunctions.PALResourceReservedError:
+                self.log.error('Can not start counter, resource already busy.')
+                return -1
+
         self._last_counts = np.zeros(len(self._counter_tasks)).reshape(-1, 1)
         return 0
 
