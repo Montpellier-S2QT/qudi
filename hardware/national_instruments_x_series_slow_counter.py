@@ -140,7 +140,7 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
         task_list = self._counter_tasks + self._ai_tasks + [self._clock_task]
         for task in task_list:
             daq.DAQmxStartTask(task)
-        self._last_counts = np.zeros(len(self._counter_tasks))
+        self._last_counts = np.zeros(len(self._counter_tasks)).reshape(-1, 1)
         return 0
 
     def get_counter_channels(self):
@@ -151,53 +151,29 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
         @return float[]: the photon counts per second
         """
         if len(self._counter_tasks) > 0:
-            # 1. Get data from hardware
-            raw_count_data = []
+            raw_count_data = np.empty((len(self._counter_tasks), samples), dtype=np.uint32)
+            n_read_samples = daq.int32()  # number of samples which were actually read, will be stored here
             for i, task in enumerate(self._counter_tasks):
-                raw_data = np.zeros(self._buffer_size, dtype=np.uint32)
-                n_read_samples = daq.int32()  # number of samples which were actually read, will be stored here
-                daq.DAQmxReadCounterU32(task, -1, self._timeout, raw_data, raw_data.size, daq.byref(n_read_samples), None)
-                raw_count_data.append(raw_data[:n_read_samples.value])
-            # 2. Deal with data length if multiple counters
-            min_length_di = min(arr.size for arr in raw_count_data)
-            if not all(arr.size == min_length_di for arr in raw_count_data):
-                self.log.warning("Not all arrays have the same size. Arrays will be truncated to the smallest size.")
-                raw_count_data = [arr[:min_length_di] for arr in raw_count_data]
-            raw_count_data = np.vstack(raw_count_data)
-            # 3. Deal with counter overflows
-            if min_length_di > 0:
-                overflow_indices = np.where(raw_count_data[:, 0] < self._last_counts)
-                self._last_counts[overflow_indices] -= 2 ** 32
-                count_data = raw_count_data - self._last_counts
-                diff_data = np.diff(count_data, axis=1)
-                count_data = np.hstack((count_data[:, [0]], diff_data)).astype(np.float64) * self._clock_frequency
-                self._last_counts = raw_count_data[:, -1]
-            else:
-                count_data = raw_count_data
+                # read the counter value: This function is blocking and waits for the counts to be all filled
+                daq.DAQmxReadCounterU32(task, samples, self._timeout, raw_count_data[i], samples,
+                                        daq.byref(n_read_samples), None)
+
+            overflow_mask = raw_count_data[:, 0] < self._last_counts.flatten()
+            self._last_counts[overflow_mask] -= 2 ** 32
+            count_data = raw_count_data - self._last_counts
+            diff_data = np.diff(count_data, axis=1)
+            digital_data = np.hstack((count_data[:, [0]], diff_data)).astype(np.float64) * self._clock_frequency
+            self._last_counts = raw_count_data[:, -1].reshape(-1, 1)
 
         if len(self._ai_tasks) > 0:
-            # 1. Get data from hardware
-            raw_ai_data = []
+            analog_data = np.empty((len(self._ai_tasks), samples), dtype=np.float64)
+            n_read_samples = daq.int32()
             for i, task in enumerate(self._ai_tasks):
-                raw_data = np.zeros(self._buffer_size, dtype=np.float64)
-                n_read_samples = daq.int32()
-                daq.DAQmxReadAnalogF64(task, -1, self._timeout, daq.DAQmx_Val_GroupByChannel, raw_data, raw_data.size,
+                daq.DAQmxReadAnalogF64(task, -1, self._timeout, daq.DAQmx_Val_GroupByChannel, analog_data, analog_data.size,
                                        daq.byref(n_read_samples), None)
-                raw_ai_data.append(raw_data[:n_read_samples.value])
-            # 2. Deal with data length if multiple analog inputs
-            min_length_ai = min(arr.size for arr in raw_ai_data)
-            if not all(arr.size == min_length_ai for arr in raw_ai_data):
-                self.log.warning("Not all AI arrays have the same size. Arrays will be truncated to the smallest size.")
-                raw_ai_data = [arr[:min_length_ai] for arr in raw_ai_data]
-            ai_data = np.vstack(raw_ai_data)
-
 
         if len(self._counter_tasks) == 0 or len(self._ai_tasks) == 0:
-            all_data = count_data if len(self._ai_tasks) == 0 else ai_data
+            all_data = digital_data if len(self._ai_tasks) == 0 else analog_data
         else:
-            if min_length_di != min_length_ai:
-                self.log.warning('Digital an analog input have different sizes.')
-                s = min((min_length_di, min_length_ai))
-                count_data, ai_data = count_data[:, :s], ai_data[:, :s]
-            all_data = np.vstack((count_data, ai_data))
+            all_data = np.vstack((digital_data, analog_data))
         return all_data
