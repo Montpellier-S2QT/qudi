@@ -51,7 +51,6 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
     _min_voltage = ConfigOption('min_voltage', -10)  # The NI doc states this can help  PYDAQmx choose better settings
     _max_voltage = ConfigOption('max_votlage', 10)
 
-    _buffer_size = ConfigOption('buffer_size_margin', int(1e3))  # size of buffer for counter and AI
     _timeout = ConfigOption('timeout', default=30)
 
     def on_activate(self):
@@ -168,11 +167,12 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
             self._last_counts = raw_count_data[:, -1].reshape(-1, 1)
 
         if len(self._ai_tasks) > 0:
-            analog_data = np.empty((len(self._ai_channels), samples), dtype=np.float64)
+            analog_data = np.zeros((len(self._ai_channels), samples), dtype=np.float64)
             n_read_samples = daq.int32()
             for i, task in enumerate(self._ai_tasks):
-                daq.DAQmxReadAnalogF64(task, -1, self._timeout, daq.DAQmx_Val_GroupByChannel, analog_data, analog_data.size,
+                daq.DAQmxReadAnalogF64(task, samples, self._timeout, daq.DAQmx_Val_GroupByChannel, analog_data, analog_data.size,
                                        daq.byref(n_read_samples), None)
+
 
         if len(self._counter_tasks) == 0 or len(self._ai_tasks) == 0:
             all_data = digital_data if len(self._ai_tasks) == 0 else analog_data
