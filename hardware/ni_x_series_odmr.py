@@ -207,7 +207,12 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
         task_list = self._counter_tasks + self._ai_tasks + [self._clock_task]
         task_list = [self._fast_clock_task] + task_list if self._fast_clock_task is not None else task_list
         for task in task_list:
-            daq.DAQmxStartTask(task)
+            try:
+                daq.DAQmxStartTask(task)
+            except daq.DAQmxFunctions.PALResourceReservedError:
+                self.log.error('Can not start odmr, ni resource already busy.')
+                return True, []
+
         daq.DAQmxWaitUntilTaskDone(self._clock_task, self._timeout)
 
         count_data = np.zeros((len(self._counter_tasks), length+1))
