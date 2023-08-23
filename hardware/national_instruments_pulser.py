@@ -36,21 +36,23 @@ class NationalInstrumentsPulser(Base, PulserInterface):
 
     ni_pulser:
         module.Class: 'national_instruments_pulser.NationalInstrumentsPulser'
-        device: 'Dev1'
-        digital_outputs: ['PFI1', 'PFI2', 'PFI3', 'PFI4']
+        digital_outputs:
+            - 'Dev1/port0/line0'
+            - 'Dev1/port0/line1'
+            - 'Dev1/port0/line2'
+            - 'Dev1/port0/line3'
     """
 
-    # digital_outputs = ConfigOption('digital_outputs', missing='error')
-    # analog_outputs = ConfigOption('analog_outputs', missing='error')
-    device = ConfigOption('device', missing='error')
-    digital_outputs = ConfigOption('digital_outputs', 'Dev1/port0/line0,Dev1/port0/line1,Dev1/port0/line2,Dev1/port0/line3')
+    digital_outputs = ConfigOption('digital_outputs')
 
     def on_activate(self):
         """ Activate module """
         self._task = nidaqmx.Task()
-        self._task.do_channels.add_do_chan(
-            lines=self.digital_outputs,
-            line_grouping=nidaqmx.constants.LineGrouping.CHAN_FOR_ALL_LINES)
+        for output in self.digital_outputs:
+            self._task.do_channels.add_do_chan(
+                lines=output,
+                line_grouping=nidaqmx.constants.LineGrouping.CHAN_FOR_ALL_LINES)
+        self._task.do_channels.regen_mode = nidaqmx.constants.RegenerationMode.ALLOW_REGENERATION
 
         self._build_constraints()
         self.set_sample_rate(self.get_constraints().sample_rate.max)
@@ -91,7 +93,7 @@ class NationalInstrumentsPulser(Base, PulserInterface):
         constraints.waveform_length.default = 128
 
         activation_config = OrderedDict()
-        number_output_channels = len(self.digital_outputs.split(','))
+        number_output_channels = len(self.digital_outputs)
         activation_config['config_file'] = frozenset([f'd_ch{i}' for i in range(number_output_channels)])
         constraints.activation_config = activation_config
 
@@ -193,7 +195,7 @@ class NationalInstrumentsPulser(Base, PulserInterface):
 
     def get_active_channels(self, ch=None):
         """ Get the active channels of the pulse generator hardware. """
-        number_output_channels = len(self.digital_outputs.split(','))
+        number_output_channels = len(self.digital_outputs)
         ni_ch = [f'd_ch{i}' for i in range(number_output_channels)]
         return {k:True for k in ni_ch}
 
