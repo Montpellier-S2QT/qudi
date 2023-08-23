@@ -43,29 +43,24 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
     _clock_channel = ConfigOption('clock_channel', missing='error')
     # For photon counting regime :
     _photon_sources = ConfigOption('digital_pulses_sources', [])
-    _counter_channels = ConfigOption('counter_channels', [])  # the counter number i is linked to digital pulses source number i
+    _counter_channels = ConfigOption('counter_channels', [])  # the counter #i is linked to digital pulses source #i
     _max_counts = ConfigOption('max_counts', default=3e7)  # info requested by the NI card
     _counting_edge_rising = ConfigOption('counting_edge_rising', default=True)
     # For analog input :
     _ai_channels = ConfigOption('ai_channels', [])
     _min_voltage = ConfigOption('min_voltage', -10)  # The NI doc states this can help  PYDAQmx choose better settings
     _max_voltage = ConfigOption('max_votlage', 10)
-    # Advanced analog feature:
-    _use_max_sample_rate = ConfigOption('use_max_sample_rate', False) # Use an internal clock to measure analog input at max frequency
-    _fast_clock_channel = ConfigOption('fast_clock_channel', None)  # If previous is true, specify a clock channel
 
     _buffer_size = ConfigOption('buffer_size_margin', int(1e3))  # size of buffer for counter and AI
     _timeout = ConfigOption('timeout', default=30)
 
     def on_activate(self):
         """ Starts up the NI Card at activation. """
-        self._clock_task = None # Can not create clock task before knowing the frequency, this is done later
+        self._clock_task = None  # Can not create clock task before knowing the frequency, this is done later
         self._counter_tasks = []
         self._ai_tasks = []
         self._clock_frequency = None
-        self._fast_clock_task = None
-        self._oversampling_ai = 1
-        self._last_counts = []
+        self._last_counts = []  # The card just increment counters, we have to remember last values to find the diff
 
         for i, channel in enumerate(self._counter_channels):
             task = daq.TaskHandle()
@@ -86,18 +81,6 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
             daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', 6666,daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, 0)
             self._ai_tasks.append(task)
 
-        # # If this feature is on, we create a second clock at the AI max sampling rate
-        # if self._use_max_sample_rate and len(self._ai_tasks) > 0:
-        #     max_sampling_rate = daq.c_double()
-        #     daq.DAQmxGetAIConvMaxRate(self._ai_tasks[0], daq.byref(max_sampling_rate))
-        #     self.ai_max_sampling_rate = max_sampling_rate.value
-        #     self._fast_clock_task = daq.TaskHandle()
-        #     daq.DAQmxCreateTask('slow_fast_clock', daq.byref(self._fast_clock_task))
-        #     daq.DAQmxCreateCOPulseChanFreq(self._fast_clock_task, self._fast_clock_channel, 'slow counter fast clock',
-        #                                    daq.DAQmx_Val_Hz, daq.DAQmx_Val_Low, 0, self.ai_max_sampling_rate, 0.5)
-        #     daq.DAQmxCfgDigEdgeStartTrig(self._fast_clock_task, self._clock_channel + 'InternalOutput', daq.DAQmx_Val_Rising)  # Synchronize the second clock with the first one
-        #     daq.SetStartTrigRetriggerable(self._fast_clock_task, True)
-
     def on_deactivate(self):
         """ Shut down the NI card.  """
         self.close_clock()
@@ -107,13 +90,6 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
                 daq.DAQmxClearTask(task)
             except:
                 self.log.warning('Could not close one counter / ai task.')
-        # if self._use_max_sample_rate:
-        #     try:
-        #         daq.DAQmxStopTask(self._fast_clock_task)
-        #         daq.DAQmxClearTask(self._fast_clock_task)
-        #         self._fast_clock_task = None
-        #     except:
-        #         pass
         self._counter_tasks = []
         self._ai_tasks = []
 
@@ -122,14 +98,14 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
         constraints = SlowCounterConstraints()
         constraints.max_detectors = len(self._counter_channels) + len(self._ai_channels)
         constraints.min_count_frequency = 1e-3
-        constraints.max_count_frequency = 1e6
+        constraints.max_count_frequency = self._max_counts
         constraints.counting_mode = [CountingMode.CONTINUOUS]
         return constraints
 
     def set_up_clock(self, clock_frequency=None, clock_channel=None):
         """ Configures the hardware clock of the NiDAQ card to give the timing.
-        @param float clock_frequency: if defined, this sets the frequency of  the clock in Hz
-        @pram str clock_channel: deprecated, the logic should not handle this
+        @param (float) clock_frequency: sets the frequency of  the clock in Hz
+        @pram (str) clock_channel: deprecated, the logic should not handle this
 
         The clock task needs to be created each time as the frequency can not be changed afterward
         """
@@ -141,16 +117,6 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
         daq.DAQmxCreateCOPulseChanFreq(self._clock_task, self._clock_channel, 'slower counter clock producer',
                                        daq.DAQmx_Val_Hz, daq.DAQmx_Val_Low, 0, clock_frequency, 0.5)
         daq.DAQmxCfgImplicitTiming(self._clock_task, daq.DAQmx_Val_ContSamps,  1)
-
-        # if self._use_max_sample_rate:
-        #     oversampling = int(self.ai_max_sampling_rate / self._clock_frequency * 0.95)  # 5% margin for safety
-        #     daq.DAQmxCfgImplicitTiming(self._fast_clock_task, daq.DAQmx_Val_ContSamps, oversampling)
-        #     self._oversampling_ai = oversampling
-        #
-        #     # set the AI buffer length otherwise we have an error
-        #     for i, task in enumerate(self._ai_tasks):
-        #         daq.DAQmxCfgSampClkTiming(task, self._fast_clock_channel + 'InternalOutput', 6666, daq.DAQmx_Val_Rising,
-        #                                   daq.DAQmx_Val_ContSamps, 1)
         return 0
 
     def close_clock(self):
@@ -159,8 +125,6 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
             daq.DAQmxStopTask(self._clock_task)
             daq.DAQmxClearTask(self._clock_task)
             self._clock_task = None
-        # if self._use_max_sample_rate:
-        #     daq.DAQmxStopTask(self._fast_clock_task)
         return 0
 
     def close_counter(self):
@@ -170,9 +134,10 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
         return 0
 
     def set_up_counter(self, counter_channels=None, sources=None, clock_channel=None, counter_buffer=None):
-        """ """
+        """ The original goal is deprecated, so we just initiate the tasks here
+        All parameters are ignored
+        """
         task_list = self._counter_tasks + self._ai_tasks + [self._clock_task]
-        # task_list = [self._fast_clock_task] + task_list if self._fast_clock_task is not None else task_list
         for task in task_list:
             daq.DAQmxStartTask(task)
         self._last_counts = np.zeros(len(self._counter_tasks))
@@ -226,17 +191,6 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
                 raw_ai_data = [arr[:min_length_ai] for arr in raw_ai_data]
             ai_data = np.vstack(raw_ai_data)
 
-            # if self._use_max_sample_rate:
-            #     oversamples_length = (length+1)*self._oversampling_ai
-            #     raw_data = raw_data[:oversamples_length]
-            #     if n_read_samples.value != oversamples_length:
-            #         self.log.warning(f'In ADC {i}, {n_read_samples.value} were read instead of {oversamples_length}')
-            #     ai_data[i] = raw_data.reshape((length+1, self._oversampling_ai)).mean(axis=1)
-            # else:
-            #     if n_read_samples.value != length+1:
-            #         self.log.warning(f'In ADC {i}, {n_read_samples.value} were read instead of {length+1}')
-            #     ai_data[i] = raw_data[:length+1]
-            # ai_data = ai_data[:, :-1]  # drop last point
 
         if len(self._counter_tasks) == 0 or len(self._ai_tasks) == 0:
             all_data = count_data if len(self._ai_tasks) == 0 else ai_data
