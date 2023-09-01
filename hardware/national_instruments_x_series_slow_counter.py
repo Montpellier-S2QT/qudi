@@ -37,6 +37,16 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
 
     Example config for copy-paste:
 
+    ni_slow_counter:
+        module.Class: 'national_instruments_x_series_slow_counter.NationalInstrumentsXSeriesSlowCounter'
+        clock_channel: '/Dev1/Ctr1'
+        digital_pulses_sources:
+            - '/Dev1/PFI8'
+        counter_channels:
+            - '/Dev1/Ctr0'
+        ai_channels:
+            - '/Dev1/AI8'
+        use_max_sample_rate: False
 
     """
 

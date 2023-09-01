@@ -83,9 +83,6 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
         self._gate_bin_size = int(record_length_s / bin_width_s)
         self._number_of_gates = number_of_gates
         self._full_bin_size = self._gate_bin_size * self._number_of_gates
-        self._sum_voltages = np.zeros(self._full_bin_size)
-        self._number_of_sweeps = 0
-        self._buffer_incomplete_sweep = np.array([])
 
         daq.DAQmxCfgImplicitTiming(self._clock_task, daq.DAQmx_Val_FiniteSamps, self._gate_bin_size)
 
@@ -96,6 +93,9 @@ class NationalInstrumentsFastCounter(Base, FastCounterInterface):
         return self._status
 
     def start_measure(self):
+        self._sum_voltages = np.zeros(self._full_bin_size)
+        self._number_of_sweeps = 0
+        self._buffer_incomplete_sweep = np.array([])
         daq.DAQmxStartTask(self._ai_task)
         daq.DAQmxStartTask(self._clock_task)
         self._status = 2
