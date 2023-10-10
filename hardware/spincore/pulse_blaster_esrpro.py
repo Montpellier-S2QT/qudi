@@ -2007,3 +2007,33 @@ class PulseBlasterESRPRO(Base, SwitchInterface, PulserInterface):
         @return: bool, True for yes, False for no.
         """
         return False
+
+    def write_ensemble_directly(self, name, waveform):
+        """ Write a new digital waveform to the pulse blaster directly.
+
+        @param str name: the name of the waveform to be created/append to
+        @param list waveform: a list of dict of the form:
+            [{'active_channels':[0], 'length': 10e-6},
+             {'active_channels':[], 'length': 20e-6}]
+
+        This method is a "dirty hack" to bypass the current way qudi sends ensembles to the hardware.
+        The normal method generate an array of the form [[True, False, False, False], [True, ...], ...] where each line
+        is a clock cycle (few ns depending on clock frequency). This method make sense for analog sampling but is
+        ill-suited for instruction based digital device like the pulse blaster. For example, a 1s sequence will generate
+        a 4 GB boolean array.
+        If a long sequence is needed, this method can be used to write the sequence directly as a list of
+        duration/active channels.
+
+        """
+        self._name = name
+        pb_waveform_temp = waveform
+        # check if last of existing waveform is the same as the first one of
+        # the coming one, then combine them,
+        if self._current_pb_waveform_theoretical[-1]['active_channels'] == pb_waveform_temp[0]['active_channels']:
+            self._current_pb_waveform_theoretical[-1]['length'] += pb_waveform_temp[0]['length']
+            pb_waveform_temp.pop(0)
+            self._current_pb_waveform_theoretical.extend(pb_waveform_temp)
+
+        self._current_pb_waveform = self._correct_sequence_for_delays(self._current_pb_waveform_theoretical)
+        self.write_pulse_form(self._current_pb_waveform)
+
