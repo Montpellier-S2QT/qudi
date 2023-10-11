@@ -69,6 +69,7 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
     _ai_channels = ConfigOption('ai_channels', [], missing='info')
     _min_voltage = ConfigOption('min_voltage', -10)  # The NI doc states this can help  PYDAQmx choose better settings
     _max_voltage = ConfigOption('max_votlage', 10)
+    _ai_differential = ConfigOption('ai_differential', False)
     # Advanced analog feature:
     _use_max_sample_rate = ConfigOption('use_max_sample_rate', False) # Use an internal clock to measure analog input at max frequency
     _fast_clock_channel = ConfigOption('fast_clock_channel', None)  # If previous is true, specify a clock channel
@@ -100,8 +101,9 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
         for i, channel in enumerate(self._ai_channels):
             task = daq.TaskHandle()
             daq.DAQmxCreateTask(f'odmr ai {i}', daq.byref(task))
+            ai_mode = daq.DAQmx_Val_Diff if self._ai_differential else daq.DAQmx_Val_RSE
             daq.DAQmxCreateAIVoltageChan(task, self._ai_channels[i], f'odmr ai channel {i}',
-                                         daq.DAQmx_Val_RSE, self._min_voltage, self._max_voltage, daq.DAQmx_Val_Volts, '')
+                                         ai_mode, self._min_voltage, self._max_voltage, daq.DAQmx_Val_Volts, '')
             daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', 6666,daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, 0)
             self._ai_tasks.append(task)
 
