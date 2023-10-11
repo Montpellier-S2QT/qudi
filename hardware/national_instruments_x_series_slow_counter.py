@@ -60,6 +60,8 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
     _ai_channels = ConfigOption('ai_channels', [])
     _min_voltage = ConfigOption('min_voltage', -10)  # The NI doc states this can help  PYDAQmx choose better settings
     _max_voltage = ConfigOption('max_votlage', 10)
+    _ai_differential = ConfigOption('ai_differential', False)
+
 
     _timeout = ConfigOption('timeout', default=30)
 
@@ -85,9 +87,10 @@ class NationalInstrumentsXSeriesSlowCounter(Base, SlowCounterInterface):
         if len(self._ai_channels) > 0:
             task = daq.TaskHandle()
             daq.DAQmxCreateTask(f'slow counter ai', daq.byref(task))
+            ai_mode = daq.DAQmx_Val_Diff if self._ai_differential else daq.DAQmx_Val_RSE
             for i, channel in enumerate(self._ai_channels):
                 daq.DAQmxCreateAIVoltageChan(task, self._ai_channels[i], f'slow counter ai channel {i}',
-                                             daq.DAQmx_Val_RSE, self._min_voltage, self._max_voltage, daq.DAQmx_Val_Volts, '')
+                                             ai_mode, self._min_voltage, self._max_voltage, daq.DAQmx_Val_Volts, '')
                 daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', 6666,
                                           daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, 0)
             self._ai_tasks.append(task)
