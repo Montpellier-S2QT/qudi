@@ -159,7 +159,7 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
                                        daq.DAQmx_Val_Hz, daq.DAQmx_Val_Low, 0, clock_frequency, 0.5)
         daq.DAQmxCfgImplicitTiming(self._clock_task, daq.DAQmx_Val_FiniteSamps,  self._odmr_length+1)
 
-        if self._use_max_sample_rate:
+        if self._use_max_sample_rate and len(self._ai_tasks)>0:
             oversampling = int(self.ai_max_sampling_rate / self._clock_frequency * 0.95)  # 5% margin for safety
             daq.DAQmxCfgImplicitTiming(self._fast_clock_task, daq.DAQmx_Val_FiniteSamps, oversampling)
             self._oversampling_ai = oversampling
@@ -224,7 +224,7 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
         for i, task in enumerate(self._counter_tasks):
             raw_data = np.zeros(length+1+self._buffer_size_margin, dtype=np.uint32)
             n_read_samples = daq.int32()  # number of samples which were actually read, will be stored here
-            daq.DAQmxReadCounterU32(task, -1, self._timeout, raw_data, raw_data.size, daq.byref(n_read_samples), None)
+            daq.DAQmxReadCounterU32(task, length+1, self._timeout, raw_data, raw_data.size, daq.byref(n_read_samples), None)
             count_data[i] = raw_data[:length+1]
             if n_read_samples.value != length+1:
                 self.log.warning(f'In counter {i}, {n_read_samples.value} were read instead of {length+1}')
@@ -236,17 +236,18 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
             buffer_size = ((length+1)*self._oversampling_ai+self._buffer_size_margin) * len(self._ai_channels)
             raw_data = np.zeros(buffer_size, dtype=np.float64)
             n_read_samples = daq.int32()
-            daq.DAQmxReadAnalogF64(task, -1, self._timeout, daq.DAQmx_Val_GroupByChannel, raw_data,
-                                   raw_data.size, daq.byref(n_read_samples), None)
-
             if self._use_max_sample_rate:
                 expected_samples_by_channel = ((length+1)*self._oversampling_ai)
                 oversamples_length = expected_samples_by_channel * len(self._ai_channels)
+                daq.DAQmxReadAnalogF64(task, expected_samples_by_channel, self._timeout, daq.DAQmx_Val_GroupByChannel, raw_data,
+                                      raw_data.size, daq.byref(n_read_samples), None)
                 raw_data = raw_data[:oversamples_length]
                 if n_read_samples.value != expected_samples_by_channel:
                     self.log.warning(f'In ADC, {n_read_samples.value} were read by channel instead of {expected_samples_by_channel}')
                 ai_data = raw_data.reshape((len(self._ai_channels), length+1, self._oversampling_ai)).mean(axis=2)
             else:
+                daq.DAQmxReadAnalogF64(task, length+1, self._timeout, daq.DAQmx_Val_GroupByChannel, raw_data,
+                                       raw_data.size, daq.byref(n_read_samples), None)
                 expected_samples_by_channel = (length+1)
                 if n_read_samples.value != expected_samples_by_channel:
                     self.log.warning(f'In ADC, {n_read_samples.value} were read by channel instead of {expected_samples_by_channel}')
