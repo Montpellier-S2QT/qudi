@@ -98,20 +98,22 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
             daq.DAQmxSetReadOverWrite(task, daq.DAQmx_Val_DoNotOverwriteUnreadSamps)
             self._counter_tasks.append(task)
 
-        for i, channel in enumerate(self._ai_channels):
+        if len(self._ai_channels) > 0:
             task = daq.TaskHandle()
-            daq.DAQmxCreateTask(f'odmr ai {i}', daq.byref(task))
+            daq.DAQmxCreateTask(f'odmr ai', daq.byref(task))
             ai_mode = daq.DAQmx_Val_Diff if self._ai_differential else daq.DAQmx_Val_RSE
-            daq.DAQmxCreateAIVoltageChan(task, self._ai_channels[i], f'odmr ai channel {i}',
-                                         ai_mode, self._min_voltage, self._max_voltage, daq.DAQmx_Val_Volts, '')
-            daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', 6666,daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, 0)
+            for i, channel in enumerate(self._ai_channels):
+                daq.DAQmxCreateAIVoltageChan(task, self._ai_channels[i], f'odmr counter ai channel {i}',
+                                             ai_mode, self._min_voltage, self._max_voltage, daq.DAQmx_Val_Volts, '')
+            max_sampling_rate = daq.c_double()
+            daq.DAQmxGetAIConvMaxRate(task, daq.byref(max_sampling_rate))
+            self.ai_max_sampling_rate = max_sampling_rate.value / len(self._ai_channels)
+            daq.DAQmxCfgSampClkTiming(task, self._clock_channel + 'InternalOutput', self.ai_max_sampling_rate,
+                                      daq.DAQmx_Val_Rising, daq.DAQmx_Val_ContSamps, 0)
             self._ai_tasks.append(task)
 
         # If this feature is on, we create a second clock at the AI max sampling rate
-        if self._use_max_sample_rate and len(self._ai_tasks) :
-            max_sampling_rate = daq.c_double()
-            daq.DAQmxGetAIConvMaxRate(self._ai_tasks[0], daq.byref(max_sampling_rate))
-            self.ai_max_sampling_rate = max_sampling_rate.value
+        if self._use_max_sample_rate and len(self._ai_tasks):
             self._fast_clock_task = daq.TaskHandle()
             daq.DAQmxCreateTask('odmr_fast_clock', daq.byref(self._fast_clock_task))
             daq.DAQmxCreateCOPulseChanFreq(self._fast_clock_task, self._fast_clock_channel, 'odmr fast clock producer',
@@ -161,11 +163,12 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
             oversampling = int(self.ai_max_sampling_rate / self._clock_frequency * 0.95)  # 5% margin for safety
             daq.DAQmxCfgImplicitTiming(self._fast_clock_task, daq.DAQmx_Val_FiniteSamps, oversampling)
             self._oversampling_ai = oversampling
+            if len(self._ai_channels) > 0:
+                # set the AI buffer length otherwise we have an error
+                expected_samples = ((self._odmr_length+1)*self._oversampling_ai+self._buffer_size_margin)*len(self._ai_channels)
+                daq.DAQmxCfgSampClkTiming(self._ai_tasks[0], self._fast_clock_channel + 'InternalOutput', self.ai_max_sampling_rate, daq.DAQmx_Val_Rising,
+                                          daq.DAQmx_Val_ContSamps, expected_samples)
 
-        # set the AI buffer length otherwise we have an error
-        for i, task in enumerate(self._ai_tasks):
-            daq.DAQmxCfgSampClkTiming(task, self._fast_clock_channel + 'InternalOutput', 6666, daq.DAQmx_Val_Rising,
-                                      daq.DAQmx_Val_ContSamps, (self._odmr_length+1)*self._oversampling_ai+self._buffer_size_margin)
         return 0
 
     def close_odmr_clock(self):
@@ -227,22 +230,27 @@ class NationalInstrumentsXSeriesODMR(Base, ODMRCounterInterface):
                 self.log.warning(f'In counter {i}, {n_read_samples.value} were read instead of {length+1}')
         count_data = np.diff(count_data, axis=1).astype(np.float64) * self._clock_frequency  # drop first value
 
-        ai_data = np.zeros((len(self._ai_tasks), length+1))
-        for i, task in enumerate(self._ai_tasks):
-            raw_data = np.zeros((length+1)*self._oversampling_ai+self._buffer_size_margin, dtype=np.float64)
+        ai_data = np.zeros((len(self._ai_channels), length+1))
+        if len(self._ai_channels) > 0:
+            task = self._ai_tasks[0]
+            buffer_size = ((length+1)*self._oversampling_ai+self._buffer_size_margin) * len(self._ai_channels)
+            raw_data = np.zeros(buffer_size, dtype=np.float64)
             n_read_samples = daq.int32()
-            daq.DAQmxReadAnalogF64(task, -1, self._timeout, daq.DAQmx_Val_GroupByChannel, raw_data, raw_data.size, daq.byref(n_read_samples), None)
+            daq.DAQmxReadAnalogF64(task, -1, self._timeout, daq.DAQmx_Val_GroupByChannel, raw_data,
+                                   raw_data.size, daq.byref(n_read_samples), None)
 
             if self._use_max_sample_rate:
-                oversamples_length = (length+1)*self._oversampling_ai
+                expected_samples_by_channel = ((length+1)*self._oversampling_ai)
+                oversamples_length = expected_samples_by_channel * len(self._ai_channels)
                 raw_data = raw_data[:oversamples_length]
-                if n_read_samples.value != oversamples_length:
-                    self.log.warning(f'In ADC {i}, {n_read_samples.value} were read instead of {oversamples_length}')
-                ai_data[i] = raw_data.reshape((length+1, self._oversampling_ai)).mean(axis=1)
+                if n_read_samples.value != expected_samples_by_channel:
+                    self.log.warning(f'In ADC, {n_read_samples.value} were read by channel instead of {expected_samples_by_channel}')
+                ai_data = raw_data.reshape((len(self._ai_channels), length+1, self._oversampling_ai)).mean(axis=2)
             else:
-                if n_read_samples.value != length+1:
-                    self.log.warning(f'In ADC {i}, {n_read_samples.value} were read instead of {length+1}')
-                ai_data[i] = raw_data[:length+1]
+                expected_samples_by_channel = (length+1)
+                if n_read_samples.value != expected_samples_by_channel:
+                    self.log.warning(f'In ADC, {n_read_samples.value} were read by channel instead of {expected_samples_by_channel}')
+                ai_data = raw_data[:expected_samples_by_channel*len(self._ai_channels)].reshape((len(self._ai_channels), length+1))
             ai_data = ai_data[:, :-1]  # drop last point
 
         if len(ai_data) == 0 or len(count_data) == 0:
