@@ -295,17 +295,15 @@ class ODMRLogic(GenericLogic):
         """
         Sets the frequency of the counter clock
 
-        @param int clock_frequency: desired frequency of the clock
+        @param float clock_frequency: desired frequency of the clock
 
-        @return int: actually set clock frequency
+        @return float: actually set clock frequency
         """
-        # checks if scanner is still running
-        if self.module_state() != 'locked' and isinstance(clock_frequency, (int, float)):
-            self.clock_frequency = int(clock_frequency)
-        else:
-            self.log.warning('set_clock_frequency failed. Logic is either locked or input value is '
-                             'no integer or float.')
-
+        if self.module_state() != 'idle':
+            return self.log.error('set_clock_frequency failed. Logic is locked.')
+        if not isinstance(clock_frequency, (int, float)):
+            return self.log.error('set_clock_frequency failed. value is neither int or float.')
+        self.clock_frequency = float(clock_frequency)
         update_dict = {'clock_frequency': self.clock_frequency}
         self.sigParameterUpdated.emit(update_dict)
         return self.clock_frequency
