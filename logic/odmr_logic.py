@@ -1167,3 +1167,5 @@ class ODMRLogic(GenericLogic):
             self.save_odmr_data(tag=name_tag)
 
         return self.odmr_plot_x, self.odmr_plot_y, fit_params
+
+

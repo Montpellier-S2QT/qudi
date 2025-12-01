@@ -121,7 +121,7 @@ class SpectrumLogic(GenericLogic):
         """ Initialisation performed during activation of the module. """
 
         self.spectro_constraints = self.spectrometer().get_constraints()
-        self.camera_constraints = self.camera().get_constraints()
+        self.camera_constraints = netobtain(self.camera().get_constraints())
 
         ports = self.spectro_constraints.ports
         self._output_ports = [port for port in ports if port.type == PortType.OUTPUT_SIDE or
@@ -462,7 +462,7 @@ class SpectrumLogic(GenericLogic):
         if self._center_wavelength == 0:
             return np.arange(0, image_width)*pixel_width
         else:
-            return self.spectrometer().get_spectrometer_dispersion(image_width, pixel_width) + self.wavelength_calibration
+            return netobtain(self.spectrometer().get_spectrometer_dispersion(image_width, pixel_width)) + self.wavelength_calibration
 
     @property
     def wavelength_calibration(self):
